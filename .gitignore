@@ -1,0 +1,14 @@
+# JetBrains / GoLand project metadata
+Orkester.gpr
+Orkester.rep/
+.idea/
+
+# Go build output
+/orkester
+/backend/orkester
+/backend/bin/
+*.test
+*.out
+
+# macOS
+.DS_Store
