@@ -206,7 +206,7 @@ func handlesOf(rooms []RoomRef) []string {
 var reservedHandles = map[string]bool{
 	"list": true, "status": true, "play": true, "pause": true, "next": true,
 	"prev": true, "volume": true, "mute": true, "unmute": true, "group": true,
-	"ungroup": true, "help": true, "completion": true, "__handles": true,
+	"ungroup": true, "search": true, "help": true, "completion": true, "__handles": true,
 }
 
 // uniqueHandle returns base, or base with the smallest -N suffix (N≥2) that is

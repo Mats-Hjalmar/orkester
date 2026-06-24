@@ -192,11 +192,7 @@ func ApplyVolumeArg(arg string, cur int) (int, error) {
 // CurrentURIMetaData is sent as an empty element on purpose — omitting it can
 // trip a UPnP 402 (invalid args) on some firmware.
 func JoinGroup(ctx context.Context, base, coordinatorUUID string) error {
-	_, err := SOAPCall(ctx, base, avTransport(), "SetAVTransportURI",
-		[]Arg{InstanceArg(),
-			{Name: "CurrentURI", Value: "x-rincon:" + coordinatorUUID},
-			{Name: "CurrentURIMetaData", Value: ""}})
-	return err
+	return SetAVTransportURI(ctx, base, "x-rincon:"+coordinatorUUID, "")
 }
 
 // LeaveGroup detaches the player at base into its own standalone group. Sent to

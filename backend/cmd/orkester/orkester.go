@@ -76,6 +76,8 @@ func dispatch(cmd string, args []string) error {
 		return cmdGroup(args)
 	case "ungroup":
 		return cmdUngroup(args)
+	case "search":
+		return cmdSearch(args)
 	case "help", "-h", "--help":
 		usage(os.Stdout)
 		return nil
@@ -100,11 +102,13 @@ Usage:
   orkester unmute  <room>             unmute the room
   orkester group   <room> <into>      join <room> into <into>'s group
   orkester ungroup <room>             break <room> out to a standalone group
+  orkester search  <room> <query>     find a favorite/playlist and play it
 
 <room> is any unique part of a room's handle or name (see 'list'): 'lob' works
 when only 'lobby' matches. Flags must precede the room, e.g.
 'orkester play -wait 5s lob'.
   -wait DURATION   max time to listen for SSDP discovery (default 3s)
+  -pick N          search: play the Nth result without prompting (for scripts)
 `)
 }
 
