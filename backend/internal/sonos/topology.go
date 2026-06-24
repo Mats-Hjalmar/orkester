@@ -23,7 +23,7 @@ type Member struct {
 	IP              net.IP
 	Location        string // description XML URL
 	SoftwareVersion string
-	Invisible       bool   // bonded/satellite players hidden from the room list
+	Invisible       bool // bonded/satellite players hidden from the room list
 }
 
 // BaseURL is http://{ip}:1400 — the root every service path hangs off. It is
@@ -206,7 +206,7 @@ func handlesOf(rooms []RoomRef) []string {
 var reservedHandles = map[string]bool{
 	"list": true, "status": true, "play": true, "pause": true, "next": true,
 	"prev": true, "volume": true, "mute": true, "unmute": true, "group": true,
-	"ungroup": true, "search": true, "help": true, "completion": true, "__handles": true,
+	"ungroup": true, "help": true, "completion": true, "__handles": true,
 }
 
 // uniqueHandle returns base, or base with the smallest -N suffix (N≥2) that is
@@ -301,9 +301,9 @@ type xmlZoneGroupState struct {
 }
 
 type xmlZoneGroup struct {
-	Coordinator string                `xml:"Coordinator,attr"`
-	ID          string                `xml:"ID,attr"`
-	Members     []xmlZoneGroupMember  `xml:"ZoneGroupMember"`
+	Coordinator string               `xml:"Coordinator,attr"`
+	ID          string               `xml:"ID,attr"`
+	Members     []xmlZoneGroupMember `xml:"ZoneGroupMember"`
 }
 
 type xmlZoneGroupMember struct {

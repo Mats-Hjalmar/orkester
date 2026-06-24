@@ -59,7 +59,7 @@ func dispatch(cmd string, args []string) error {
 	case "status":
 		return cmdStatus(args)
 	case "play":
-		return cmdTransport("play", args, sonos.Play, "▶ playing")
+		return cmdPlay(args)
 	case "pause":
 		return cmdTransport("pause", args, sonos.Pause, "⏸ paused")
 	case "next":
@@ -76,8 +76,6 @@ func dispatch(cmd string, args []string) error {
 		return cmdGroup(args)
 	case "ungroup":
 		return cmdUngroup(args)
-	case "search":
-		return cmdSearch(args)
 	case "help", "-h", "--help":
 		usage(os.Stdout)
 		return nil
@@ -94,6 +92,7 @@ Usage:
   orkester list                       list rooms & groups
   orkester status  <room>             now playing + volume for that room's group
   orkester play    <room>             start/resume playback
+  orkester play    <room> -s <query>  find a favorite/playlist and play it
   orkester pause   <room>             pause playback
   orkester next    <room>             next track
   orkester prev    <room>             previous track
@@ -102,13 +101,13 @@ Usage:
   orkester unmute  <room>             unmute the room
   orkester group   <room> <into>      join <room> into <into>'s group
   orkester ungroup <room>             break <room> out to a standalone group
-  orkester search  <room> <query>     find a favorite/playlist and play it
 
 <room> is any unique part of a room's handle or name (see 'list'): 'lob' works
 when only 'lobby' matches. Flags must precede the room, e.g.
-'orkester play -wait 5s lob'.
+'orkester play -wait 5s lob'. The -s search query is the exception — it trails
+the room and consumes the rest of the line: 'orkester play lob -s coffee jazz'.
   -wait DURATION   max time to listen for SSDP discovery (default 3s)
-  -pick N          search: play the Nth result without prompting (for scripts)
+  -pick N          with -s: play the Nth result without prompting (for scripts)
 `)
 }
 

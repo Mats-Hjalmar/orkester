@@ -41,6 +41,7 @@ it shows a **numbered picker** to choose one; piped/scripted use errors instead
 orkester list                  # rooms & groups (shows handles)
 orkester status  lobby         # now playing + volume for that room's group
 orkester play    lob           # unique substring → Lobby; transport → group coordinator
+orkester play    lobby -s jazz # search Favorites/playlists for "jazz" and play a match
 orkester pause   lobby
 orkester next    lobby
 orkester prev    lobby
@@ -67,6 +68,14 @@ lobby
 A `-wait DURATION` flag (default 3s) bounds discovery and **must come before the
 room**: `orkester play -wait 5s lob`. Transport commands route to the group
 coordinator; volume/mute apply to the matched room's own speaker.
+
+`play <room> -s <query>` searches your **Sonos Favorites and saved playlists**
+(over the LAN — no cloud) and plays a title containing the query. The query is
+the exception to "flags before the room": it trails the room and consumes the
+rest of the line, so `orkester play lobby -s coffee jazz` needs no quoting. It
+lists matches and prompts you to pick one; `-pick N` (before the room) chooses
+the Nth match non-interactively for scripts. Anything saved as a favorite —
+including Spotify/Tidal content — plays via the speaker's own stored metadata.
 
 ### macOS: Local Network permission
 

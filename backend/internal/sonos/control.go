@@ -230,7 +230,7 @@ type didlItem struct {
 	StreamContent string `xml:"streamContent"` // r:streamContent (radio/line-in/TV)
 	Class         string `xml:"class"`         // upnp:class
 	Res           string `xml:"res"`           // the playable URI
-	ResMD         string `xml:"resMD"`          // r:resMD — DIDL metadata to enqueue (favorites)
+	ResMD         string `xml:"resMD"`         // r:resMD — DIDL metadata to enqueue (favorites)
 }
 
 // didlContainer is a <container> entry in a Browse result (a favorite that is
