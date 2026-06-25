@@ -39,3 +39,23 @@ allowed to import `node:*`).
   `types` allowlist, so node globals are visible during typecheck across the
   whole package — acceptable because the import-graph guard, not tsc, enforces
   the RN boundary.
+
+- 2026-06-25: SonosClient facade (src/engine/client.ts) routing rule, ported
+  from the Go CLI wiring: AVTransport actions (play/pause/next/previous/
+  getNowPlaying) -> GROUP COORDINATOR base URL; RenderingControl actions
+  (getVolume/setVolume/getMute/setMute) -> NAMED PLAYER base URL. The facade
+  derives both from a resolved {member,group} via coordinatorMember()/
+  memberBaseURL(). discoverOne aborts the listen window early (AbortController)
+  on the first onResult and THROWS "no Sonos speakers answered SSDP" on zero
+  results — no silent empty.
+- 2026-06-25: When mock-keying SOAP responses by SOAPACTION in facade tests, the
+  ZoneGroupState fetch uses the ZoneGroupTopology service type
+  (urn:schemas-upnp-org:service:ZoneGroupTopology:1#GetZoneGroupState), NOT the
+  AVTransport type — keying GetZoneGroupState under AV_TRANSPORT_TYPE makes the
+  mock miss and the topology fetch throw. Each control service has its own type.
+- 2026-06-25: live-smoke is delivered as src/node/live-smoke.ts, runnable only
+  via the package script `smoke:live` (node src/node/live-smoke.ts; Node 26
+  strips TS types natively). It is NOT a *.test.ts so vitest never collects it
+  (verified via `vitest list`), it is NOT a tsup entry so build ignores it, and
+  no test imports it. It hits REAL hardware — USER-RUN ONLY; never executed by
+  coder/tests/CI.

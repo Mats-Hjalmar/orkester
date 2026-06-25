@@ -41,7 +41,8 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke:live": "node src/node/live-smoke.ts"
   },
   "dependencies": {
     "fast-xml-parser": "^4.5.6"
