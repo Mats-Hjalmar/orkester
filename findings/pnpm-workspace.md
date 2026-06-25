@@ -71,3 +71,38 @@
   then delete it. With the root `workspace:*` devDep in place, both `require()`
   and `import()` of `@orkester/core` resolve and yield colors.bg=#F2EFE8 /
   FRAME.width=390 / typeof ink=function.
+- 2026-06-25: FALSE-NEGATIVE in the by-name import smoke: do NOT assert that
+  `require.resolve('@orkester/core')` returns a path containing
+  `/node_modules/@orkester/core/`. pnpm's hoisted linker makes
+  `node_modules/@orkester/core` a SYMLINK to `packages/core`, and Node's
+  `require.resolve` returns the symlink's REALPATH — i.e.
+  `<repo>/packages/core/dist/index.cjs`, NOT the `node_modules/...` link path.
+  A strict "must be under node_modules" check fails even though by-name
+  resolution is working perfectly. Correct invariant: resolution SUCCEEDS by name
+  (require/import don't throw) AND the resolved path ends under either
+  `/node_modules/@orkester/core/` OR `/packages/core/` — then assert the runtime
+  VALUES (colors.bg=#F2EFE8, FRAME.width=390, typeof ink==='function') from BOTH
+  the `require()` object and the `await import()` namespace. The value+no-throw
+  check is the load-bearing one; the path string is incidental.
+- 2026-06-25 (TIER-2 GUARD): The recurring failure class is "import-by-name smoke
+  asserts the wrong thing" (cwd-from-scratchpad; node_modules path string). Until
+  a tracked smoke script is in scope to add, the enforced guard is the canonical
+  snippet below — copy verbatim into the REPO ROOT as `.smoke-import.mjs`, run
+  `node .smoke-import.mjs`, then delete. It encodes all three lessons (run from
+  inside repo / accept symlink realpath / assert values from require()+import()):
+
+  ```js
+  import { createRequire } from 'node:module';
+  const require = createRequire(import.meta.url);
+  const cjs = require('@orkester/core');
+  const r = require.resolve('@orkester/core');
+  if (!(r.includes('/node_modules/@orkester/core/') || r.includes('/packages/core/')))
+    throw new Error('unexpected resolve path: ' + r);
+  const esm = await import('@orkester/core');
+  for (const m of [cjs, esm]) {
+    if (m.colors?.bg !== '#F2EFE8') throw new Error('colors.bg=' + m.colors?.bg);
+    if (m.FRAME?.width !== 390) throw new Error('FRAME.width=' + m.FRAME?.width);
+    if (typeof m.ink !== 'function') throw new Error('ink=' + typeof m.ink);
+  }
+  console.log('SMOKE OK: ' + r);
+  ```
