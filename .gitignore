@@ -12,3 +12,7 @@ Orkester.rep/
 
 # macOS
 .DS_Store
+
+# Node / pnpm
+node_modules/
+dist/
