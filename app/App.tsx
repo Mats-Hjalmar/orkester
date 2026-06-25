@@ -56,10 +56,25 @@ function MobileApp() {
 }
 
 // The app defaults to MockApi so `expo export --platform web` and on-device demo
-// runs work with NO speakers. A real engine-backed SonosApi is injected by the
-// Electron renderer (over IPC) and — once the Android spike passes — by the
-// native app via app/src/native; both reuse the same StoreProvider.
-const api = new MockApi();
+// runs work with NO speakers. The native, in-process engine Api lives behind
+// app/src/native (Metro resolves the node-free stub on web, the jsi-udp-backed
+// real one on a device) and is SPIKE-GATED: flip USE_NATIVE_ENGINE to true only
+// after the SSDP spike passes on the device (see app/src/native/README.md). The
+// Electron desktop injects its own IPC-backed engine Api instead.
+const USE_NATIVE_ENGINE = false;
+
+function makeApi() {
+  if (Platform.OS !== 'web' && USE_NATIVE_ENGINE) {
+    // Lazy require so the jsi-udp transport is only pulled in on a device when
+    // the flag is on; the web bundle resolves the node-free stub regardless.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { makeNativeApi } = require('./src/native/makeNativeApi');
+    return makeNativeApi();
+  }
+  return new MockApi();
+}
+
+const api = makeApi();
 
 export default function App() {
   const [loaded] = useFonts(fontMap);
