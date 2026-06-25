@@ -30,6 +30,7 @@ import {
 } from './topology';
 import {
   type NowPlaying,
+  type PlaySettings,
   getNowPlaying as controlGetNowPlaying,
   getVolume as controlGetVolume,
   getMute as controlGetMute,
@@ -39,6 +40,11 @@ import {
   previous as controlPrevious,
   setMute as controlSetMute,
   setVolume as controlSetVolume,
+  seek as controlSeek,
+  getTransportSettings as controlGetTransportSettings,
+  setPlayMode as controlSetPlayMode,
+  joinGroup as controlJoinGroup,
+  leaveGroup as controlLeaveGroup,
 } from './control';
 
 /** The injected transports a SonosClient is constructed with. */
@@ -183,6 +189,41 @@ export class SonosClient {
   /** Reports the coordinator's transport state + current track + position. */
   getNowPlaying(room: ResolvedRoom): Promise<NowPlaying> {
     return controlGetNowPlaying(this.http, this.coordinatorBase(room));
+  }
+
+  /** Seeks to an absolute position (seconds) in the current track (coordinator). */
+  seek(room: ResolvedRoom, positionSeconds: number): Promise<void> {
+    return controlSeek(this.http, this.coordinatorBase(room), positionSeconds);
+  }
+
+  /** Reads the coordinator's {shuffle, repeat} play settings. */
+  getPlaySettings(room: ResolvedRoom): Promise<PlaySettings> {
+    return controlGetTransportSettings(this.http, this.coordinatorBase(room));
+  }
+
+  /** Sets the coordinator's {shuffle, repeat} play settings. */
+  setPlaySettings(room: ResolvedRoom, settings: PlaySettings): Promise<void> {
+    return controlSetPlayMode(this.http, this.coordinatorBase(room), settings);
+  }
+
+  // --- grouping (SetAVTransportURI / Become... -> the MEMBER's own base) ---
+
+  /**
+   * Makes `room`'s player join the group coordinated by `coordinatorUUID`. The
+   * x-rincon: SetAVTransportURI is sent to the joining MEMBER's own base (not
+   * the coordinator's) — that is the player being told whom to follow.
+   */
+  joinGroup(room: ResolvedRoom, coordinatorUUID: string): Promise<void> {
+    return controlJoinGroup(this.http, this.playerBase(room), coordinatorUUID);
+  }
+
+  /**
+   * Detaches `room`'s player into its own standalone group. Sent to the member's
+   * own base. Detaching a coordinator of a multi-member group promotes a new
+   * coordinator for the rest — the caller should refresh topology afterwards.
+   */
+  leaveGroup(room: ResolvedRoom): Promise<void> {
+    return controlLeaveGroup(this.http, this.playerBase(room));
   }
 
   // --- volume / mute (RenderingControl -> player base) --------------------

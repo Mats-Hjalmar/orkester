@@ -10,8 +10,9 @@
 // numeric track title like "2112" arrives as the STRING "2112", so the
 // subsequent .trim() never throws.
 //
-// SCOPE: ApplyVolumeArg / JoinGroup / LeaveGroup / SetAVTransportURI are
-// deliberately NOT ported in this chunk.
+// SCOPE: grouping (join/leave/SetAVTransportURI), TRACK_NR + REL_TIME seek, and
+// shuffle/repeat (SetPlayMode/GetTransportSettings) are now in-scope. Track
+// browsing / favorites / queue building (AddURIToQueue, PlayItem) stay deferred.
 
 import { makeParser, instanceArg, SOAPCall, extractResponseArg, type Arg } from './soap';
 import type { HttpTransport } from '../sonos';
@@ -178,6 +179,197 @@ export function setMuteRequest(mute: boolean): ControlRequest {
     ],
     base: 'player',
   };
+}
+
+/**
+ * SetAVTransportURI points a coordinator's transport at `uri` (with optional
+ * DIDL metadata). It underlies grouping (x-rincon:) and direct stream playback.
+ * `metadata` may be "" — Sonos accepts an empty CurrentURIMetaData and some
+ * firmware in fact requires the element be PRESENT-BUT-EMPTY rather than
+ * omitted, so buildEnvelope always emits `<CurrentURIMetaData></CurrentURIMetaData>`.
+ * Routes to the coordinator base. Ported from queue.go's SetAVTransportURI.
+ */
+export function setAVTransportURIRequest(uri: string, metadata: string): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'SetAVTransportURI',
+    args: [
+      instanceArg(),
+      { name: 'CurrentURI', value: uri },
+      { name: 'CurrentURIMetaData', value: metadata },
+    ],
+    base: 'coordinator',
+  };
+}
+
+/**
+ * BecomeCoordinatorOfStandaloneGroup detaches a player into its own standalone
+ * group (the LeaveGroup primitive). Sent to the MEMBER's OWN base — note `base`
+ * is 'player' here: leaving is a per-player action, not a coordinator one.
+ * Ported from control.go's LeaveGroup.
+ */
+export function becomeCoordinatorRequest(): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'BecomeCoordinatorOfStandaloneGroup',
+    args: [instanceArg()],
+    base: 'player',
+  };
+}
+
+/**
+ * Seek to a queue position (TRACK_NR) — a 1-based track number. Ported from
+ * queue.go's seekTrack. Routes to the coordinator base.
+ */
+export function seekTrackRequest(track: number): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'Seek',
+    args: [
+      instanceArg(),
+      { name: 'Unit', value: 'TRACK_NR' },
+      { name: 'Target', value: String(track) },
+    ],
+    base: 'coordinator',
+  };
+}
+
+/**
+ * Seek to an absolute position within the current track (REL_TIME). NOT in the
+ * Go reference — authored against UPnP AVTransport:1. `target` is an "H:MM:SS"
+ * string (see formatRelTime). Routes to the coordinator base.
+ */
+export function seekRelTimeRequest(target: string): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'Seek',
+    args: [
+      instanceArg(),
+      { name: 'Unit', value: 'REL_TIME' },
+      { name: 'Target', value: target },
+    ],
+    base: 'coordinator',
+  };
+}
+
+/** GetTransportSettings — reads the current PlayMode off the coordinator. */
+export function getTransportSettingsRequest(): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'GetTransportSettings',
+    args: [instanceArg()],
+    base: 'coordinator',
+  };
+}
+
+/** SetPlayMode sets the transport's PlayMode (shuffle/repeat) on the coordinator. */
+export function setPlayModeRequest(playMode: PlayMode): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'SetPlayMode',
+    args: [instanceArg(), { name: 'NewPlayMode', value: playMode }],
+    base: 'coordinator',
+  };
+}
+
+// --- PlayMode <-> {shuffle, repeat} mapping --------------------------------
+//
+// UPnP AVTransport:1 collapses shuffle and repeat into a single PlayMode enum.
+// Sonos uses these six values. We expose the orthogonal {shuffle:boolean,
+// repeat:'none'|'all'|'one'} the UI wants and map both ways, THROWING on any
+// unrecognized string (no silent fallback to NORMAL).
+
+/** The six Sonos PlayMode strings we round-trip. */
+export type PlayMode =
+  | 'NORMAL'
+  | 'REPEAT_ALL'
+  | 'REPEAT_ONE'
+  | 'SHUFFLE'
+  | 'SHUFFLE_NOREPEAT'
+  | 'SHUFFLE_REPEAT_ONE';
+
+/** The orthogonal repeat mode the UI/Api speaks. */
+export type RepeatMode = 'none' | 'all' | 'one';
+
+/** Decoded transport play settings. */
+export interface PlaySettings {
+  shuffle: boolean;
+  repeat: RepeatMode;
+}
+
+const PLAYMODE_TO_SETTINGS: Record<PlayMode, PlaySettings> = {
+  NORMAL: { shuffle: false, repeat: 'none' },
+  REPEAT_ALL: { shuffle: false, repeat: 'all' },
+  REPEAT_ONE: { shuffle: false, repeat: 'one' },
+  // SHUFFLE == shuffle on + repeat all (Sonos's legacy "shuffle" toggle).
+  SHUFFLE: { shuffle: true, repeat: 'all' },
+  SHUFFLE_NOREPEAT: { shuffle: true, repeat: 'none' },
+  SHUFFLE_REPEAT_ONE: { shuffle: true, repeat: 'one' },
+};
+
+/**
+ * Maps a Sonos PlayMode string to {shuffle, repeat}. THROWS on an unknown value
+ * (a new/garbage PlayMode must surface, never be coerced to NORMAL).
+ */
+export function playModeToSettings(playMode: string): PlaySettings {
+  const s = PLAYMODE_TO_SETTINGS[playMode as PlayMode];
+  if (s === undefined) {
+    throw new Error(`unknown PlayMode "${playMode}"`);
+  }
+  return s;
+}
+
+/**
+ * Maps {shuffle, repeat} to the canonical Sonos PlayMode string. THROWS on an
+ * unknown repeat value. shuffle+repeat:'all' maps to the modern 'SHUFFLE'
+ * (== shuffle + repeat all), the inverse of PLAYMODE_TO_SETTINGS.SHUFFLE.
+ */
+export function settingsToPlayMode(settings: PlaySettings): PlayMode {
+  const { shuffle, repeat } = settings;
+  if (repeat !== 'none' && repeat !== 'all' && repeat !== 'one') {
+    throw new Error(`unknown repeat mode "${repeat}"`);
+  }
+  if (!shuffle) {
+    return repeat === 'all' ? 'REPEAT_ALL' : repeat === 'one' ? 'REPEAT_ONE' : 'NORMAL';
+  }
+  return repeat === 'all' ? 'SHUFFLE' : repeat === 'one' ? 'SHUFFLE_REPEAT_ONE' : 'SHUFFLE_NOREPEAT';
+}
+
+// --- REL_TIME formatting / parsing -----------------------------------------
+
+/**
+ * formatRelTime renders whole seconds as the "H:MM:SS" string Sonos's REL_TIME
+ * Seek expects (hours unpadded, minutes and seconds zero-padded to 2). Negative
+ * input is clamped to 0; fractional seconds are floored. The inverse of
+ * parseRelTime.
+ */
+export function formatRelTime(sec: number): string {
+  const total = Math.max(0, Math.floor(sec));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * parseRelTime parses a Sonos position/duration string ("H:MM:SS" or "MM:SS")
+ * into whole seconds. Returns 0 for "" / "NOT_IMPLEMENTED" (live streams) and
+ * any non-numeric/empty input — the single deliberate non-throw on the display
+ * path, since a live stream legitimately reports no position. The inverse of
+ * formatRelTime.
+ */
+export function parseRelTime(value: string): number {
+  const v = value.trim();
+  if (v === '' || v === 'NOT_IMPLEMENTED') return 0;
+  const parts = v.split(':');
+  if (parts.length < 2 || parts.length > 3) return 0;
+  let total = 0;
+  for (const part of parts) {
+    const n = Number(part);
+    if (!Number.isFinite(n)) return 0;
+    total = total * 60 + n;
+  }
+  return Math.max(0, Math.floor(total));
 }
 
 /** A flattened view of what a coordinator is currently playing. */
@@ -414,4 +606,97 @@ export async function setMute(
 ): Promise<void> {
   const req = setMuteRequest(mute);
   await SOAPCall(transport, playerBase, req.service, req.action, req.args);
+}
+
+// --- grouping / seek / playmode (transport-driven) -------------------------
+
+/**
+ * setAVTransportURI points a coordinator's transport at `uri` with optional DIDL
+ * metadata. `coordinatorBase` is the resolved coordinator base URL.
+ */
+export async function setAVTransportURI(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  uri: string,
+  metadata: string,
+): Promise<void> {
+  const req = setAVTransportURIRequest(uri, metadata);
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/**
+ * joinGroup makes the player at `memberBase` join the group coordinated by
+ * `coordinatorUUID` (a bare RINCON_xxxx01400, as carried in topology
+ * Member.uuid). It sets the member's OWN transport to `x-rincon:<coordUUID>` —
+ * so the request targets the MEMBER's base, not the coordinator's. CurrentURIMetaData
+ * is sent as an empty element on purpose (omitting it can trip a UPnP 402).
+ * Ported from control.go's JoinGroup.
+ */
+export async function joinGroup(
+  transport: HttpTransport,
+  memberBase: string,
+  coordinatorUUID: string,
+): Promise<void> {
+  await setAVTransportURI(transport, memberBase, `x-rincon:${coordinatorUUID}`, '');
+}
+
+/**
+ * leaveGroup detaches the player at `memberBase` into its own standalone group
+ * (BecomeCoordinatorOfStandaloneGroup), sent to the member's OWN base. Ported
+ * from control.go's LeaveGroup.
+ */
+export async function leaveGroup(transport: HttpTransport, memberBase: string): Promise<void> {
+  const req = becomeCoordinatorRequest();
+  await SOAPCall(transport, memberBase, req.service, req.action, req.args);
+}
+
+/** seekTrack jumps the coordinator's queue to a 1-based track number (TRACK_NR). */
+export async function seekTrack(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  track: number,
+): Promise<void> {
+  const req = seekTrackRequest(track);
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/**
+ * seek jumps to an absolute position (seconds) within the current track via a
+ * REL_TIME Seek on the coordinator. Authored against UPnP AVTransport:1 (not in
+ * the Go reference); seconds are formatted with formatRelTime.
+ */
+export async function seek(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  positionSeconds: number,
+): Promise<void> {
+  const req = seekRelTimeRequest(formatRelTime(positionSeconds));
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/**
+ * getTransportSettings reads the coordinator's current PlayMode and decodes it
+ * into {shuffle, repeat}. THROWS on an unknown PlayMode (via playModeToSettings).
+ */
+export async function getTransportSettings(
+  transport: HttpTransport,
+  coordinatorBase: string,
+): Promise<PlaySettings> {
+  const req = getTransportSettingsRequest();
+  const resp = await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+  const playMode = extractResponseArg(resp, 'PlayMode');
+  return playModeToSettings(playMode);
+}
+
+/**
+ * setPlayMode sets the coordinator's PlayMode from {shuffle, repeat}. THROWS on
+ * an unknown repeat value (via settingsToPlayMode).
+ */
+export async function setPlayMode(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  settings: PlaySettings,
+): Promise<void> {
+  const req = setPlayModeRequest(settingsToPlayMode(settings));
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
 }

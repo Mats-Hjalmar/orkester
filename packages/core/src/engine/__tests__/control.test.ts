@@ -148,8 +148,6 @@ describe('empty/garbage all-empty', () => {
 
 describe('SetAVTransportURI buildEnvelope empty-metadata element', () => {
   // Pure buildEnvelope assertion (ported from TestJoinEnvelopeIncludesEmptyMetadata).
-  // SetAVTransportURI itself is NOT ported in this chunk; this asserts the
-  // envelope shape the later grouping chunk will rely on.
   it('emits CurrentURI and an EMPTY (not self-closing) CurrentURIMetaData element', () => {
     const args = [
       instanceArg(),
@@ -196,17 +194,35 @@ describe('service helpers + volume guard', () => {
   });
 });
 
-describe('deferred symbols absent', () => {
-  it('does not export ApplyVolumeArg / JoinGroup / LeaveGroup / SetAVTransportURI', () => {
+describe('grouping / seek / playmode symbols now present', () => {
+  it('exports joinGroup / leaveGroup / setAVTransportURI / seek / playmode ops', () => {
     const mod = control as Record<string, unknown>;
+    expect(typeof mod.joinGroup).toBe('function');
+    expect(typeof mod.leaveGroup).toBe('function');
+    expect(typeof mod.setAVTransportURI).toBe('function');
+    expect(typeof mod.seek).toBe('function');
+    expect(typeof mod.seekTrack).toBe('function');
+    expect(typeof mod.getTransportSettings).toBe('function');
+    expect(typeof mod.setPlayMode).toBe('function');
+    expect(typeof mod.playModeToSettings).toBe('function');
+    expect(typeof mod.settingsToPlayMode).toBe('function');
+    expect(typeof mod.formatRelTime).toBe('function');
+    expect(typeof mod.parseRelTime).toBe('function');
+  });
+});
+
+describe('still-deferred symbols absent', () => {
+  it('does not export ApplyVolumeArg / queue / browse helpers', () => {
+    const mod = control as Record<string, unknown>;
+    // Relative-volume clamping (ApplyVolumeArg) stays deferred.
     expect(mod.ApplyVolumeArg).toBeUndefined();
     expect(mod.applyVolumeArg).toBeUndefined();
-    expect(mod.JoinGroup).toBeUndefined();
-    expect(mod.joinGroup).toBeUndefined();
-    expect(mod.LeaveGroup).toBeUndefined();
-    expect(mod.leaveGroup).toBeUndefined();
-    expect(mod.SetAVTransportURI).toBeUndefined();
-    expect(mod.setAVTransportURI).toBeUndefined();
-    expect(mod.setAvTransportUriRequest).toBeUndefined();
+    // Queue building / favorites / browse stay deferred.
+    expect(mod.AddURIToQueue).toBeUndefined();
+    expect(mod.addURIToQueue).toBeUndefined();
+    expect(mod.PlayFromQueue).toBeUndefined();
+    expect(mod.playFromQueue).toBeUndefined();
+    expect(mod.PlayItem).toBeUndefined();
+    expect(mod.playItem).toBeUndefined();
   });
 });
