@@ -39,3 +39,11 @@
   (and root `node_modules`) BEFORE `pnpm install` so the hoisted linker owns
   resolution. Guard: assert the resolved path is under the ROOT `node_modules`,
   not just that the file exists.
+- 2026-06-25: tsup with `bundle:false` leaves relative barrel re-exports
+  EXTENSIONLESS in emitted ESM (`from "./theme/tokens"`), which native Node
+  ESM resolution (`import('./dist/index.js')`) REJECTS with ERR_MODULE_NOT_FOUND.
+  For a multi-entry package whose `src/index.ts` re-exports sibling modules, keep
+  tsup's DEFAULT bundling (do NOT set `bundle:false`): it inlines shared code into
+  a hashed `dist/chunk-*.js` referenced WITH an extension, so ESM resolves. The
+  per-entry types-only files still emit 0-byte ESM / empty-CJS. Guard: the chunk's
+  "ESM barrel value re-export resolves" node test catches this regression.

@@ -58,6 +58,15 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  packages/core:
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(postcss@8.4.49)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
 packages:
 
   '@0no-co/graphql.web@1.3.2':
