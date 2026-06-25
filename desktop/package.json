@@ -1,0 +1,31 @@
+{
+  "name": "desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Orkester Electron desktop controller — runs the Sonos engine in the main process and renders the react-native-web desktop UI against an IPC-backed Api.",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "check:renderer-no-node": "node scripts/check-renderer-no-node.mjs",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "start": "electron-vite preview"
+  },
+  "dependencies": {
+    "@orkester/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "@types/react-dom": "~19.1.0",
+    "electron": "^33.2.0",
+    "electron-vite": "^5.0.0",
+    "inline-style-prefixer": "^7.0.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native-web": "^0.21.0",
+    "typescript": "~5.9.2",
+    "vite": "^6.0.0",
+    "vite-plugin-react-native-web": "^3.1.2"
+  }
+}

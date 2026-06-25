@@ -16,3 +16,9 @@ Orkester.rep/
 # Node / pnpm
 node_modules/
 dist/
+
+# Electron-vite build output
+out/
+
+# Expo export output
+app/dist/
