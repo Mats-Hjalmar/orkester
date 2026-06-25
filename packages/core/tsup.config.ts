@@ -7,6 +7,8 @@ export default defineConfig({
     'src/sonos/index.ts',
     'src/state/index.ts',
     'src/api/index.ts',
+    // Node platform adapters — the only entry that pulls in node:* builtins.
+    'src/node/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
