@@ -13,7 +13,10 @@
 // SCOPE: ApplyVolumeArg / JoinGroup / LeaveGroup / SetAVTransportURI are
 // deliberately NOT ported in this chunk.
 
-import { makeParser, instanceArg, type Arg } from './soap';
+import { makeParser, instanceArg, SOAPCall, extractResponseArg, type Arg } from './soap';
+import type { HttpTransport } from '../sonos';
+
+export { instanceArg };
 
 /**
  * The minimal control-service descriptor: a UPnP service type URN plus its
@@ -302,4 +305,113 @@ export function parseStreamContent(sc: string): { title: string; artist: string 
   }
   // Unknown format: surface the raw content rather than nothing.
   return { title: sc, artist: '' };
+}
+
+// --- transport-driven control ops ----------------------------------------
+//
+// These wrap the pure request descriptors above in a SOAPCall over the injected
+// HttpTransport. They mirror the Go networked control functions one-for-one.
+// `base` is the resolved device base URL the caller routes to per the request's
+// `base` target (coordinator for transport, player for volume/mute) — these
+// low-level ops do not resolve it themselves.
+
+/** Play starts/resumes playback on the coordinator. */
+export async function play(transport: HttpTransport, coordinatorBase: string): Promise<void> {
+  const req = playRequest();
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/** Pause pauses playback on the coordinator. */
+export async function pause(transport: HttpTransport, coordinatorBase: string): Promise<void> {
+  const req = pauseRequest();
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/** Next skips to the next track on the coordinator. */
+export async function next(transport: HttpTransport, coordinatorBase: string): Promise<void> {
+  const req = nextRequest();
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/** Previous skips to the previous track on the coordinator. */
+export async function previous(transport: HttpTransport, coordinatorBase: string): Promise<void> {
+  const req = previousRequest();
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/**
+ * getTransportState returns the raw CurrentTransportState
+ * (PLAYING / PAUSED_PLAYBACK / STOPPED / TRANSITIONING) off the coordinator.
+ */
+export async function getTransportState(
+  transport: HttpTransport,
+  coordinatorBase: string,
+): Promise<string> {
+  const req = getTransportInfoRequest();
+  const resp = await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+  return extractResponseArg(resp, 'CurrentTransportState');
+}
+
+/**
+ * getNowPlaying reports the coordinator's transport state plus the current
+ * track's metadata and position — a two-stage call (GetTransportInfo, then
+ * GetPositionInfo whose TrackMetaData is parsed through parseTrackMetadata).
+ */
+export async function getNowPlaying(
+  transport: HttpTransport,
+  coordinatorBase: string,
+): Promise<NowPlaying> {
+  const state = await getTransportState(transport, coordinatorBase);
+
+  const posReq = getPositionInfoRequest();
+  const resp = await SOAPCall(transport, coordinatorBase, posReq.service, posReq.action, posReq.args);
+  const duration = extractResponseArg(resp, 'TrackDuration');
+  const position = extractResponseArg(resp, 'RelTime');
+  const meta = extractResponseArg(resp, 'TrackMetaData');
+  const { title, artist, album } = parseTrackMetadata(meta);
+
+  return { state, title, artist, album, position, duration };
+}
+
+/** getVolume returns the master-channel volume (0–100) for a player. */
+export async function getVolume(transport: HttpTransport, playerBase: string): Promise<number> {
+  const req = getVolumeRequest();
+  const resp = await SOAPCall(transport, playerBase, req.service, req.action, req.args);
+  const s = extractResponseArg(resp, 'CurrentVolume');
+  const v = parseInt(s.trim(), 10);
+  if (Number.isNaN(v)) {
+    throw new Error(`parse volume "${s}"`);
+  }
+  return v;
+}
+
+/**
+ * setVolume sets the master-channel volume on a player. vol must be in [0,100];
+ * out-of-range values are REJECTED by setVolumeRequest before any request is
+ * sent (no silent clamp at this level).
+ */
+export async function setVolume(
+  transport: HttpTransport,
+  playerBase: string,
+  vol: number,
+): Promise<void> {
+  const req = setVolumeRequest(vol);
+  await SOAPCall(transport, playerBase, req.service, req.action, req.args);
+}
+
+/** getMute reports whether the player's master channel is muted. */
+export async function getMute(transport: HttpTransport, playerBase: string): Promise<boolean> {
+  const req = getMuteRequest();
+  const resp = await SOAPCall(transport, playerBase, req.service, req.action, req.args);
+  return extractResponseArg(resp, 'CurrentMute').trim() === '1';
+}
+
+/** setMute mutes/unmutes the player's master channel. */
+export async function setMute(
+  transport: HttpTransport,
+  playerBase: string,
+  mute: boolean,
+): Promise<void> {
+  const req = setMuteRequest(mute);
+  await SOAPCall(transport, playerBase, req.service, req.action, req.args);
 }

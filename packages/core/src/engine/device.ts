@@ -10,7 +10,7 @@
 // Go-faithful string.
 
 import { makeParser } from './soap';
-import type { Service } from '../sonos';
+import type { HttpTransport, Service } from '../sonos';
 
 /**
  * The unencrypted HTTP port every Sonos ZonePlayer exposes for SOAP control,
@@ -198,4 +198,69 @@ export function parseDescription(ip: string, body: string): Device {
     roomName: textOf(device?.roomName),
     services,
   };
+}
+
+// --- transport-driven device fetch ---
+
+/**
+ * fetchDevice retrieves and parses
+ * http://{ip}:1400/xml/device_description.xml via the injected HttpTransport.
+ * Ported from Go's FetchDevice. THROWS on a non-200 status or unparseable
+ * body — no silent fallback.
+ */
+export async function fetchDevice(transport: HttpTransport, ip: string): Promise<Device> {
+  const descURL = `http://${ip}:${HTTPPort}/xml/device_description.xml`;
+  return fetchDeviceURL(transport, ip, descURL);
+}
+
+/**
+ * fetchDeviceFromLocation parses an SSDP LOCATION URL (which points at the
+ * description document), extracts the host IP from it, and fetches it. Ported
+ * from Go's FetchDeviceFromLocation. THROWS when the LOCATION host is not an IP
+ * literal — no silent fallback.
+ */
+export async function fetchDeviceFromLocation(
+  transport: HttpTransport,
+  location: string,
+): Promise<Device> {
+  const ip = hostFromLocation(location);
+  if (ip === null) {
+    throw new Error(`LOCATION host in ${location} is not an IP`);
+  }
+  return fetchDeviceURL(transport, ip, location);
+}
+
+async function fetchDeviceURL(
+  transport: HttpTransport,
+  ip: string,
+  descURL: string,
+): Promise<Device> {
+  const resp = await transport.request({ method: 'GET', url: descURL });
+  if (resp.status !== 200) {
+    throw new Error(`GET ${descURL}: unexpected status ${resp.status}`);
+  }
+  return parseDescription(ip, resp.body);
+}
+
+/**
+ * Extracts a literal-IP host from an `http://{host}[:port]/...` URL using the
+ * global URL parser (available in RN/browser/node — no node:* import). Returns
+ * the host only when it parses as an IPv4 or bracketed-IPv6 literal; otherwise
+ * null (a hostname is rejected, mirroring Go's net.ParseIP gate).
+ */
+function hostFromLocation(location: string): string | null {
+  let host: string;
+  try {
+    host = new URL(location).hostname;
+  } catch {
+    return null;
+  }
+  // URL strips the brackets off an IPv6 host; re-detect both families.
+  if (/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(host)) {
+    return host.split('.').every((o) => Number(o) <= 255) ? host : null;
+  }
+  if (host.includes(':') && /^[0-9a-fA-F:.]+$/.test(host)) {
+    return host;
+  }
+  return null;
 }

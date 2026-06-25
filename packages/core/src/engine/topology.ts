@@ -9,8 +9,9 @@
 // every text/attribute node — including SoftwareVersion like "15.9" and the
 // Invisible "1"/"0" flag — arrives as a Go-faithful string.
 
-import { makeParser } from './soap';
+import { makeParser, SOAPCall, extractResponseArg } from './soap';
 import { HTTPPort } from './device';
+import type { HttpTransport } from '../sonos';
 
 /**
  * The proprietary Sonos service type for topology, and the fixed control path
@@ -352,6 +353,28 @@ export function slug(name: string): string {
   }
   // Trim leading/trailing '-' (only '-' is ever produced as separator).
   return out.replace(/^-+/, '').replace(/-+$/, '');
+}
+
+// --- transport-driven topology fetch ---
+
+/**
+ * fetchTopology issues a GetZoneGroupState SOAP action against the topology
+ * service on the device at `base` and parses the returned ZoneGroupState into a
+ * Household. Ported from Go's FetchTopology. Any single household speaker
+ * returns the entire topology, so one responder is enough. THROWS on SOAP fault
+ * / missing ZoneGroupState / unparseable state — no silent fallback.
+ */
+export async function fetchTopology(
+  transport: HttpTransport,
+  base: string,
+): Promise<Household> {
+  const svc = {
+    type: ZONE_GROUP_TOPOLOGY_TYPE,
+    controlURL: ZONE_GROUP_TOPOLOGY_CONTROL_URL,
+  };
+  const resp = await SOAPCall(transport, base, svc, 'GetZoneGroupState', []);
+  const stateXML = extractResponseArg(resp, 'ZoneGroupState');
+  return parseZoneGroupState(stateXML);
 }
 
 // --- ZoneGroupState XML parsing ---

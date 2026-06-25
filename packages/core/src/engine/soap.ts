@@ -10,6 +10,7 @@
 // errorCode arrives as the string "714" which parseFault converts to a number.
 
 import { XMLParser, type X2jOptions } from 'fast-xml-parser';
+import type { HttpTransport } from '../sonos';
 
 /**
  * The single fast-xml-parser configuration shared by all engine parsers.
@@ -188,6 +189,70 @@ export function parseFault(body: string): SonosFault | null {
 
   if (faultCode === '' && upnpError === 0) return null;
   return new SonosFault(faultCode, faultString, upnpError, errorDesc);
+}
+
+// --- networked SOAP round-trip -------------------------------------------
+
+/**
+ * The minimal service descriptor SOAPCall needs: the UPnP service type URN
+ * (used for the envelope xmlns and the SOAPACTION header) plus the control
+ * endpoint path appended to the device base URL. Both the device-description
+ * `Service` (../sonos) and the control-layer `ControlService` (./control)
+ * structurally satisfy this — SOAPCall takes the two fields it actually uses.
+ */
+export interface SOAPService {
+  type: string;
+  controlURL: string;
+}
+
+/** Truncates a body for inclusion in an HTTP-error message (Go's truncate). */
+function truncate(body: string, n: number): string {
+  return body.length <= n ? body : body.slice(0, n) + '...';
+}
+
+/**
+ * Performs a single SOAP action against a service on a device via the injected
+ * HttpTransport and returns the raw response body (the SOAP envelope) for the
+ * caller to parse. Ported from Go's SOAPCall.
+ *
+ * Builds the envelope, POSTs to base+svc.controlURL with Content-Type
+ * `text/xml; charset="utf-8"` and SOAPACTION `"{serviceType}#{action}"`. On a
+ * non-200 it parses the body as a UPnP fault and THROWS the resulting
+ * SonosFault (so callers see the real error code); when the body is not a
+ * fault it throws a bare HTTP error carrying the status and a truncated body.
+ * No silent fallback — every non-200 surfaces as a thrown error.
+ */
+export async function SOAPCall(
+  transport: HttpTransport,
+  base: string,
+  svc: SOAPService,
+  action: string,
+  args: Arg[],
+): Promise<string> {
+  const body = buildEnvelope(svc.type, action, args);
+  const url = base + svc.controlURL;
+  const soapAction = `"${svc.type}#${action}"`;
+
+  const resp = await transport.request({
+    method: 'POST',
+    url,
+    headers: {
+      'Content-Type': 'text/xml; charset="utf-8"',
+      SOAPACTION: soapAction,
+    },
+    body,
+  });
+
+  if (resp.status !== 200) {
+    // A 500 carries a SOAP fault body; parse it so the caller sees the real
+    // UPnP error code instead of a bare HTTP status.
+    const fault = parseFault(resp.body);
+    if (fault !== null) {
+      throw fault;
+    }
+    throw new Error(`SOAP ${action}: HTTP ${resp.status}: ${truncate(resp.body, 300)}`);
+  }
+  return resp.body;
 }
 
 // --- response extraction -------------------------------------------------
