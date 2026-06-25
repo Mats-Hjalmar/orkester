@@ -47,3 +47,27 @@
   a hashed `dist/chunk-*.js` referenced WITH an extension, so ESM resolves. The
   per-entry types-only files still emit 0-byte ESM / empty-CJS. Guard: the chunk's
   "ESM barrel value re-export resolves" node test catches this regression.
+- 2026-06-25: A workspace package that NO member depends on is NOT importable by
+  package name. pnpm (hoisted linker, 9.15.0) only creates the
+  `node_modules/<name>` symlink inside the node_modules of an importer. With
+  nothing depending on `@orkester/core`, there is no `node_modules/@orkester/core`
+  anywhere (root, app, or `.pnpm`) and `require.resolve('@orkester/core')` /
+  `import('@orkester/core')` fail with MODULE_NOT_FOUND from ANY cwd — even though
+  the built `packages/core/dist/index.cjs` is valid and importable by relative
+  path. To make a scaffold package resolvable by name at the repo root with no
+  consumer yet, the ROOT `package.json` must list it as a `workspace:*`
+  (dev)dependency so pnpm links it into the root `node_modules`. Implication for
+  Feature 1: chunk-4's "import by package name" criterion cannot pass while only
+  pnpm-lock.yaml is in scope; it needs a root-package.json amendment (add
+  `"@orkester/core": "workspace:*"` to root devDependencies) before the import
+  smoke can be green.
+- 2026-06-25: An "import by package name" smoke script must EXECUTE from a cwd
+  inside the workspace, not from the scratchpad. Node's CJS and ESM resolvers walk
+  up the importing file's directory ancestry to find `node_modules/<name>`; a
+  script physically living in `/private/tmp/.../scratchpad` never reaches the
+  repo's root `node_modules`, so it fails MODULE_NOT_FOUND / ERR_MODULE_NOT_FOUND
+  even when the link is correct. `NODE_PATH` does NOT fix this (ESM ignores it).
+  Fix: copy the scratchpad script into the repo root (or any dir under it), run,
+  then delete it. With the root `workspace:*` devDep in place, both `require()`
+  and `import()` of `@orkester/core` resolve and yield colors.bg=#F2EFE8 /
+  FRAME.width=390 / typeof ink=function.
