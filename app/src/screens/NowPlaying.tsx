@@ -8,6 +8,7 @@ import { colors, ink, paper, shadow, radii, FRAME } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { fmt, useStore } from '../state/store';
 import { groupCount } from '../state/selectors';
+import { progressOf } from '../components/trackProgress';
 
 export default function NowPlaying() {
   const store = useStore();
@@ -26,9 +27,12 @@ export default function NowPlaying() {
   const trackBg = dark ? paper(0.22) : ink(0.12);
   const bg = dark ? colors.bgDeep : colors.bg;
 
-  const dur = tr.dur;
-  const progress = g.progress / dur;
+  const prog = progressOf(g, tr);
   const vol = (g.muted ? 0 : groupVol(g)) / 100;
+
+  // Header context: "Playing in <room>" only makes sense when a real group is
+  // active; otherwise show a calm, speaker-agnostic label.
+  const headerLabel = prog.isNothing ? 'Orkester' : `${roomName(g.roomIds[0])} ${groupCount(g)}`;
 
   return (
     <View style={{ flex: 1, paddingTop: 56, paddingHorizontal: 24, paddingBottom: 26, backgroundColor: bg }}>
@@ -38,8 +42,8 @@ export default function NowPlaying() {
           <ChevronDown size={24} color={fg} />
         </Pressable>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontFamily: font.bodyMedium, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: muted }}>Playing in</Text>
-          <Text style={{ fontFamily: font.bodySemiBold, fontSize: 13, marginTop: 2, color: fg }}>{roomName(g.roomIds[0])} {groupCount(g)}</Text>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: muted }}>{prog.isNothing ? 'Connected to' : 'Playing in'}</Text>
+          <Text style={{ fontFamily: font.bodySemiBold, fontSize: 13, marginTop: 2, color: fg }}>{headerLabel}</Text>
         </View>
         <Dots size={22} color={fg} />
       </View>
@@ -62,12 +66,29 @@ export default function NowPlaying() {
         </Pressable>
       </View>
 
-      {/* progress */}
+      {/* progress — finite tracks scrub; live streams show LIVE + a neutral bar
+          (no scrubber math on dur<=0); nothing-playing shows an inert empty bar */}
       <View style={{ marginTop: 22 }}>
-        <TrackBar value={progress} onScrub={seek} trackColor={trackBg} fillColor={fg} height={4} thumb />
+        <TrackBar
+          value={prog.fraction}
+          onScrub={prog.isLive || prog.isNothing ? () => {} : seek}
+          trackColor={trackBg}
+          fillColor={fg}
+          height={4}
+          thumb={!prog.isLive && !prog.isNothing}
+          disabled={prog.isLive || prog.isNothing}
+        />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 7 }}>
-          <Text style={{ fontFamily: font.mono, fontSize: 11, color: muted }}>{fmt(g.progress)}</Text>
-          <Text style={{ fontFamily: font.mono, fontSize: 11, color: muted }}>-{fmt(dur - g.progress)}</Text>
+          <Text style={{ fontFamily: font.mono, fontSize: 11, color: muted }}>
+            {prog.isNothing ? '0:00' : fmt(prog.elapsed)}
+          </Text>
+          {prog.isLive ? (
+            <Text style={{ fontFamily: font.mono, fontSize: 11, color: fg, letterSpacing: 1.2 }}>● LIVE</Text>
+          ) : (
+            <Text style={{ fontFamily: font.mono, fontSize: 11, color: muted }}>
+              {prog.remaining === null ? '--:--' : `-${fmt(prog.remaining)}`}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -79,7 +100,7 @@ export default function NowPlaying() {
       {/* volume */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24 }}>
         <VolumeLow size={18} color={muted} />
-        <TrackBar value={vol} onScrub={setActiveVol} trackColor={trackBg} fillColor={fg} height={4} style={{ flex: 1 }} />
+        <TrackBar value={vol} onScrub={setActiveVol} trackColor={trackBg} fillColor={fg} height={4} disabled={prog.isNothing} style={{ flex: 1 }} />
         <VolumeHigh size={20} color={muted} />
       </View>
 
@@ -87,9 +108,14 @@ export default function NowPlaying() {
       <View style={{ marginTop: 'auto', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 22 }}>
         <Pressable onPress={() => setView('rooms')} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Speaker size={18} color={muted} />
-          <Text style={{ fontFamily: font.bodyMedium, fontSize: 12.5, color: muted }}>{g.roomIds.length} rooms</Text>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 12.5, color: muted }}>
+            {g.roomIds.length === 1 ? '1 room' : `${g.roomIds.length} rooms`}
+          </Text>
         </Pressable>
-        <Queue size={20} color={muted} />
+        {/* Queue browsing is deferred — show the affordance, visibly inert. */}
+        <View style={{ opacity: 0.4 }}>
+          <Queue size={20} color={muted} />
+        </View>
       </View>
     </View>
   );

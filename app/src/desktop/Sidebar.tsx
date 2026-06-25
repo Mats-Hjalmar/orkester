@@ -8,6 +8,8 @@ import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { accentTextOf, groupCount, idleRooms } from '../state/selectors';
+import { TopologyNotice, topologyPhase } from '../components/TopologyState';
+import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 
 function NavItem({ label, active, onPress, icon }: { label: string; active?: boolean; onPress?: () => void; icon: React.ReactNode }) {
   return (
@@ -37,20 +39,32 @@ export default function Sidebar() {
   const home = state.mView === 'home';
   const now = state.mView === 'nowplaying';
   const idle = idleRooms(store);
+  const phase = topologyPhase(state.topologyStatus, state.rooms.length > 0);
 
   return (
     <View style={{ width: 250, borderRightWidth: 1, borderRightColor: ink(0.07), backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 3 }} showsVerticalScrollIndicator={false}>
         <NavItem label="Listen" active={home} onPress={() => setView('home')} icon={<Home size={19} color={home ? colors.bgPaper : colors.fg} />} />
         <NavItem label="Now Playing" active={now} onPress={() => setView('nowplaying')} icon={<Speaker size={19} color={now ? colors.bgPaper : colors.fg} />} />
-        <NavItem label="Search" icon={<Search size={19} color={colors.fg} />} />
+        {/* Search/browse is deferred — visible but inert. */}
+        <View style={{ opacity: 0.45 }}>
+          <NavItem label="Search" icon={<Search size={19} color={colors.fg} />} />
+        </View>
 
         <Text style={[type.eyebrow, { paddingHorizontal: 12, paddingTop: 22, paddingBottom: 8 }]}>Rooms</Text>
 
-        {state.groups.map((g) => {
+        {phase !== 'ready' && (
+          <View style={{ paddingHorizontal: 8, paddingBottom: 6 }}>
+            <TopologyNotice phase={phase} error={state.topologyError} compact />
+          </View>
+        )}
+
+        {phase === 'ready' && state.groups.map((g) => {
           const tr = getTrack(g.trackId);
           const tActive = g.id === state.activeGroupId;
-          const playingText = (g.isPlaying ? '' : 'Paused · ') + tr.title + ' · ' + tr.artist;
+          const playingText = tr.id === PLACEHOLDER_TRACK_ID
+            ? 'Nothing playing'
+            : (g.isPlaying ? '' : 'Paused · ') + tr.title + ' · ' + tr.artist;
           const vol = (g.muted ? 0 : groupVol(g)) / 100;
           return (
             <View key={g.id} style={{ borderRadius: radii.lg, backgroundColor: tActive ? colors.bgPaper : 'transparent', borderWidth: 1, borderColor: tActive ? ink(0.12) : 'transparent', marginBottom: 6, padding: 5 }}>
@@ -71,8 +85,8 @@ export default function Sidebar() {
           );
         })}
 
-        {idle.length > 0 && <Text style={[type.eyebrow, { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }]}>Not playing</Text>}
-        {idle.map((r) => (
+        {phase === 'ready' && idle.length > 0 && <Text style={[type.eyebrow, { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }]}>Not playing</Text>}
+        {phase === 'ready' && idle.map((r) => (
           <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radii.md }}>
             <Speaker size={18} color={colors.fgSubtle} />
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -85,7 +99,8 @@ export default function Sidebar() {
           </View>
         ))}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, marginTop: 6 }}>
+        {/* "Add a room" (pairing a new speaker) is deferred — visible but inert. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, opacity: 0.45 }}>
           <Plus size={18} color={colors.fgMuted} />
           <Text style={{ fontFamily: font.body, fontSize: 13.5, color: colors.fgMuted }}>Add a room</Text>
         </View>

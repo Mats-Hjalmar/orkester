@@ -14,8 +14,9 @@ export default function TopBar() {
         <Text style={[type.wordmark, { fontSize: 24 }]}>orkester</Text>
         <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgSubtle, paddingBottom: 1 }}>multi-room sound</Text>
       </View>
+      {/* Search/browse is deferred with the real engine — the field is inert. */}
       <View style={{ flex: 1, alignItems: 'center' }}>
-        <View style={{ width: 380, height: 38, borderRadius: radii.pill, backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16 }}>
+        <View style={{ width: 380, height: 38, borderRadius: radii.pill, backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, opacity: 0.6 }}>
           <Search size={17} color={colors.fgSubtle} />
           <Text style={{ fontFamily: font.body, fontSize: 14, color: colors.fgSubtle }}>Search artists, albums, stations</Text>
         </View>

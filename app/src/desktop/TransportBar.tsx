@@ -7,6 +7,7 @@ import { colors, ink, radii, shadow } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { fmt, useStore } from '../state/store';
 import { accentTextOf, groupCount } from '../state/selectors';
+import { progressOf } from '../components/trackProgress';
 
 export default function TransportBar() {
   const store = useStore();
@@ -16,8 +17,11 @@ export default function TransportBar() {
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const liked = isLiked(tr.id);
-  const progress = g.progress / tr.dur;
+  const prog = progressOf(g, tr);
   const vol = (g.muted ? 0 : groupVol(g)) / 100;
+  // Transport controls only act on a real active group.
+  const noGroup = prog.isNothing;
+  const roomLabel = noGroup ? 'No group' : `${roomName(g.roomIds[0])} ${groupCount(g)}`;
 
   return (
     <View style={{ height: 94, borderTopWidth: 1, borderTopColor: ink(0.08), flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, gap: 24, backgroundColor: colors.bgPaper }}>
@@ -33,8 +37,8 @@ export default function TransportBar() {
         </Pressable>
       </Pressable>
 
-      {/* center transport */}
-      <View style={{ flex: 1, gap: 9, maxWidth: 560, alignSelf: 'center' }}>
+      {/* center transport — dimmed when there is no active group to control */}
+      <View style={{ flex: 1, gap: 9, maxWidth: 560, alignSelf: 'center', opacity: noGroup ? 0.45 : 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22 }}>
           <Pressable onPress={toggleShuffle} hitSlop={8}><Shuffle size={19} color={g.shuffle ? colors.fg : colors.fgSubtle} /></Pressable>
           <Pressable onPress={prev} hitSlop={8}><Prev size={22} fill={colors.fg} /></Pressable>
@@ -45,9 +49,26 @@ export default function TransportBar() {
           <Pressable onPress={toggleRepeat} hitSlop={8}><Repeat size={19} color={g.repeat ? colors.fg : colors.fgSubtle} /></Pressable>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 34, textAlign: 'right' }}>{fmt(g.progress)}</Text>
-          <TrackBar value={progress} onScrub={seek} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb style={{ flex: 1 }} />
-          <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 38 }}>-{fmt(tr.dur - g.progress)}</Text>
+          <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 34, textAlign: 'right' }}>
+            {prog.isNothing ? '0:00' : fmt(prog.elapsed)}
+          </Text>
+          <TrackBar
+            value={prog.fraction}
+            onScrub={prog.isLive || prog.isNothing ? () => {} : seek}
+            trackColor={ink(0.12)}
+            fillColor={colors.fg}
+            height={4}
+            thumb={!prog.isLive && !prog.isNothing}
+            disabled={prog.isLive || prog.isNothing}
+            style={{ flex: 1 }}
+          />
+          {prog.isLive ? (
+            <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fg, width: 38, letterSpacing: 0.8 }}>LIVE</Text>
+          ) : (
+            <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 38 }}>
+              {prog.remaining === null ? '--:--' : `-${fmt(prog.remaining)}`}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -57,12 +78,15 @@ export default function TransportBar() {
           {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
         </Pressable>
         <View style={{ width: 96 }}>
-          <TrackBar value={vol} onScrub={setActiveVol} trackColor={ink(0.12)} fillColor={colors.fg} height={4} />
+          <TrackBar value={vol} onScrub={setActiveVol} trackColor={ink(0.12)} fillColor={colors.fg} height={4} disabled={noGroup} />
         </View>
-        <Queue size={19} color={colors.fgMuted} />
+        {/* Queue browsing is deferred — visible but inert. */}
+        <View style={{ opacity: 0.4 }}>
+          <Queue size={19} color={colors.fgMuted} />
+        </View>
         <Pressable onPress={() => setView('nowplaying')} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 12, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.14) }}>
           <Speaker size={16} color={colors.fg} />
-          <Text style={{ fontFamily: font.bodyMedium, fontSize: 12.5, color: colors.fg }}>{roomName(g.roomIds[0])} {groupCount(g)}</Text>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 12.5, color: colors.fg }}>{roomLabel}</Text>
         </Pressable>
       </View>
     </View>

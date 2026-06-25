@@ -9,7 +9,13 @@ import { font } from '../theme/fonts';
 export default function Search() {
   return (
     <View style={{ flex: 1, paddingTop: 56, paddingHorizontal: 22 }}>
-      <Text style={type.displayXL}>Search</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Text style={type.displayXL}>Search</Text>
+        <View style={{ paddingVertical: 2, paddingHorizontal: 8, borderRadius: radii.pill, backgroundColor: ink(0.06) }}>
+          <Text style={{ fontFamily: font.mono, fontSize: 10, color: colors.fgSubtle }}>SOON</Text>
+        </View>
+      </View>
+      {/* Search/browse is deferred with the real engine — the field is inert. */}
       <View
         style={{
           flexDirection: 'row',
@@ -22,6 +28,7 @@ export default function Search() {
           backgroundColor: colors.bgPaper,
           borderWidth: 1,
           borderColor: ink(0.1),
+          opacity: 0.6,
         }}
       >
         <SearchIcon size={18} color={colors.fgSubtle} />

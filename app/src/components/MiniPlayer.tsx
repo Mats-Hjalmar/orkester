@@ -6,6 +6,7 @@ import { colors, radii, shadow, paper } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { accentTextOf, groupCount } from '../state/selectors';
+import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 
 // Dark pill on Home/Rooms: tap to open Now Playing; the button toggles play.
 export default function MiniPlayer() {
@@ -14,6 +15,10 @@ export default function MiniPlayer() {
   const tr = activeTrack();
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
+  const nothing = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
+  // With nothing playing there is no room context — show a calm subtitle and an
+  // inert play button (togglePlay no-ops for the placeholder group anyway).
+  const subtitle = nothing ? 'Tap to see your speakers' : `${tr.artist} · ${roomName(g.roomIds[0])} ${groupCount(g)}`;
 
   return (
     <Pressable
@@ -34,12 +39,12 @@ export default function MiniPlayer() {
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 13.5, color: colors.bgPaper }}>{tr.title}</Text>
         <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 11.5, color: paper(0.6), marginTop: 2 }}>
-          {tr.artist} · {roomName(g.roomIds[0])} {groupCount(g)}
+          {subtitle}
         </Text>
       </View>
       <Pressable
         onPress={(e) => { e.stopPropagation(); togglePlay(); }}
-        style={{ width: 38, height: 38, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: 38, height: 38, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', opacity: nothing ? 0.5 : 1 }}
       >
         {g.isPlaying ? <Pause size={17} fill={accentText} /> : <Play size={17} fill={accentText} />}
       </Pressable>

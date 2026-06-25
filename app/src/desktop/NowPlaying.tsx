@@ -2,12 +2,13 @@ import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import SpeakerChip from '../components/SpeakerChip';
-import { Dots, Heart, Plus } from '../icons';
+import { Dots, Heart, Plus, Queue } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
-import { fmt, useStore } from '../state/store';
+import { useStore } from '../state/store';
 import { chipsFor, groupCount } from '../state/selectors';
+import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 
 function CircleButton({ children, onPress }: { children: React.ReactNode; onPress?: () => void }) {
   return (
@@ -19,13 +20,13 @@ function CircleButton({ children, onPress }: { children: React.ReactNode; onPres
 
 export default function DesktopNowPlaying() {
   const store = useStore();
-  const { activeGroup, activeTrack, roomName, isLiked, config, selectTrack, toggleLike } = store;
+  const { activeGroup, activeTrack, roomName, isLiked, config, toggleLike } = store;
   const g = activeGroup();
   const tr = activeTrack();
   const accent = config.accentColor;
   const liked = isLiked(tr.id);
   const chips = chipsFor(store, g);
-  const queue = g.queueIds.map((id) => store.getTrack(id));
+  const nothing = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', gap: 44, padding: 44 }} showsVerticalScrollIndicator={false}>
@@ -40,8 +41,8 @@ export default function DesktopNowPlaying() {
       {/* details */}
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: accent }} />
-          <Text style={type.eyebrow}>Playing in {roomName(g.roomIds[0])} {groupCount(g)}</Text>
+          <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: nothing ? colors.fgFaint : accent }} />
+          <Text style={type.eyebrow}>{nothing ? 'Nothing playing' : `Playing in ${roomName(g.roomIds[0])} ${groupCount(g)}`}</Text>
         </View>
         <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: colors.fg, marginTop: 14 }}>{tr.title}</Text>
         <Text style={{ fontFamily: font.body, fontSize: 19, color: colors.fgMuted, marginTop: 10 }}>{tr.artist}</Text>
@@ -55,8 +56,11 @@ export default function DesktopNowPlaying() {
           <CircleButton onPress={() => toggleLike(tr.id)}>
             <Heart size={19} color={liked ? colors.danger : colors.fg} fill={liked ? colors.danger : 'none'} />
           </CircleButton>
-          <CircleButton><Plus size={19} color={colors.fg} /></CircleButton>
-          <CircleButton><Dots size={19} color={colors.fg} /></CircleButton>
+          {/* Add-to-queue / more actions are deferred — visible but inert. */}
+          <View style={{ flexDirection: 'row', gap: 10, opacity: 0.4 }}>
+            <CircleButton><Plus size={19} color={colors.fg} /></CircleButton>
+            <CircleButton><Dots size={19} color={colors.fg} /></CircleButton>
+          </View>
         </View>
 
         <Text style={[type.eyebrow, { marginTop: 34, marginBottom: 11 }]}>Speakers — tap to group</Text>
@@ -64,18 +68,16 @@ export default function DesktopNowPlaying() {
           {chips.map((c) => <SpeakerChip key={c.id} chip={c} showIcon />)}
         </View>
 
-        <Text style={[type.eyebrow, { marginTop: 30, marginBottom: 6 }]}>Up next</Text>
-        <View>
-          {queue.map((t, i) => (
-            <Pressable key={`${t.id}-${i}`} onPress={() => selectTrack(t.id)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 10, borderRadius: radii.lg, backgroundColor: pressed ? ink(0.04) : 'transparent' })}>
-              <CoverArt size={46} coverBg={t.coverBg} coverShape={t.coverShape} motif={config.coverMotif} radius={10} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 14, color: colors.fg }}>{t.title}</Text>
-                <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgMuted, marginTop: 2 }}>{t.artist}</Text>
-              </View>
-              <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.fgSubtle }}>{fmt(t.dur)}</Text>
-            </Pressable>
-          ))}
+        {/* The queue is empty with the real engine (browsing is deferred). Show
+            the "Up next" section as a calm, clearly non-interactive placeholder
+            rather than a blank gap. */}
+        <Text style={[type.eyebrow, { marginTop: 30, marginBottom: 8 }]}>Up next</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: radii.lg, borderWidth: 1, borderColor: ink(0.08), backgroundColor: colors.bgPaper, opacity: 0.7 }}>
+          <Queue size={20} color={colors.fgSubtle} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: colors.fg }}>Queue & browsing coming soon</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: colors.fgMuted, marginTop: 2 }}>Up-next and library browsing land in a later pass.</Text>
+          </View>
         </View>
       </View>
     </ScrollView>

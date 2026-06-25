@@ -10,15 +10,19 @@ interface Props {
   height?: number; // bar thickness
   hitSlop?: number; // vertical touch padding
   thumb?: boolean; // draggable dot at the head
+  disabled?: boolean; // inert: no drag/tap, dimmed (live stream / nothing playing)
   style?: ViewStyle;
 }
 
 // Tap or drag anywhere on the bar to set a 0..1 fraction. Width is measured via
 // onLayout; the Responder system reads locationX — no gesture-handler dependency.
-export default function TrackBar({ value, onScrub, trackColor, fillColor, height = 4, hitSlop = 8, thumb = false, style }: Props) {
+// When `disabled` (a live stream has no finite duration, or nothing is playing)
+// the bar becomes inert and dimmed so no scrubber math runs on dur<=0.
+export default function TrackBar({ value, onScrub, trackColor, fillColor, height = 4, hitSlop = 8, thumb = false, disabled = false, style }: Props) {
   const width = useRef(0);
 
   const handle = (e: GestureResponderEvent) => {
+    if (disabled) return;
     const w = width.current;
     if (w <= 0) return;
     const x = e.nativeEvent.locationX;
@@ -30,12 +34,12 @@ export default function TrackBar({ value, onScrub, trackColor, fillColor, height
   return (
     <View
       onLayout={(e) => { width.current = e.nativeEvent.layout.width; }}
-      onStartShouldSetResponder={() => true}
-      onMoveShouldSetResponder={() => true}
+      onStartShouldSetResponder={() => !disabled}
+      onMoveShouldSetResponder={() => !disabled}
       onResponderGrant={handle}
       onResponderMove={handle}
       hitSlop={{ top: hitSlop, bottom: hitSlop }}
-      style={[{ justifyContent: 'center' }, style]}
+      style={[{ justifyContent: 'center', opacity: disabled ? 0.55 : 1 }, style]}
     >
       <View style={{ height, borderRadius: radii.pill, backgroundColor: trackColor, width: '100%' }}>
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: radii.pill, backgroundColor: fillColor, width: pct as any }} />

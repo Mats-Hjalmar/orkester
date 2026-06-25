@@ -7,6 +7,7 @@ import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { accentTextOf, idleRooms } from '../state/selectors';
+import { TopologyNotice, topologyPhase } from '../components/TopologyState';
 
 export default function Rooms() {
   const store = useStore();
@@ -14,6 +15,7 @@ export default function Rooms() {
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const idle = idleRooms(store);
+  const phase = topologyPhase(state.topologyStatus, state.rooms.length > 0);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 56, paddingHorizontal: 22, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
@@ -22,6 +24,13 @@ export default function Rooms() {
         Each group plays its own thing. Tap a group to control it; tap a speaker to move it.
       </Text>
 
+      {phase !== 'ready' && (
+        <View style={{ marginTop: 22 }}>
+          <TopologyNotice phase={phase} error={state.topologyError} />
+        </View>
+      )}
+
+      {phase === 'ready' && (
       <View style={{ gap: 14, marginTop: 22 }}>
         {state.groups.map((g) => (
           <RoomGroupCard key={g.id} group={g} />
@@ -48,6 +57,7 @@ export default function Rooms() {
           </View>
         ))}
       </View>
+      )}
     </ScrollView>
   );
 }

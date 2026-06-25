@@ -10,6 +10,7 @@ import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { chipsFor } from '../state/selectors';
+import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 
 // A group on the Rooms screen: its cover/name/now-playing, a group volume bar,
 // and tappable speaker chips that move rooms between groups.
@@ -19,7 +20,12 @@ export default function RoomGroupCard({ group }: { group: Group }) {
   const tr = getTrack(group.trackId);
   const accent = config.accentColor;
   const active = group.id === state.activeGroupId;
-  const playingText = (group.isPlaying ? '' : 'Paused · ') + tr.title + ' · ' + tr.artist;
+  const nothing = tr.id === PLACEHOLDER_TRACK_ID;
+  // A real group may be idle (nothing queued yet) — read "Nothing playing"
+  // rather than "Paused · Nothing playing · ".
+  const playingText = nothing
+    ? 'Nothing playing'
+    : (group.isPlaying ? '' : 'Paused · ') + tr.title + ' · ' + tr.artist;
   const vol = (group.muted ? 0 : groupVol(group)) / 100;
   const chips = chipsFor(store, group);
 
