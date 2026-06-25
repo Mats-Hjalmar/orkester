@@ -4,7 +4,11 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "pnpm --filter @orkester/core exec tsc --noEmit && pnpm --filter app exec tsc --noEmit"
+    "typecheck": "pnpm --filter @orkester/core exec tsc --noEmit && pnpm --filter app exec tsc --noEmit",
+    "desktop": "pnpm --filter @orkester/core build && pnpm --filter desktop dev",
+    "web": "pnpm --filter app exec expo start --web",
+    "android": "pnpm --filter app exec expo run:android",
+    "ios": "pnpm --filter app exec expo run:ios"
   },
   "devDependencies": {
     "@orkester/core": "workspace:*",
