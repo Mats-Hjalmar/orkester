@@ -7,6 +7,7 @@
     "typecheck": "pnpm --filter @orkester/core exec tsc --noEmit && pnpm --filter app exec tsc --noEmit"
   },
   "devDependencies": {
+    "@orkester/core": "workspace:*",
     "typescript": "~5.9.2",
     "tsup": "^8.5.0"
   }
