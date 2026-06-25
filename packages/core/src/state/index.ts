@@ -1,35 +1,30 @@
-// Shared playback state types — mirrors app/src/state/types.ts.
-// TYPES ONLY — zero runtime values.
+// @orkester/core/state — the engine-backed store + Api implementations.
+//
+// RN-safe: the provider imports only `react` (a peerDependency; tsup external)
+// and the Api adapters import only the node-free engine. No node:* anywhere, so
+// the RN-no-node guard stays green. The host picks an Api (SonosApi on a runtime
+// with transports, MockApi for demo/web) and injects it into StoreProvider.
 
-export type Motif = 'sun' | 'arc';
+// Stable UI-facing state types.
+export type { Motif, Track, Room, Group, Config, MView, TopologyStatus } from './types';
 
-export interface Track {
-  id: string;
-  title: string;
-  artist: string;
-  album: string;
-  year: string;
-  cat: string; // catalogue number, e.g. NOI-114
-  dur: number; // seconds
-  coverBg: string;
-  coverShape: string;
-}
+// The store provider + hook + helpers (keeps the mock store's useStore surface).
+export { StoreProvider, useStore, fmt, type Store } from './store';
 
-export interface Room {
-  id: string;
-  name: string;
-}
+// The reducer + state shape (exported for adapter/unit tests).
+export {
+  type State,
+  type Action,
+  reducer,
+  initialState,
+  placeholderTrack,
+  PLACEHOLDER_TRACK_ID,
+} from './reducer';
 
-// A group is an independent playback session: its own rooms, track, queue,
-// transport and volume. Rooms in no group are idle.
-export interface Group {
-  id: string;
-  roomIds: string[];
-  trackId: string;
-  isPlaying: boolean;
-  progress: number; // seconds into the current track
-  shuffle: boolean;
-  repeat: boolean;
-  muted: boolean;
-  queueIds: string[];
-}
+// Deterministic cover-art synthesis.
+export { synthesizeArt, hashString, COVER_PALETTE } from './art';
+
+// Api implementations.
+export { SonosApi } from './sonosApi';
+export { MockApi } from './mockApi';
+export { MOCK_LIBRARY, MOCK_ROOMS, type MockTrack } from './mockLibrary';

@@ -5,6 +5,7 @@ import { useFonts } from 'expo-font';
 import { fontMap } from './src/theme/fonts';
 import { colors, radii, shadow, FRAME } from './src/theme/tokens';
 import { StoreProvider, useStore } from './src/state/store';
+import { MockApi } from '@orkester/core/state';
 import DesktopApp from './src/desktop/DesktopApp';
 import NowPlaying from './src/screens/NowPlaying';
 import Home from './src/screens/Home';
@@ -54,6 +55,12 @@ function MobileApp() {
   );
 }
 
+// The app defaults to MockApi so `expo export --platform web` and on-device demo
+// runs work with NO speakers. A real engine-backed SonosApi is injected by the
+// Electron renderer (over IPC) and — once the Android spike passes — by the
+// native app via app/src/native; both reuse the same StoreProvider.
+const api = new MockApi();
+
 export default function App() {
   const [loaded] = useFonts(fontMap);
 
@@ -62,7 +69,7 @@ export default function App() {
   if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
 
   return (
-    <StoreProvider>
+    <StoreProvider api={api}>
       {useDesktop ? <DesktopApp /> : <MobileApp />}
       <StatusBar style="dark" />
     </StoreProvider>

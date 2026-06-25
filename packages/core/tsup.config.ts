@@ -15,8 +15,11 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,
-  // RN-free package with no external deps. Bundling (tsup default) inlines the
-  // relative barrel re-exports so the emitted ESM has no extensionless imports
-  // that native Node ESM resolution would reject.
+  // `react` is a peerDependency (the store provider imports it); never bundle it
+  // — the host app supplies its single React copy. Its jsx-runtime subpath must
+  // stay external too.
+  external: ['react', 'react/jsx-runtime'],
+  // Bundling (tsup default) inlines the relative barrel re-exports so the emitted
+  // ESM has no extensionless imports that native Node ESM resolution would reject.
   target: 'node18',
 });
