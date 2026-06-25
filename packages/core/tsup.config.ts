@@ -5,6 +5,8 @@ export default defineConfig({
     'src/index.ts',
     'src/theme/tokens.ts',
     'src/sonos/index.ts',
+    // Pure Sonos protocol engine (RN-safe; consumes injected transports).
+    'src/engine/index.ts',
     'src/state/index.ts',
     'src/api/index.ts',
     // Node platform adapters — the only entry that pulls in node:* builtins.

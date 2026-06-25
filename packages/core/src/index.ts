@@ -16,3 +16,15 @@ export type {
 export type { Motif, Track, Room, Group } from './state';
 
 export type { Api } from './api';
+
+// The Sonos protocol engine — RN-safe (consumes injected transports, no node:*).
+// Re-exported here as VALUES so `@orkester/core` callers get SonosClient and the
+// engine helpers directly; `@orkester/core/engine` exposes the same surface.
+export {
+  SonosClient,
+  type SonosTransports,
+  type ResolvedRoom,
+} from './engine';
+export type { Device, Member, Group as SonosGroup, Household, RoomRef } from './engine';
+export type { NowPlaying } from './engine';
+export { SonosFault } from './engine';

@@ -70,3 +70,19 @@ export interface DiscoverOptions {
 export interface DiscoveryTransport {
   discover(options: DiscoverOptions): Promise<void>;
 }
+
+// Engine-facing TYPES surfaced through the `@orkester/core/sonos` barrel.
+// TYPES ONLY (re-exported via `export type`) so this module keeps emitting a
+// 0-byte ESM runtime — adding a VALUE here would break that invariant and pull
+// the engine into the transport-contracts entry. The engine VALUES live behind
+// `@orkester/core/engine` and `@orkester/core`.
+export type {
+  SonosTransports,
+  ResolvedRoom,
+  Device,
+  Member,
+  Group,
+  Household,
+  RoomRef,
+  NowPlaying,
+} from '../engine';

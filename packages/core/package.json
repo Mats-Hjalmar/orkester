@@ -22,6 +22,11 @@
       "import": "./dist/sonos/index.js",
       "require": "./dist/sonos/index.cjs"
     },
+    "./engine": {
+      "types": "./dist/engine/index.d.ts",
+      "import": "./dist/engine/index.js",
+      "require": "./dist/engine/index.cjs"
+    },
     "./state": {
       "types": "./dist/state/index.d.ts",
       "import": "./dist/state/index.js",
