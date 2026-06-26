@@ -32,12 +32,33 @@ import type { RepeatMode } from '../engine';
 
 const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun', mobileNowDark: false };
 
-// Poll cadences (ms). Now-playing is the fastest so transport changes made
-// elsewhere reconcile within ~1s; volume is slower; topology slowest.
+// Poll cadences (ms). The FOCUSED/just-acted group's now-playing is fastest so
+// its transport changes reconcile within ~1s. Every OTHER group is polled
+// round-robin — one group per BACKGROUND tick — so request volume stays bounded
+// regardless of household size. Volume is slower; topology slowest.
 const NOWPLAYING_POLL_MS = 1000;
+const BACKGROUND_NP_POLL_MS = 2500;
 const VOLUME_POLL_MS = 2500;
 const TOPOLOGY_POLL_MS = 10000;
 const TICK_MS = 1000;
+
+/**
+ * Group-targeted transport controls. The rooms-first desktop UI controls every
+ * group IN PLACE — without changing any global selection — by calling
+ * `groupControls(groupId)` and driving these. Each method applies an optimistic
+ * patch + the per-group Api call + revert-by-reconcile, identical to the legacy
+ * active-group actions (which now delegate to the very same factory).
+ */
+export interface GroupControls {
+  togglePlay: () => void;
+  next: () => void;
+  prev: () => void;
+  seek: (frac: number) => void;
+  setVolume: (frac: number) => void;
+  toggleMute: () => void;
+  setShuffle: (shuffle: boolean) => void;
+  setRepeat: (repeat: boolean) => void;
+}
 
 export interface Store {
   state: State;
@@ -51,7 +72,11 @@ export interface Store {
   groupName: (g: Group) => string;
   groupVol: (g: Group) => number;
   isLiked: (id: string) => boolean;
-  // actions (stable names/signatures)
+  // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
+  groupControls: (gid: string) => GroupControls;
+  /** Marks a group as "focused" so its now-playing polls at the fast cadence. */
+  focusGroup: (gid: string) => void;
+  // legacy active-group actions (stable names/signatures; back-compat for mobile)
   togglePlay: () => void;
   next: () => void;
   prev: () => void;
@@ -104,6 +129,17 @@ export function StoreProvider({
   const dispatchRef = useRef(dispatch);
   dispatchRef.current = dispatch;
 
+  // The "focused" group (the rooms-first desktop view the user is looking at, or
+  // the group they just acted on). Its now-playing polls at the fast cadence;
+  // every other group is polled round-robin in the background. Decoupled from
+  // activeGroupId so the desktop never needs a global active-group singleton.
+  const focusedGroupId = useRef('');
+  // Single-flight per group: a groupId is in this set while its now-playing
+  // request is outstanding, so overlapping ticks never double-fire one group.
+  const inFlightNp = useRef(new Set<string>());
+  // Round-robin cursor over non-focused groups for background now-playing polls.
+  const rrCursor = useRef(0);
+
   // --- side-effect helpers ------------------------------------------------
 
   // Runs an optimistic patch, fires the Api call, and reverts on rejection by
@@ -130,22 +166,45 @@ export function StoreProvider({
     },
   );
 
+  // Polls ONE group's now-playing. Single-flight: if a request for this group is
+  // already outstanding it is skipped (the in-flight one will dispatch). The flag
+  // is always cleared in `finally` so a thrown poll can never strand a group.
   const pollNowPlaying = useRef(async (groupId: string) => {
     if (groupId === '') return;
+    if (inFlightNp.current.has(groupId)) return;
+    inFlightNp.current.add(groupId);
     try {
       const np = await api.getNowPlaying(groupId);
       dispatchRef.current({ type: 'nowPlaying', groupId, np });
     } catch {
       // A transient now-playing failure is bounded by the next poll; do not
       // tear down the whole topology for it.
+    } finally {
+      inFlightNp.current.delete(groupId);
     }
   });
 
+  // Background now-playing: poll exactly ONE non-focused group per tick,
+  // advancing a round-robin cursor — so every card refreshes, but request volume
+  // stays bounded (one extra getNowPlaying per BACKGROUND_NP_POLL_MS) regardless
+  // of how many groups exist.
+  const pollNextBackgroundGroup = useRef(() => {
+    const s = stateRef.current;
+    const others = s.groups.filter((g) => g.id !== focusedGroupId.current);
+    if (others.length === 0) return;
+    if (rrCursor.current >= others.length) rrCursor.current = 0;
+    const g = others[rrCursor.current];
+    rrCursor.current += 1;
+    void pollNowPlaying.current(g.id);
+  });
+
+  // Polls volume + mute for EVERY room across all groups, so every card's volume
+  // slider reflects the real speaker (not just the focused group's rooms).
   const pollVolumes = useRef(async () => {
     const s = stateRef.current;
-    const active = s.groups.find((g) => g.id === s.activeGroupId);
-    if (!active) return;
-    for (const roomId of active.roomIds) {
+    const roomIds = new Set<string>();
+    for (const g of s.groups) for (const r of g.roomIds) roomIds.add(r);
+    for (const roomId of roomIds) {
       try {
         const [volume, muted] = await Promise.all([api.getVolume(roomId), api.getMute(roomId)]);
         dispatchRef.current({ type: 'roomVolume', roomId, volume });
@@ -166,10 +225,9 @@ export function StoreProvider({
     try {
       const topology = mode === 'load' ? await api.loadTopology() : await api.refreshTopology();
       dispatchRef.current({ type: 'topologyReady', topology });
-      // Prime now-playing for the active group right away.
-      const s = stateRef.current;
-      const active = s.activeGroupId || topology.groups[0]?.id || '';
-      await pollNowPlaying.current(active);
+      // Prime now-playing for EVERY group right away so the rooms grid shows each
+      // group's real state on first paint (not just the focused one).
+      await Promise.all(topology.groups.map((g) => pollNowPlaying.current(g.id)));
       await pollVolumes.current();
     } catch (err) {
       // Surface the failure only for the first load; a transient refresh miss
@@ -186,10 +244,19 @@ export function StoreProvider({
       await loadTopology.current('load');
     })();
 
+    // Fast: the focused group (falls back to the first group until something is
+    // focused, so a single-group household still updates at 1s).
     const npTimer = setInterval(() => {
       if (cancelled) return;
-      void pollNowPlaying.current(stateRef.current.activeGroupId);
+      const focused = focusedGroupId.current || stateRef.current.groups[0]?.id || '';
+      void pollNowPlaying.current(focused);
     }, NOWPLAYING_POLL_MS);
+
+    // Slower: one non-focused group per tick, round-robin.
+    const bgNpTimer = setInterval(() => {
+      if (cancelled) return;
+      pollNextBackgroundGroup.current();
+    }, BACKGROUND_NP_POLL_MS);
 
     const tickTimer = setInterval(() => {
       if (cancelled) return;
@@ -214,6 +281,7 @@ export function StoreProvider({
     return () => {
       cancelled = true;
       clearInterval(npTimer);
+      clearInterval(bgNpTimer);
       clearInterval(tickTimer);
       clearInterval(volTimer);
       clearInterval(topoTimer);
@@ -247,9 +315,6 @@ export function StoreProvider({
       return Math.round(g.roomIds.reduce((acc, r) => acc + (state.roomVol[r] || 0), 0) / g.roomIds.length);
     };
 
-    // Active-group helpers used by several actions.
-    const activeId = () => activeGroup().id;
-
     const setVolForRooms = (roomIds: string[], frac: number) => {
       const v = Math.max(0, Math.min(100, Math.round(frac * 100)));
       for (const roomId of roomIds) {
@@ -264,6 +329,106 @@ export function StoreProvider({
       }
     };
 
+    // The single source of transport behaviour. Both the GROUP-TARGETED
+    // `groupControls(gid)` and the legacy active-group actions build on this, so
+    // there is exactly ONE optimistic+revert implementation. It takes a Group
+    // captured from the CURRENT `state` (this useMemo re-runs on every state
+    // change), so a control never acts on a stale group. Acting on a group also
+    // FOCUSES it, so its now-playing snaps to the fast cadence.
+    const controlsFor = (g: Group): GroupControls => {
+      const touch = () => { focusedGroupId.current = g.id; };
+      return {
+        togglePlay: () => {
+          if (g.id === '') return;
+          touch();
+          const next = !g.isPlaying;
+          void optimistic.current(
+            { type: 'setPlayingOptimistic', groupId: g.id, isPlaying: next },
+            () => (next ? api.play(g.id) : api.pause(g.id)),
+            () => pollNowPlaying.current(g.id),
+          );
+        },
+        next: () => {
+          if (g.id === '') return;
+          touch();
+          void (async () => {
+            try {
+              await api.next(g.id);
+            } finally {
+              await pollNowPlaying.current(g.id);
+            }
+          })();
+        },
+        prev: () => {
+          if (g.id === '') return;
+          touch();
+          void (async () => {
+            try {
+              await api.previous(g.id);
+            } finally {
+              await pollNowPlaying.current(g.id);
+            }
+          })();
+        },
+        seek: (frac: number) => {
+          if (g.id === '') return;
+          touch();
+          const tr = getTrack(g.trackId);
+          if (tr.dur <= 0) return; // no scrubbing a live stream
+          const sec = Math.max(0, Math.min(tr.dur, Math.round(frac * tr.dur)));
+          void optimistic.current(
+            { type: 'setProgressOptimistic', groupId: g.id, progress: sec },
+            () => api.seek(g.id, sec),
+            () => pollNowPlaying.current(g.id),
+          );
+        },
+        setVolume: (frac: number) => {
+          if (g.id === '') return;
+          touch();
+          setVolForRooms(g.roomIds, frac);
+        },
+        toggleMute: () => {
+          if (g.id === '') return;
+          touch();
+          const next = !g.muted;
+          for (const roomId of g.roomIds) {
+            void optimistic.current(
+              { type: 'setRoomMuteOptimistic', roomId, muted: next },
+              () => api.setMute(roomId, next),
+              async () => {
+                const real = await api.getMute(roomId);
+                dispatchRef.current({ type: 'roomMute', roomId, muted: real });
+              },
+            );
+          }
+        },
+        setShuffle: (shuffle: boolean) => {
+          if (g.id === '') return;
+          touch();
+          void optimistic.current(
+            { type: 'setShuffleOptimistic', groupId: g.id, shuffle },
+            () => api.setShuffle(g.id, shuffle),
+            () => pollNowPlaying.current(g.id),
+          );
+        },
+        setRepeat: (repeat: boolean) => {
+          if (g.id === '') return;
+          touch();
+          const mode: RepeatMode = repeat ? 'all' : 'none';
+          void optimistic.current(
+            { type: 'setRepeatOptimistic', groupId: g.id, repeat },
+            () => api.setRepeat(g.id, mode),
+            () => pollNowPlaying.current(g.id),
+          );
+        },
+      };
+    };
+
+    // Group-targeted entry point: resolve the group fresh from current state so
+    // the returned controls always act on the live group (or no-op for unknown).
+    const groupControls = (gid: string): GroupControls =>
+      controlsFor(state.groups.find((g) => g.id === gid) ?? placeholderGroup());
+
     return {
       state,
       config: cfg,
@@ -276,97 +441,24 @@ export function StoreProvider({
       groupVol,
       isLiked: (id: string) => !!state.liked[id],
 
-      togglePlay: () => {
-        const g = activeGroup();
-        if (g.id === '') return;
-        const next = !g.isPlaying;
-        void optimistic.current(
-          { type: 'setPlayingOptimistic', groupId: g.id, isPlaying: next },
-          () => (next ? api.play(g.id) : api.pause(g.id)),
-          () => pollNowPlaying.current(g.id),
-        );
-      },
+      groupControls,
+      focusGroup: (gid: string) => { focusedGroupId.current = gid; void pollNowPlaying.current(gid); },
 
-      next: () => {
-        const id = activeId();
-        if (id === '') return;
-        void (async () => {
-          try {
-            await api.next(id);
-          } finally {
-            await pollNowPlaying.current(id);
-          }
-        })();
-      },
-
-      prev: () => {
-        const id = activeId();
-        if (id === '') return;
-        void (async () => {
-          try {
-            await api.previous(id);
-          } finally {
-            await pollNowPlaying.current(id);
-          }
-        })();
-      },
-
-      toggleShuffle: () => {
-        const g = activeGroup();
-        if (g.id === '') return;
-        const next = !g.shuffle;
-        void optimistic.current(
-          { type: 'setShuffleOptimistic', groupId: g.id, shuffle: next },
-          () => api.setShuffle(g.id, next),
-          () => pollNowPlaying.current(g.id),
-        );
-      },
-
-      toggleRepeat: () => {
-        const g = activeGroup();
-        if (g.id === '') return;
-        const next = !g.repeat;
-        const mode: RepeatMode = next ? 'all' : 'none';
-        void optimistic.current(
-          { type: 'setRepeatOptimistic', groupId: g.id, repeat: next },
-          () => api.setRepeat(g.id, mode),
-          () => pollNowPlaying.current(g.id),
-        );
-      },
-
-      toggleMute: () => {
-        const g = activeGroup();
-        if (g.id === '') return;
-        const next = !g.muted;
-        for (const roomId of g.roomIds) {
-          void optimistic.current(
-            { type: 'setRoomMuteOptimistic', roomId, muted: next },
-            () => api.setMute(roomId, next),
-            async () => {
-              const real = await api.getMute(roomId);
-              dispatchRef.current({ type: 'roomMute', roomId, muted: real });
-            },
-          );
-        }
-      },
+      // Legacy active-group actions — delegate to the same factory, acting on the
+      // active group resolved at call time (back-compat for the mobile UI).
+      togglePlay: () => controlsFor(activeGroup()).togglePlay(),
+      next: () => controlsFor(activeGroup()).next(),
+      prev: () => controlsFor(activeGroup()).prev(),
+      toggleShuffle: () => { const g = activeGroup(); controlsFor(g).setShuffle(!g.shuffle); },
+      toggleRepeat: () => { const g = activeGroup(); controlsFor(g).setRepeat(!g.repeat); },
+      toggleMute: () => controlsFor(activeGroup()).toggleMute(),
 
       toggleLike: (id: string) => dispatchRef.current({ type: 'toggleLike', id }),
 
       // Picking arbitrary tracks is deferred — keep the signature, do nothing.
       selectTrack: (_id: string) => {},
 
-      seek: (frac: number) => {
-        const g = activeGroup();
-        if (g.id === '') return;
-        const tr = getTrack(g.trackId);
-        if (tr.dur <= 0) return; // no scrubbing a live stream
-        const sec = Math.max(0, Math.min(tr.dur, Math.round(frac * tr.dur)));
-        void optimistic.current(
-          { type: 'setProgressOptimistic', groupId: g.id, progress: sec },
-          () => api.seek(g.id, sec),
-          () => pollNowPlaying.current(g.id),
-        );
-      },
+      seek: (frac: number) => controlsFor(activeGroup()).seek(frac),
 
       setActiveVol: (frac: number) => setVolForRooms(activeGroup().roomIds, frac),
 
@@ -408,6 +500,7 @@ export function StoreProvider({
       },
 
       selectGroup: (gid: string) => {
+        focusedGroupId.current = gid;
         dispatchRef.current({ type: 'selectGroup', gid });
         void pollNowPlaying.current(gid);
       },

@@ -64,26 +64,45 @@ export function initialState(): State {
   };
 }
 
+/**
+ * True only when a group is GENUINELY idle: not playing AND no metadata at all.
+ * A group that IS playing but reports sparse/empty metadata (some streaming DIDL
+ * shapes parse with empty title/artist) is NOT idle — it is playing something we
+ * just can't fully label yet, so it must keep a real track id.
+ */
+function isIdle(np: ApiNowPlaying): boolean {
+  return !np.isPlaying && np.title === '' && np.artist === '';
+}
+
+/** A best-effort display title when the speaker reports sparse metadata. */
+function labelFor(np: ApiNowPlaying): string {
+  return np.title || np.album || 'Playing';
+}
+
 /** A synthesized, stable track id for a group's current now-playing. */
 function trackIdFor(groupId: string, np: ApiNowPlaying): string {
-  if (np.title === '' && np.artist === '') return PLACEHOLDER_TRACK_ID;
+  if (isIdle(np)) return PLACEHOLDER_TRACK_ID;
   // Stable per (group, title, artist) so the id (and its synthesized art) does
-  // not churn between identical polls.
+  // not churn between identical polls. Playing-but-sparse collapses to a stable
+  // `np:gid:|` — distinct per group, so two cards never share an id.
   return `np:${groupId}:${np.title}|${np.artist}`;
 }
 
 /** Builds a UI Track from a now-playing snapshot. */
 function trackFromNowPlaying(id: string, np: ApiNowPlaying): Track {
   if (id === PLACEHOLDER_TRACK_ID) return placeholderTrack();
+  // Honest label: title, else album, else 'Playing' — so a playing-but-sparse
+  // stream reads as playing (never "Nothing playing") across every consumer.
+  const title = labelFor(np);
   return {
     id,
-    title: np.title,
+    title,
     artist: np.artist,
     album: np.album,
     year: '',
     cat: '',
     dur: np.durationSeconds,
-    ...synthesizeArt(np.title, np.artist),
+    ...synthesizeArt(title, np.artist),
   };
 }
 

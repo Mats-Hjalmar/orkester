@@ -63,15 +63,62 @@ describe('reducer now-playing', () => {
     expect(tr.coverBg).toMatch(/^#/);
   });
 
-  it('empty title/artist maps to the placeholder track (dur 0)', () => {
+  it('idle (NOT playing + empty metadata) maps to the placeholder track', () => {
     let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
     s = reducer(s, {
       type: 'nowPlaying',
       groupId: 'g1',
-      np: { ...NP, title: '', artist: '', durationSeconds: 0 },
+      np: { ...NP, isPlaying: false, title: '', artist: '', durationSeconds: 0 },
     });
     expect(s.groups[0].trackId).toBe(PLACEHOLDER_TRACK_ID);
+    expect(s.groups[0].isPlaying).toBe(false);
     expect(s.tracks[s.groups[0].trackId].dur).toBe(0);
+  });
+
+  it('PLAYING with empty metadata is NOT idle: keeps a real id labelled "Playing"', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, {
+      type: 'nowPlaying',
+      groupId: 'g1',
+      np: { ...NP, isPlaying: true, title: '', artist: '', album: '', durationSeconds: 0 },
+    });
+    const g = s.groups[0];
+    expect(g.isPlaying).toBe(true);
+    expect(g.trackId).not.toBe(PLACEHOLDER_TRACK_ID);
+    expect(s.tracks[g.trackId].title).toBe('Playing');
+  });
+
+  it('PLAYING with only an album falls back to the album as the label', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, {
+      type: 'nowPlaying',
+      groupId: 'g1',
+      np: { ...NP, isPlaying: true, title: '', artist: '', album: 'Some Station', durationSeconds: 0 },
+    });
+    const g = s.groups[0];
+    expect(g.trackId).not.toBe(PLACEHOLDER_TRACK_ID);
+    expect(s.tracks[g.trackId].title).toBe('Some Station');
+  });
+
+  it('two groups playing the same track get distinct, stable ids', () => {
+    const topo2: ApiTopology = {
+      rooms: [
+        { id: 'living', name: 'Living Room' },
+        { id: 'bedroom', name: 'Bedroom' },
+      ],
+      groups: [
+        { id: 'g1', name: 'Living Room', roomIds: ['living'], coordinatorUuid: 'RINCON_A' },
+        { id: 'g2', name: 'Bedroom', roomIds: ['bedroom'], coordinatorUuid: 'RINCON_B' },
+      ],
+    };
+    let s = reducer(initialState(), { type: 'topologyReady', topology: topo2 });
+    s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: NP });
+    s = reducer(s, { type: 'nowPlaying', groupId: 'g2', np: NP });
+    expect(s.groups[0].trackId).not.toBe(s.groups[1].trackId);
+    // Stable across an identical re-poll.
+    const before = s.groups[0].trackId;
+    s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: NP });
+    expect(s.groups[0].trackId).toBe(before);
   });
 });
 
