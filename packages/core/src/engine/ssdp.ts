@@ -92,13 +92,15 @@ export function parseHost(location: string): string | undefined {
 }
 
 /**
- * Builds the SSDP M-SEARCH datagram for ZonePlayers. MX (the max wait a
- * responder may randomize before replying) is scaled from the listen window in
- * milliseconds to whole seconds, with a minimum of 1 — mirroring ssdp.go's
- * `max(int(wait.Seconds()), 1)`.
+ * Builds the SSDP M-SEARCH datagram for ZonePlayers. MX is the max time (in
+ * seconds) a responder may RANDOMIZE before replying. The Go port scaled MX to
+ * the listen window (MX:3 for a 3s wait), which made the first reply take up to
+ * 3s. Discovery aborts on the first responder anyway, so we keep MX small (1)
+ * for a snappy first reply (~<1s); `waitMs` stays only the upper-bound listen
+ * window used if the first probe is lost. (Per UPnP, MX must be an integer ≥1.)
  */
-export function searchProbe(waitMs: number): string {
-  const mx = Math.max(Math.floor(waitMs / 1000), 1);
+export function searchProbe(_waitMs: number): string {
+  const mx = 1;
   return (
     'M-SEARCH * HTTP/1.1\r\n' +
     'HOST: 239.255.255.250:1900\r\n' +

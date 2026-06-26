@@ -111,13 +111,14 @@ describe('searchProbe', () => {
     expect(probe).toContain('MAN: "ssdp:discover"');
     expect(probe).toContain(`ST: ${zonePlayerST}`);
     expect(zonePlayerST).toContain('ZonePlayer');
-    expect(probe).toContain('MX: 3');
+    expect(probe).toContain('MX: 1');
   });
 
-  it('MX is scaled from wait seconds with a minimum of 1', () => {
-    // 500ms -> 0s floored, clamped to a minimum MX of 1 (mirrors Go's max(...,1)).
+  it('MX is a small fixed 1 (snappy first reply) regardless of the wait window', () => {
+    // MX caps the responder's random reply delay; discovery aborts on first
+    // responder, so a small MX makes the first reply land in ~<1s.
     expect(searchProbe(500)).toContain('MX: 1');
     expect(searchProbe(0)).toContain('MX: 1');
-    expect(searchProbe(5000)).toContain('MX: 5');
+    expect(searchProbe(5000)).toContain('MX: 1');
   });
 });
