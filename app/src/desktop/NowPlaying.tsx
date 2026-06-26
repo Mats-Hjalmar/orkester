@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import TrackBar from '../components/TrackBar';
 import SpeakerChip from '../components/SpeakerChip';
@@ -67,10 +67,13 @@ function QueueRow({ item, motif, accent, current, handle }: { item: QueueItem; m
   );
 }
 
-// A drag-to-reorder queue. Each row has a grip handle bound to a PanResponder;
-// dragging it shifts the surrounding rows to show where the track will land, and
-// on release we ask the SPEAKER to reorder (the store re-reads from Sonos — no
-// optimistic local splice). The fixed row height makes dy → row-offset exact.
+// A drag-to-reorder queue. Each row's grip uses W3C pointer events with pointer
+// CAPTURE — PanResponder is unreliable under react-native-web, but pointer capture
+// (rock-solid in Chromium/Electron) keeps move+up firing on the handle for the
+// whole drag even when the cursor leaves the tiny grip. Dragging shifts the
+// neighbouring rows to preview the drop; on release we ask the SPEAKER to reorder
+// (the store re-reads from Sonos — no optimistic local splice). The fixed row
+// height makes dy → row-offset exact.
 function QueueList({ items, motif, accent, isCurrent, onReorder }: {
   items: QueueItem[];
   motif: Motif;
@@ -79,27 +82,16 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
   onReorder: (from: number, to: number) => void;
 }) {
   const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+  const startY = useRef(0);
   const targetOf = (from: number, dy: number) =>
     Math.max(0, Math.min(items.length - 1, from + Math.round(dy / QUEUE_ROW_H)));
 
   return (
-    // userSelect:none so dragging a handle doesn't start a text selection
-    // (the default browser behaviour in react-native-web on mouse-drag).
+    // userSelect:none so dragging a handle doesn't start a text selection.
     <View style={{ userSelect: 'none' } as any}>
       {items.map((item, index) => {
-        const pan = PanResponder.create({
-          onStartShouldSetPanResponder: () => true,
-          onMoveShouldSetPanResponder: () => true,
-          onPanResponderGrant: () => setDrag({ from: index, dy: 0 }),
-          onPanResponderMove: (_e, gs) => setDrag({ from: index, dy: gs.dy }),
-          onPanResponderRelease: (_e, gs) => {
-            const to = targetOf(index, gs.dy);
-            setDrag(null);
-            if (to !== index) onReorder(index, to);
-          },
-          onPanResponderTerminate: () => setDrag(null),
-        });
-
         const isDragged = drag?.from === index;
         let translateY = 0;
         if (drag) {
@@ -111,7 +103,29 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
 
         const handle = (
           <View
-            {...pan.panHandlers}
+            // RN ViewProps types currentTarget as a host ref; under react-native-web
+            // it's the DOM node, so setPointerCapture is available (cast below).
+            onPointerDown={(e) => {
+              const t = e.currentTarget as unknown as { setPointerCapture?: (id: number) => void };
+              try { t.setPointerCapture?.(e.nativeEvent.pointerId); } catch { /* capture optional */ }
+              startY.current = e.nativeEvent.pageY;
+              setDrag({ from: index, dy: 0 });
+            }}
+            onPointerMove={(e) => {
+              if (dragRef.current?.from !== index) return;
+              setDrag({ from: index, dy: e.nativeEvent.pageY - startY.current });
+            }}
+            onPointerUp={(e) => {
+              const t = e.currentTarget as unknown as { releasePointerCapture?: (id: number) => void };
+              try { t.releasePointerCapture?.(e.nativeEvent.pointerId); } catch { /* noop */ }
+              const d = dragRef.current;
+              setDrag(null);
+              if (d && d.from === index) {
+                const to = targetOf(d.from, d.dy);
+                if (to !== d.from) onReorder(d.from, to);
+              }
+            }}
+            onPointerCancel={() => setDrag(null)}
             // grab cursor + no text-select/scroll-gesture stealing the drag.
             style={{ padding: 6, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
           >
