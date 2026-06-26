@@ -157,7 +157,12 @@ export function StoreProvider({
   });
 
   const loadTopology = useRef(async (mode: 'load' | 'refresh') => {
-    dispatchRef.current({ type: 'topologyLoading' });
+    // Only the INITIAL load shows the "Finding your speakers" loading state. The
+    // ~10s background refresh must NOT flip status back to 'loading' (that blanked
+    // the sidebar every poll while the now-playing chips kept showing rooms — the
+    // two views disagreeing on the same shared store). A refresh updates silently
+    // on success and keeps the current topology on failure (bounded by next poll).
+    if (mode === 'load') dispatchRef.current({ type: 'topologyLoading' });
     try {
       const topology = mode === 'load' ? await api.loadTopology() : await api.refreshTopology();
       dispatchRef.current({ type: 'topologyReady', topology });
@@ -167,7 +172,9 @@ export function StoreProvider({
       await pollNowPlaying.current(active);
       await pollVolumes.current();
     } catch (err) {
-      dispatchRef.current({ type: 'topologyError', message: (err as Error).message });
+      // Surface the failure only for the first load; a transient refresh miss
+      // (SSDP/discovery is racy) must not wipe an already-ready UI.
+      if (mode === 'load') dispatchRef.current({ type: 'topologyError', message: (err as Error).message });
     }
   });
 
@@ -196,7 +203,12 @@ export function StoreProvider({
 
     const topoTimer = setInterval(() => {
       if (cancelled) return;
-      if (stateRef.current.topologyStatus === 'ready') void loadTopology.current('refresh');
+      const st = stateRef.current.topologyStatus;
+      // When ready, silently refresh. When the initial discovery failed (SSDP is
+      // racy), keep retrying a full load so a transient miss self-heals instead
+      // of leaving the UI stuck on the error/connect screen.
+      if (st === 'ready') void loadTopology.current('refresh');
+      else if (st === 'error') void loadTopology.current('load');
     }, TOPOLOGY_POLL_MS);
 
     return () => {
