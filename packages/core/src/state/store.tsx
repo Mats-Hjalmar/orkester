@@ -19,7 +19,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import type { Config, Group, MView, Track } from './types';
+import type { Config, Group, MView, QueueItem, Track } from './types';
 import {
   type Action,
   type State,
@@ -73,6 +73,8 @@ export interface Store {
   groupName: (g: Group) => string;
   groupVol: (g: Group) => number;
   isLiked: (id: string) => boolean;
+  /** The group coordinator's play queue (fetched on focus/refresh); [] if none. */
+  queueFor: (gid: string) => QueueItem[];
   // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
   groupControls: (gid: string) => GroupControls;
   /** Marks a group as "focused" so its now-playing polls at the fast cadence. */
@@ -232,6 +234,18 @@ export function StoreProvider({
       // a manual refresh — never paints a half-loaded room.
     } finally {
       inFlightRefresh.current.delete(gid);
+    }
+  });
+
+  // Fetches a group's play queue and reconciles it into the store. Best-effort:
+  // a transient failure keeps the last queue (bounded by the next focus/refresh).
+  const fetchQueue = useRef(async (gid: string) => {
+    if (gid === '') return;
+    try {
+      const items = await api.getQueue(gid);
+      dispatchRef.current({ type: 'groupQueue', groupId: gid, items });
+    } catch {
+      // Bounded by the next focus/refresh; do not tear down the UI for it.
     }
   });
 
@@ -495,7 +509,14 @@ export function StoreProvider({
       groupControls,
       // Opening a room ATOMICALLY loads it (now-playing + volumes + mutes in one
       // snapshot) so it never shows half-loaded, then the 1s poll keeps it fresh.
-      focusGroup: (gid: string) => { focusedGroupId.current = gid; void refreshGroup.current(gid); },
+      // Also pull its queue so the detail pane can show what's up next.
+      focusGroup: (gid: string) => {
+        focusedGroupId.current = gid;
+        void refreshGroup.current(gid);
+        void fetchQueue.current(gid);
+      },
+
+      queueFor: (gid: string) => state.queues[gid] ?? [],
 
       refresh: () => {
         void (async () => {
@@ -505,7 +526,10 @@ export function StoreProvider({
             // group the user is looking at.
             await loadTopology.current('refresh');
             const target = focusedGroupId.current || stateRef.current.groups[0]?.id || '';
-            if (target) await refreshGroup.current(target);
+            if (target) {
+              await refreshGroup.current(target);
+              await fetchQueue.current(target);
+            }
           } finally {
             setRefreshing(false);
           }

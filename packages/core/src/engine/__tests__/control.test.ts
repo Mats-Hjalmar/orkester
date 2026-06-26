@@ -4,6 +4,7 @@ import {
   avTransport,
   renderingControl,
   parseTrackMetadata,
+  parseQueueItems,
   parseStreamContent,
   resolveAlbumArt,
   setVolumeRequest,
@@ -157,6 +158,28 @@ describe('album art', () => {
   it('resolveAlbumArt passes an absolute http(s) URL through unchanged, "" stays ""', () => {
     expect(resolveAlbumArt('http://192.168.1.10:1400', 'https://logo.cdn/x.png')).toBe('https://logo.cdn/x.png');
     expect(resolveAlbumArt('http://192.168.1.10:1400', '')).toBe('');
+  });
+});
+
+describe('parseQueueItems', () => {
+  it('parses every <item> in a Browse Result, in order, with creator fallback', () => {
+    const didl =
+      '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" ' +
+      'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">' +
+      '<item><dc:title>Track One</dc:title><dc:creator>Artist A</dc:creator><upnp:album>Album A</upnp:album>' +
+      '<upnp:albumArtURI>/getaa?u=a</upnp:albumArtURI></item>' +
+      '<item><dc:title>Track Two</dc:title><upnp:artist>Artist B</upnp:artist></item>' +
+      '</DIDL-Lite>';
+    const items = parseQueueItems(didl);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({ title: 'Track One', artist: 'Artist A', album: 'Album A', albumArt: '/getaa?u=a' });
+    expect(items[1].title).toBe('Track Two');
+    expect(items[1].artist).toBe('Artist B'); // upnp:artist
+  });
+
+  it('empty / unparseable input returns [] (no throw)', () => {
+    expect(parseQueueItems('')).toEqual([]);
+    expect(parseQueueItems('not xml')).toEqual([]);
   });
 });
 

@@ -41,6 +41,8 @@ export const AV_TRANSPORT_TYPE = 'urn:schemas-upnp-org:service:AVTransport:1';
 export const AV_TRANSPORT_CONTROL_URL = '/MediaRenderer/AVTransport/Control';
 export const RENDERING_CONTROL_TYPE = 'urn:schemas-upnp-org:service:RenderingControl:1';
 export const RENDERING_CONTROL_CONTROL_URL = '/MediaRenderer/RenderingControl/Control';
+export const CONTENT_DIRECTORY_TYPE = 'urn:schemas-upnp-org:service:ContentDirectory:1';
+export const CONTENT_DIRECTORY_CONTROL_URL = '/MediaServer/ContentDirectory/Control';
 
 /** The AVTransport service (queue/transport; lives on the group coordinator). */
 export function avTransport(): ControlService {
@@ -50,6 +52,11 @@ export function avTransport(): ControlService {
 /** The RenderingControl service (per-player volume/mute). */
 export function renderingControl(): ControlService {
   return { type: RENDERING_CONTROL_TYPE, controlURL: RENDERING_CONTROL_CONTROL_URL };
+}
+
+/** The ContentDirectory service (queue browsing; lives on the coordinator). */
+export function contentDirectory(): ControlService {
+  return { type: CONTENT_DIRECTORY_TYPE, controlURL: CONTENT_DIRECTORY_CONTROL_URL };
 }
 
 /**
@@ -121,6 +128,28 @@ export function getPositionInfoRequest(): ControlRequest {
     service: avTransport(),
     action: 'GetPositionInfo',
     args: [instanceArg()],
+    base: 'coordinator',
+  };
+}
+
+/**
+ * Browse — reads the coordinator's current play queue (object Q:0). ObjectID
+ * Q:0 is the SAVED queue; BrowseDirectChildren returns one <item> per track.
+ * RequestedCount 0 means "all" on Sonos. ContentDirectory does NOT take an
+ * InstanceID, so its args differ from the AVTransport actions above.
+ */
+export function browseQueueRequest(): ControlRequest {
+  return {
+    service: contentDirectory(),
+    action: 'Browse',
+    args: [
+      { name: 'ObjectID', value: 'Q:0' },
+      { name: 'BrowseFlag', value: 'BrowseDirectChildren' },
+      { name: 'Filter', value: '*' },
+      { name: 'StartingIndex', value: '0' },
+      { name: 'RequestedCount', value: '0' },
+      { name: 'SortCriteria', value: '' },
+    ],
     base: 'coordinator',
   };
 }
@@ -454,15 +483,8 @@ export function parseTrackMetadata(meta: string): TrackMetadata {
   }
 
   const it = items[0] as Record<string, unknown>;
-  // parseTagValue:false keeps text nodes as strings, so a numeric title like
-  // "2112" arrives as the string "2112" and .trim() is always safe.
-  let title = textOf(it.title).trim();
-  let artist = textOf(it.artist).trim();
-  if (artist === '') {
-    artist = textOf(it.creator).trim();
-  }
-  const album = textOf(it.album).trim();
-  const albumArt = textOf(it.albumArtURI).trim();
+  const base = itemMetadata(it);
+  let { title, artist } = base;
 
   const sc = textOf(it.streamContent).trim();
   if (sc !== '') {
@@ -473,7 +495,45 @@ export function parseTrackMetadata(meta: string): TrackMetadata {
     }
   }
 
-  return { title, artist, album, albumArt };
+  return { title, artist, album: base.album, albumArt: base.albumArt };
+}
+
+/**
+ * Extracts title/artist/album/albumArt from ONE parsed DIDL <item> node. artist
+ * falls back to dc:creator (Spotify puts the artist there). parseTagValue:false
+ * keeps text nodes as strings, so a numeric title like "2112" arrives as the
+ * string "2112" and .trim() is always safe. Shared by now-playing + the queue.
+ */
+function itemMetadata(it: Record<string, unknown>): TrackMetadata {
+  let artist = textOf(it.artist).trim();
+  if (artist === '') {
+    artist = textOf(it.creator).trim();
+  }
+  return {
+    title: textOf(it.title).trim(),
+    artist,
+    album: textOf(it.album).trim(),
+    albumArt: textOf(it.albumArtURI).trim(),
+  };
+}
+
+/**
+ * Parses ALL <item>s out of a DIDL-Lite document (e.g. a ContentDirectory
+ * Browse result for the queue). Returns one TrackMetadata per item, in order.
+ * Empty / unparseable input returns [] WITHOUT throwing (mirrors parseTrackMetadata).
+ */
+export function parseQueueItems(meta: string): TrackMetadata[] {
+  const trimmed = meta.trim();
+  if (trimmed === '') return [];
+  let parsed: unknown;
+  try {
+    parsed = makeParser().parse(trimmed);
+  } catch {
+    return [];
+  }
+  const didl = (parsed as Record<string, unknown> | null | undefined)?.['DIDL-Lite'];
+  const items = asArray((didl as Record<string, unknown> | undefined)?.item);
+  return items.map((it) => itemMetadata(it as Record<string, unknown>));
 }
 
 /**
@@ -582,6 +642,34 @@ export async function getNowPlaying(
   const albumArtUrl = resolveAlbumArt(coordinatorBase, albumArt);
 
   return { state, title, artist, album, position, duration, albumArtUrl };
+}
+
+/** One track in the coordinator's play queue, with art resolved to absolute. */
+export interface QueueTrack {
+  title: string;
+  artist: string;
+  album: string;
+  albumArtUrl: string;
+}
+
+/**
+ * getQueue browses the coordinator's current queue (Q:0) and returns its tracks
+ * in order, album art resolved against the coordinator. An empty queue (some
+ * streaming sources play without one) returns [] — not an error.
+ */
+export async function getQueue(
+  transport: HttpTransport,
+  coordinatorBase: string,
+): Promise<QueueTrack[]> {
+  const req = browseQueueRequest();
+  const resp = await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+  const didl = extractResponseArg(resp, 'Result');
+  return parseQueueItems(didl).map((it) => ({
+    title: it.title,
+    artist: it.artist,
+    album: it.album,
+    albumArtUrl: resolveAlbumArt(coordinatorBase, it.albumArt),
+  }));
 }
 
 /** getVolume returns the master-channel volume (0–100) for a player. */

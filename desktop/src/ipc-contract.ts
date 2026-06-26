@@ -11,6 +11,7 @@ export const API_METHODS = [
   'loadTopology',
   'refreshTopology',
   'getNowPlaying',
+  'getQueue',
   'play',
   'pause',
   'next',

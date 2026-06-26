@@ -7,7 +7,7 @@
 // from MOCK_LIBRARY with locally-advancing progress. Grouping moves rooms
 // between groups in memory. node-free, react-free.
 
-import type { Api, ApiGroup, ApiNowPlaying, ApiRoom, ApiTopology } from '../api';
+import type { Api, ApiGroup, ApiNowPlaying, ApiQueueItem, ApiRoom, ApiTopology } from '../api';
 import type { RepeatMode } from '../engine';
 import { MOCK_LIBRARY, MOCK_ROOMS, type MockTrack } from './mockLibrary';
 
@@ -110,6 +110,18 @@ export class MockApi implements Api {
       repeat: g.repeat,
       artUrl: '', // the mock has no real album art; the drawn cover shows
     };
+  }
+
+  async getQueue(groupId: string): Promise<ApiQueueItem[]> {
+    const g = this.groupOrThrow(groupId);
+    // A plausible upcoming queue: the current track plus the next few from the
+    // library, wrapping around (mock has no real art → drawn covers show).
+    const out: ApiQueueItem[] = [];
+    for (let i = 0; i < 8; i++) {
+      const tr = MOCK_LIBRARY[(g.trackIndex + i) % MOCK_LIBRARY.length];
+      out.push({ title: tr.title, artist: tr.artist, album: tr.album, artUrl: '' });
+    }
+    return out;
   }
 
   async play(groupId: string): Promise<void> {

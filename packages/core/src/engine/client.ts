@@ -31,7 +31,9 @@ import {
 import {
   type NowPlaying,
   type PlaySettings,
+  type QueueTrack,
   getNowPlaying as controlGetNowPlaying,
+  getQueue as controlGetQueue,
   getVolume as controlGetVolume,
   getMute as controlGetMute,
   next as controlNext,
@@ -189,6 +191,11 @@ export class SonosClient {
   /** Reports the coordinator's transport state + current track + position. */
   getNowPlaying(room: ResolvedRoom): Promise<NowPlaying> {
     return controlGetNowPlaying(this.http, this.coordinatorBase(room));
+  }
+
+  /** Reads the coordinator's current play queue (in order). */
+  getQueue(room: ResolvedRoom): Promise<QueueTrack[]> {
+    return controlGetQueue(this.http, this.coordinatorBase(room));
   }
 
   /** Seeks to an absolute position (seconds) in the current track (coordinator). */

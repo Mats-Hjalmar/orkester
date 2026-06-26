@@ -29,6 +29,15 @@ export interface Room {
   name: string;
 }
 
+/** One track in a group's play queue, as the UI consumes it. */
+export interface QueueItem {
+  title: string;
+  artist: string;
+  album: string;
+  /** Real album-art URL; when absent a drawn cover shows. */
+  artUrl?: string;
+}
+
 /**
  * A playback group as the UI consumes it. `progress` is SECONDS into the current
  * track (locally interpolated between polls). `trackId` points at a Track the

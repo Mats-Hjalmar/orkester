@@ -56,6 +56,15 @@ export interface ApiNowPlaying {
   artUrl: string;
 }
 
+/** One track in a group's play queue. */
+export interface ApiQueueItem {
+  title: string;
+  artist: string;
+  album: string;
+  /** Absolute album-art URL, "" if none. */
+  artUrl: string;
+}
+
 /**
  * The high-level control API the engine-backed store drives. Every method is
  * async and surfaces faults by REJECTING (no silent swallow): the store applies
@@ -73,6 +82,8 @@ export interface Api {
 
   // --- per active group (routed to its coordinator) ---
   getNowPlaying(groupId: string): Promise<ApiNowPlaying>;
+  /** Reads the group coordinator's current play queue, in order. */
+  getQueue(groupId: string): Promise<ApiQueueItem[]>;
   play(groupId: string): Promise<void>;
   pause(groupId: string): Promise<void>;
   next(groupId: string): Promise<void>;

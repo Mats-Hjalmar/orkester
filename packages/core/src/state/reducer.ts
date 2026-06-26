@@ -9,7 +9,7 @@
 // No silent fallbacks: a missing track id throws (it is a real wiring bug), and
 // the provider surfaces Api rejections by reverting + recording topologyError.
 
-import type { Config, Group, MView, Room, Track, TopologyStatus } from './types';
+import type { Config, Group, MView, QueueItem, Room, Track, TopologyStatus } from './types';
 import type { ApiNowPlaying, ApiTopology } from '../api';
 import { synthesizeArt } from './art';
 
@@ -25,6 +25,8 @@ export interface State {
   groups: Group[];
   /** trackId -> Track (synthesized from now-playing). */
   tracks: Record<string, Track>;
+  /** groupId -> its coordinator's play queue (fetched on focus/refresh). */
+  queues: Record<string, QueueItem[]>;
   /** Per group, the coordinator UUID a join targets. */
   coordinatorUuid: Record<string, string>;
   activeGroupId: string;
@@ -57,6 +59,7 @@ export function initialState(): State {
     rooms: [],
     groups: [],
     tracks: { [PLACEHOLDER_TRACK_ID]: placeholderTrack() },
+    queues: {},
     coordinatorUuid: {},
     activeGroupId: '',
     topologyStatus: 'idle',
@@ -129,6 +132,8 @@ export type Action =
       rooms: { roomId: string; volume: number; muted: boolean }[];
     }
   | { type: 'tick' } // 1s local progress interpolation
+  // queue reconcile (fetched on focus/refresh)
+  | { type: 'groupQueue'; groupId: string; items: QueueItem[] }
   // volume/mute reconcile (from poll)
   | { type: 'roomVolume'; roomId: string; volume: number }
   | { type: 'roomMute'; roomId: string; muted: boolean }
@@ -233,6 +238,9 @@ export function reducer(s: State, a: Action): State {
       }
       return { ...s, groups, roomVol, roomMute, tracks: { ...s.tracks, [id]: track } };
     }
+
+    case 'groupQueue':
+      return { ...s, queues: { ...s.queues, [a.groupId]: a.items } };
 
     case 'tick': {
       let changed = false;

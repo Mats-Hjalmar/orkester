@@ -9,7 +9,7 @@
 // No silent fallbacks: an unknown room/group id THROWS (a stale id is a real
 // bug); a discovery/topology failure propagates out of load/refresh.
 
-import type { Api, ApiGroup, ApiNowPlaying, ApiRoom, ApiTopology } from '../api';
+import type { Api, ApiGroup, ApiNowPlaying, ApiQueueItem, ApiRoom, ApiTopology } from '../api';
 import type { RepeatMode } from '../engine';
 import {
   type Household,
@@ -119,6 +119,17 @@ export class SonosApi implements Api {
       repeat: settings.repeat,
       artUrl: np.albumArtUrl,
     };
+  }
+
+  async getQueue(groupId: string): Promise<ApiQueueItem[]> {
+    const room = this.groupFor(groupId);
+    const queue = await this.client.getQueue(room);
+    return queue.map((q) => ({
+      title: q.title,
+      artist: q.artist,
+      album: q.album,
+      artUrl: q.albumArtUrl,
+    }));
   }
 
   play(groupId: string): Promise<void> {

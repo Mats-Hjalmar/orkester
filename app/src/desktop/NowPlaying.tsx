@@ -10,8 +10,9 @@ import { font } from '../theme/fonts';
 import { fmt, useStore } from '../state/store';
 import { accentTextOf, chipsFor, groupCount } from '../state/selectors';
 import { progressOf } from '../components/trackProgress';
-import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
-import type { Group } from '../state/types';
+import { PLACEHOLDER_TRACK_ID, synthesizeArt } from '@orkester/core/state';
+import type { Group, QueueItem } from '../state/types';
+import type { Motif } from '../state/types';
 
 function CircleButton({ children, onPress }: { children: React.ReactNode; onPress?: () => void }) {
   return (
@@ -44,6 +45,23 @@ function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+// One row in the queue list: real album art (or a synthesized cover) + title +
+// artist. The currently-playing entry is marked with an accent dot + bolder title.
+function QueueRow({ item, motif, accent, current }: { item: QueueItem; motif: Motif; accent: string; current: boolean }) {
+  const art = synthesizeArt(item.title || item.album, item.artist);
+  const title = item.title || item.album || '';
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 }}>
+      <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ fontFamily: current ? font.bodySemiBold : font.bodyMedium, fontSize: 14, color: colors.fg }}>{title}</Text>
+        {!!item.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgMuted, marginTop: 1 }}>{item.artist}</Text>}
+      </View>
+      {current && <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: accent }} />}
+    </View>
+  );
+}
+
 // The FOCUSED Now Playing for ONE group. It takes the group (and, on narrow
 // layouts, an optional onBack) rather than reading any global active-group
 // singleton — every control here is routed through groupControls(group.id), so
@@ -51,7 +69,7 @@ function BackButton({ onPress }: { onPress: () => void }) {
 // present, so onBack is omitted and no back button renders.
 export default function DesktopNowPlaying({ group, onBack }: { group?: Group; onBack?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, config, groupControls } = store;
+  const { state, getTrack, roomName, config, groupControls, queueFor } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const status = state.topologyStatus;
@@ -100,6 +118,7 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
   const ctrl = groupControls(g.id);
   const prog = progressOf(g, tr);
   const vol = (g.muted ? 0 : store.groupVol(g)) / 100;
+  const queue = queueFor(g.id);
 
   return (
     <View style={{ flex: 1 }}>
@@ -186,16 +205,24 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
             {chips.map((c) => <SpeakerChip key={c.id} chip={c} showIcon />)}
           </View>
 
-          {!idle && (
+          {/* The coordinator's queue, below now playing. Hidden when empty (some
+              streaming sources play without a queue) — no placeholder chrome. */}
+          {queue.length > 0 && (
             <>
-              {/* The queue is empty with the real engine (browsing is deferred). */}
-              <Text style={[type.eyebrow, { marginTop: 30, marginBottom: 8 }]}>Up next</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: radii.lg, borderWidth: 1, borderColor: ink(0.08), backgroundColor: colors.bgPaper, opacity: 0.7 }}>
-                <Queue size={20} color={colors.fgSubtle} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: colors.fg }}>Queue & browsing coming soon</Text>
-                  <Text style={{ fontFamily: font.body, fontSize: 12, color: colors.fgMuted, marginTop: 2 }}>Up-next and library browsing land in a later pass.</Text>
-                </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 30, marginBottom: 8 }}>
+                <Queue size={16} color={colors.fgSubtle} />
+                <Text style={type.eyebrow}>Queue · {queue.length}</Text>
+              </View>
+              <View>
+                {queue.map((q, i) => (
+                  <QueueRow
+                    key={`${i}:${q.title}:${q.artist}`}
+                    item={q}
+                    motif={config.coverMotif}
+                    accent={accent}
+                    current={!idle && q.title === tr.title && q.artist === tr.artist}
+                  />
+                ))}
               </View>
             </>
           )}
