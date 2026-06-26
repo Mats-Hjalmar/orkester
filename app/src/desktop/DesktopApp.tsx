@@ -1,43 +1,47 @@
 import React from 'react';
 import { View } from 'react-native';
 import TopBar from './TopBar';
-import DesktopRooms from './Rooms';
+import RoomList from './RoomList';
 import DesktopNowPlaying from './NowPlaying';
 import { colors } from '../theme/tokens';
 import { useStore } from '../state/store';
 
-// Rooms-first controller. The HOME surface is the rooms grid — every group is a
-// card controlled in place. Opening a card focuses that group's full Now Playing.
+// Rooms-first controller, master–DETAIL. The left rail is a STABLE list of the
+// household (groups then idle rooms); selecting a row sticks and the right pane
+// shows that group's full Now Playing. The list never jumps under the cursor
+// (RoomList sorts by name), so a poll update can't move what you just clicked.
 //
-// Routing is LOCAL desktop state (a focused groupId), deliberately decoupled from
-// the shared `mView`/`activeGroupId` the mobile UI uses — there is no global
-// active-group singleton here. `focusGroup` tells the store to poll the open
-// group at the fast cadence.
+// Selection is LOCAL desktop state (a selected groupId), decoupled from the
+// shared mView/activeGroupId the mobile UI uses. `focusGroup(gid)` tells the
+// store to ATOMICALLY load that group and then poll it at the fast cadence.
 export default function DesktopApp() {
   const { state, focusGroup } = useStore();
-  const [focusedId, setFocusedId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
-  // The focused group, resolved fresh from topology each render. If it vanished
-  // (ungrouped, speaker dropped), fall back to the rooms grid rather than a
-  // stale/empty screen.
-  const focusedGroup = focusedId ? state.groups.find((g) => g.id === focusedId) : undefined;
-  const showFocus = focusedId !== null;
+  // Resolve the selection fresh from topology each render. Default to the first
+  // group, and re-default if the selected group vanished (ungrouped / dropped).
+  const selected = selectedId ? state.groups.find((g) => g.id === selectedId) : undefined;
+  const effectiveId = selected ? selectedId : state.groups[0]?.id ?? null;
 
-  const openGroup = (gid: string) => {
-    setFocusedId(gid);
-    focusGroup(gid);
-  };
-  const back = () => setFocusedId(null);
+  // Focus whichever group is effectively selected so it loads atomically + polls
+  // fast — including the auto-default when groups first arrive or selection drops.
+  React.useEffect(() => {
+    if (effectiveId) focusGroup(effectiveId);
+    // focusGroup is stable for the provider's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveId]);
+
+  const onSelect = (gid: string) => setSelectedId(gid);
+  const selectedGroup = effectiveId ? state.groups.find((g) => g.id === effectiveId) : undefined;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <TopBar />
-      <View style={{ flex: 1, minHeight: 0 }}>
-        {showFocus ? (
-          <DesktopNowPlaying group={focusedGroup} onBack={back} />
-        ) : (
-          <DesktopRooms onOpenGroup={openGroup} />
-        )}
+      <View style={{ flex: 1, minHeight: 0, flexDirection: 'row' }}>
+        <RoomList selectedId={effectiveId} onSelect={onSelect} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <DesktopNowPlaying group={selectedGroup} />
+        </View>
       </View>
     </View>
   );

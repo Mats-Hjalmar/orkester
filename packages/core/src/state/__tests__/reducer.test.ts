@@ -123,6 +123,46 @@ describe('reducer now-playing', () => {
   });
 });
 
+describe('reducer atomic groupSnapshot', () => {
+  it('applies now-playing AND every member volume/mute in one pass', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, {
+      type: 'groupSnapshot',
+      groupId: 'g1',
+      np: NP,
+      rooms: [
+        { roomId: 'living', volume: 40, muted: false },
+        { roomId: 'kitchen', volume: 55, muted: false },
+      ],
+    });
+    const g = s.groups[0];
+    // transport from np
+    expect(g.isPlaying).toBe(true);
+    expect(g.progress).toBe(83);
+    expect(s.tracks[g.trackId].title).toBe('Black Dog');
+    // per-room volume + mute from the same snapshot
+    expect(s.roomVol.living).toBe(40);
+    expect(s.roomVol.kitchen).toBe(55);
+    expect(s.roomMute.living).toBe(false);
+    // group.muted is reconciled here (polls never set it): not all muted -> false
+    expect(g.muted).toBe(false);
+  });
+
+  it('group.muted is true only when EVERY member is muted', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, {
+      type: 'groupSnapshot',
+      groupId: 'g1',
+      np: NP,
+      rooms: [
+        { roomId: 'living', volume: 40, muted: true },
+        { roomId: 'kitchen', volume: 55, muted: true },
+      ],
+    });
+    expect(s.groups[0].muted).toBe(true);
+  });
+});
+
 describe('reducer tick interpolation', () => {
   it('advances a playing finite track but holds at the end', () => {
     let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });

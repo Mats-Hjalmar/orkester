@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import TrackBar from '../components/TrackBar';
 import SpeakerChip from '../components/SpeakerChip';
-import { ChevronRight, Dots, Heart, Next, Pause, Play, Plus, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
+import { ChevronRight, Dots, Next, Pause, Play, Plus, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -44,12 +44,14 @@ function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-// The FOCUSED Now Playing for ONE group. It takes the group + an onBack callback
-// rather than reading any global active-group singleton — every control here is
-// routed through groupControls(group.id), so it drives exactly this group.
-export default function DesktopNowPlaying({ group, onBack }: { group?: Group; onBack: () => void }) {
+// The FOCUSED Now Playing for ONE group. It takes the group (and, on narrow
+// layouts, an optional onBack) rather than reading any global active-group
+// singleton — every control here is routed through groupControls(group.id), so
+// it drives exactly this group. In the desktop master–detail the list is always
+// present, so onBack is omitted and no back button renders.
+export default function DesktopNowPlaying({ group, onBack }: { group?: Group; onBack?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, isLiked, config, toggleLike, groupControls } = store;
+  const { state, getTrack, roomName, config, groupControls } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const status = state.topologyStatus;
@@ -60,7 +62,7 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
     const heading = status === 'loading' || status === 'idle' ? 'Finding your speakers' : 'No Sonos speakers found';
     return (
       <View style={{ flex: 1 }}>
-        <BackButton onPress={onBack} />
+        {onBack && <BackButton onPress={onBack} />}
         <Centered>
           <View style={{ width: 64, height: 64, borderRadius: radii.pill, backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), alignItems: 'center', justifyContent: 'center' }}>
             <Speaker size={30} color={colors.fgMuted} />
@@ -92,7 +94,6 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
 
   const g = group;
   const tr = getTrack(g.trackId);
-  const liked = isLiked(tr.id);
   const chips = chipsFor(store, g);
   const idle = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const here = g.roomIds.length ? `${roomName(g.roomIds[0])} ${groupCount(g)}`.trim() : 'this group';
@@ -102,8 +103,8 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
 
   return (
     <View style={{ flex: 1 }}>
-      <BackButton onPress={onBack} />
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', gap: 44, padding: 44, paddingTop: 24 }} showsVerticalScrollIndicator={false}>
+      {onBack && <BackButton onPress={onBack} />}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', gap: 44, padding: 44, paddingTop: 44 }} showsVerticalScrollIndicator={false}>
         {/* cover */}
         <View style={{ width: 374 }}>
           <CoverArt size={374} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg}>
@@ -150,15 +151,10 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
               {!!tr.album && (
                 <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 18 }}>{tr.album}</Text>
               )}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22 }}>
-                <CircleButton onPress={() => toggleLike(tr.id)}>
-                  <Heart size={19} color={liked ? colors.danger : colors.fg} fill={liked ? colors.danger : 'none'} />
-                </CircleButton>
-                {/* Add-to-queue / more actions are deferred — visible but inert. */}
-                <View style={{ flexDirection: 'row', gap: 10, opacity: 0.4 }}>
-                  <CircleButton><Plus size={19} color={colors.fg} /></CircleButton>
-                  <CircleButton><Dots size={19} color={colors.fg} /></CircleButton>
-                </View>
+              {/* Add-to-queue / more actions are deferred — visible but inert. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22, opacity: 0.4 }}>
+                <CircleButton><Plus size={19} color={colors.fg} /></CircleButton>
+                <CircleButton><Dots size={19} color={colors.fg} /></CircleButton>
               </View>
             </>
           )}

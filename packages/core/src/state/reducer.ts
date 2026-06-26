@@ -118,6 +118,14 @@ export type Action =
   | { type: 'topologyReady'; topology: ApiTopology }
   // now-playing reconcile (from poll)
   | { type: 'nowPlaying'; groupId: string; np: ApiNowPlaying }
+  // ATOMIC per-group reconcile: now-playing + every member's volume/mute, applied
+  // in one update. The provider only dispatches this when the WHOLE fetch landed.
+  | {
+      type: 'groupSnapshot';
+      groupId: string;
+      np: ApiNowPlaying;
+      rooms: { roomId: string; volume: number; muted: boolean }[];
+    }
   | { type: 'tick' } // 1s local progress interpolation
   // volume/mute reconcile (from poll)
   | { type: 'roomVolume'; roomId: string; volume: number }
@@ -197,6 +205,31 @@ export function reducer(s: State, a: Action): State {
         repeat: a.np.repeat !== 'none',
       });
       return { ...s, groups, tracks: { ...s.tracks, [id]: track } };
+    }
+
+    case 'groupSnapshot': {
+      // All-or-nothing: now-playing + every member's volume/mute applied in ONE
+      // pass, so the detail pane never paints a half-loaded room. group.muted is
+      // reconciled here (the per-room mute poll never touched it) = all members
+      // muted.
+      const id = trackIdFor(a.groupId, a.np);
+      const track = trackFromNowPlaying(id, a.np);
+      const allMuted = a.rooms.length > 0 && a.rooms.every((r) => r.muted);
+      const groups = patchGroup(s, a.groupId, {
+        trackId: id,
+        isPlaying: a.np.isPlaying,
+        progress: a.np.positionSeconds,
+        shuffle: a.np.shuffle,
+        repeat: a.np.repeat !== 'none',
+        muted: allMuted,
+      });
+      const roomVol = { ...s.roomVol };
+      const roomMute = { ...s.roomMute };
+      for (const r of a.rooms) {
+        roomVol[r.roomId] = r.volume;
+        roomMute[r.roomId] = r.muted;
+      }
+      return { ...s, groups, roomVol, roomMute, tracks: { ...s.tracks, [id]: track } };
     }
 
     case 'tick': {

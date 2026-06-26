@@ -17,6 +17,7 @@ import React, {
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from 'react';
 import type { Config, Group, MView, Track } from './types';
 import {
@@ -76,6 +77,13 @@ export interface Store {
   groupControls: (gid: string) => GroupControls;
   /** Marks a group as "focused" so its now-playing polls at the fast cadence. */
   focusGroup: (gid: string) => void;
+  /**
+   * Manual "reconnect + reload" the user can trigger when the (flaky) Sonos
+   * connection drifts: re-runs topology discovery, then atomically re-fetches the
+   * focused group. `refreshing` is true while it runs (drives the button spinner).
+   */
+  refresh: () => void;
+  refreshing: boolean;
   // legacy active-group actions (stable names/signatures; back-compat for mobile)
   togglePlay: () => void;
   next: () => void;
@@ -122,6 +130,10 @@ export function StoreProvider({
 }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
 
+  // True while a manual refresh (re-discover + atomic re-fetch) is in flight, so
+  // the refresh button can show a spinner. Transient UI only — not in the reducer.
+  const [refreshing, setRefreshing] = useState(false);
+
   // Refs so the long-lived poll/effect closures always see the latest state +
   // dispatch without re-subscribing every render.
   const stateRef = useRef(state);
@@ -137,6 +149,10 @@ export function StoreProvider({
   // Single-flight per group: a groupId is in this set while its now-playing
   // request is outstanding, so overlapping ticks never double-fire one group.
   const inFlightNp = useRef(new Set<string>());
+  // Separate single-flight for the ATOMIC group refresh (now-playing + all member
+  // volumes/mutes in one shot). Kept distinct from inFlightNp so a cheap 1s np
+  // poll never blocks the user's manual/focus atomic refresh, or vice-versa.
+  const inFlightRefresh = useRef(new Set<string>());
   // Round-robin cursor over non-focused groups for background now-playing polls.
   const rrCursor = useRef(0);
 
@@ -181,6 +197,41 @@ export function StoreProvider({
       // tear down the whole topology for it.
     } finally {
       inFlightNp.current.delete(groupId);
+    }
+  });
+
+  // ATOMICALLY refresh ONE group: fetch its now-playing AND every member's
+  // volume/mute together, then apply the WHOLE thing in a single `groupSnapshot`
+  // dispatch — or, if ANY of those fetches reject, apply NOTHING (the last good
+  // snapshot stays). "Either it all loads and is accurate, or not at all." Used on
+  // focus (opening a room) and by the manual refresh. Single-flight per group.
+  const refreshGroup = useRef(async (gid: string) => {
+    if (gid === '') return;
+    if (inFlightRefresh.current.has(gid)) return;
+    const g = stateRef.current.groups.find((x) => x.id === gid);
+    if (!g) return;
+    inFlightRefresh.current.add(gid);
+    try {
+      const [np, rooms] = await Promise.all([
+        api.getNowPlaying(gid),
+        Promise.all(
+          g.roomIds.map(async (roomId) => {
+            const [volume, muted] = await Promise.all([
+              api.getVolume(roomId),
+              api.getMute(roomId),
+            ]);
+            return { roomId, volume, muted };
+          }),
+        ),
+      ]);
+      // We only reach here if EVERY fetch above resolved — so the snapshot is
+      // internally consistent. A partial result is never dispatched.
+      dispatchRef.current({ type: 'groupSnapshot', groupId: gid, np, rooms });
+    } catch {
+      // All-or-nothing: keep the last good snapshot. Bounded by the next poll or
+      // a manual refresh — never paints a half-loaded room.
+    } finally {
+      inFlightRefresh.current.delete(gid);
     }
   });
 
@@ -442,7 +493,25 @@ export function StoreProvider({
       isLiked: (id: string) => !!state.liked[id],
 
       groupControls,
-      focusGroup: (gid: string) => { focusedGroupId.current = gid; void pollNowPlaying.current(gid); },
+      // Opening a room ATOMICALLY loads it (now-playing + volumes + mutes in one
+      // snapshot) so it never shows half-loaded, then the 1s poll keeps it fresh.
+      focusGroup: (gid: string) => { focusedGroupId.current = gid; void refreshGroup.current(gid); },
+
+      refresh: () => {
+        void (async () => {
+          setRefreshing(true);
+          try {
+            // Re-discover (the connection is flaky) then atomically re-fetch the
+            // group the user is looking at.
+            await loadTopology.current('refresh');
+            const target = focusedGroupId.current || stateRef.current.groups[0]?.id || '';
+            if (target) await refreshGroup.current(target);
+          } finally {
+            setRefreshing(false);
+          }
+        })();
+      },
+      refreshing,
 
       // Legacy active-group actions — delegate to the same factory, acting on the
       // active group resolved at call time (back-compat for the mobile UI).
@@ -507,7 +576,7 @@ export function StoreProvider({
 
       setView: (view: MView) => dispatchRef.current({ type: 'setView', view }),
     };
-  }, [state, config, api]);
+  }, [state, config, api, refreshing]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

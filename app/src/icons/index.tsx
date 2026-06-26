@@ -181,3 +181,14 @@ export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
     </Svg>
   );
 }
+
+// Circular refresh — two arrows chasing round, with arrowheads. Used by the
+// manual "reconnect" button (the Sonos connection can drift).
+export function Refresh({ size = 18, color = '#1A1814' }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Path d="M21 12a9 9 0 11-2.64-6.36" />
+      <Path d="M21 3v5h-5" />
+    </Svg>
+  );
+}

@@ -22,3 +22,6 @@ out/
 
 # Expo export output
 app/dist/
+
+# create-feature workflow run records (local only)
+.pipeline-runs/
