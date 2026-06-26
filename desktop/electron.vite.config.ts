@@ -35,6 +35,13 @@ export default defineConfig({
       alias: {
         // Reuse the app's desktop UI verbatim.
         '@app': appSrc,
+        // The app's theme/fonts.ts imports @expo-google-fonts/* whose entry does
+        // `require("*.ttf")` (Metro-only) — that blanks the browser renderer with
+        // "require is not defined". The desktop only needs the family-name strings,
+        // so resolve all three font packages to a stub.
+        '@expo-google-fonts/instrument-serif': resolve(__dirname, 'src/renderer/expo-fonts-stub.ts'),
+        '@expo-google-fonts/manrope': resolve(__dirname, 'src/renderer/expo-fonts-stub.ts'),
+        '@expo-google-fonts/fragment-mono': resolve(__dirname, 'src/renderer/expo-fonts-stub.ts'),
       },
       // RN packages ship "react-native" condition exports; prefer browser/web.
       extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'],
