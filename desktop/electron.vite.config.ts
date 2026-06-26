@@ -39,6 +39,21 @@ export default defineConfig({
       // RN packages ship "react-native" condition exports; prefer browser/web.
       extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'],
     },
+    // In dev, Vite prebundles deps with esbuild, whose scanner ignores the
+    // `.web.js` priority above and would crawl react-native-svg's Fabric files
+    // (which import RN internals the RNW alias can't map). Make the esbuild
+    // optimizer prefer `.web.*`, and don't prebundle the RN packages — let
+    // Vite's own resolver (with the plugin + `.web` extensions) handle them,
+    // the same path the production rollup build already takes successfully.
+    optimizeDeps: {
+      // Only react-native-svg needs excluding (its Fabric files break the
+      // esbuild prebundle scan). react-native-web is the renderer substrate and
+      // must NOT be external; @orkester/core is a workspace dep (not prebundled).
+      exclude: ['react-native-svg'],
+      esbuildOptions: {
+        resolveExtensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'],
+      },
+    },
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/renderer/index.html') },

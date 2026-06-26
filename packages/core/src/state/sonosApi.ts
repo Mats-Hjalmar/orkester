@@ -16,12 +16,15 @@ import {
   type Member,
   type Group as SonosGroupT,
   type ResolvedRoom,
-  type SonosClient,
   coordinatorMember,
   groupName as engineGroupName,
   parseRelTime,
   rooms as engineRooms,
 } from '../engine';
+// Import the SonosClient type directly from its module (not the barrel): it is
+// used only as a type here, and reexporting the class through ../engine creates
+// a circular-chunk warning in the tsup/rollup build.
+import type { SonosClient } from '../engine/client';
 
 /** How long to listen for SSDP on the initial discovery, in ms. */
 const DISCOVER_WAIT_MS = 3000;
