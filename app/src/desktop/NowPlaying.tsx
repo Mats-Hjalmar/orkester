@@ -125,7 +125,7 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
-            <Text style={type.eyebrow}>{idle ? `Connected · ${here}` : `Playing in ${here}`}</Text>
+            <Text style={type.eyebrow}>{here}</Text>
           </View>
 
           {idle ? (
@@ -139,13 +139,17 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
             </>
           ) : (
             <>
-              <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: colors.fg, marginTop: 14 }}>{tr.title}</Text>
-              <Text style={{ fontFamily: font.body, fontSize: 19, color: colors.fgMuted, marginTop: 10 }}>{tr.artist}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18 }}>
-                <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg }}>{tr.album}</Text>
-                <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: colors.fgFaint }} />
-                <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.fgMuted }}>{tr.cat}</Text>
-              </View>
+              {tr.title ? (
+                <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: colors.fg, marginTop: 14 }}>{tr.title}</Text>
+              ) : (
+                // Playing, but the speaker reported no track metadata — honest,
+                // not a fabricated song title.
+                <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 40, lineHeight: 46, letterSpacing: -0.6, color: colors.fgMuted, marginTop: 14 }}>Track details unavailable</Text>
+              )}
+              {!!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 19, color: colors.fgMuted, marginTop: 10 }}>{tr.artist}</Text>}
+              {!!tr.album && (
+                <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 18 }}>{tr.album}</Text>
+              )}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22 }}>
                 <CircleButton onPress={() => toggleLike(tr.id)}>
                   <Heart size={19} color={liked ? colors.danger : colors.fg} fill={liked ? colors.danger : 'none'} />
@@ -170,28 +174,18 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
               <Pressable onPress={ctrl.next} hitSlop={8}><Next size={24} fill={colors.fg} /></Pressable>
               <Pressable onPress={() => ctrl.setRepeat(!g.repeat)} hitSlop={8}><Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} /></Pressable>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 34, textAlign: 'right' }}>
-                {prog.isNothing ? '0:00' : fmt(prog.elapsed)}
-              </Text>
-              <TrackBar
-                value={prog.fraction}
-                onScrub={prog.isLive || prog.isNothing ? () => {} : ctrl.seek}
-                trackColor={ink(0.12)}
-                fillColor={colors.fg}
-                height={4}
-                thumb={!prog.isLive && !prog.isNothing}
-                disabled={prog.isLive || prog.isNothing}
-                style={{ flex: 1 }}
-              />
-              {prog.isLive ? (
-                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fg, width: 38, letterSpacing: 0.8 }}>LIVE</Text>
-              ) : (
+            {/* Timeline + scrub — ONLY for a real finite track. For live/unknown
+                metadata there's no accurate position, so we show no scrubber
+                rather than an interpolated, inaccurate one. */}
+            {prog.finite && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 34, textAlign: 'right' }}>{fmt(prog.elapsed)}</Text>
+                <TrackBar value={prog.fraction} onScrub={ctrl.seek} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb style={{ flex: 1 }} />
                 <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 38 }}>
-                  {prog.remaining === null ? '--:--' : `-${fmt(prog.remaining)}`}
+                  {prog.remaining === null ? '' : `-${fmt(prog.remaining)}`}
                 </Text>
-              )}
-            </View>
+              </View>
+            )}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
                 {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}

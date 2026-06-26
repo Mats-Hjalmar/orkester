@@ -74,9 +74,14 @@ function isIdle(np: ApiNowPlaying): boolean {
   return !np.isPlaying && np.title === '' && np.artist === '';
 }
 
-/** A best-effort display title when the speaker reports sparse metadata. */
+/**
+ * Display title from the speaker's metadata, or '' when it reports none. We do
+ * NOT fabricate a 'Playing' label — the UI decides how to present a playing-but-
+ * untitled group (it shows the room + a muted "track details unavailable" rather
+ * than a fake song). isIdle (transport state) — not this — decides playing vs not.
+ */
 function labelFor(np: ApiNowPlaying): string {
-  return np.title || np.album || 'Playing';
+  return np.title || np.album || '';
 }
 
 /** A synthesized, stable track id for a group's current now-playing. */

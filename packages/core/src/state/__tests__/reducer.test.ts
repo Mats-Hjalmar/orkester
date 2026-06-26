@@ -75,7 +75,7 @@ describe('reducer now-playing', () => {
     expect(s.tracks[s.groups[0].trackId].dur).toBe(0);
   });
 
-  it('PLAYING with empty metadata is NOT idle: keeps a real id labelled "Playing"', () => {
+  it('PLAYING with empty metadata is NOT idle: keeps a real id, empty title (UI labels it)', () => {
     let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
     s = reducer(s, {
       type: 'nowPlaying',
@@ -85,7 +85,8 @@ describe('reducer now-playing', () => {
     const g = s.groups[0];
     expect(g.isPlaying).toBe(true);
     expect(g.trackId).not.toBe(PLACEHOLDER_TRACK_ID);
-    expect(s.tracks[g.trackId].title).toBe('Playing');
+    // No fabricated 'Playing' label — title stays empty; the UI presents it.
+    expect(s.tracks[g.trackId].title).toBe('');
   });
 
   it('PLAYING with only an album falls back to the album as the label', () => {

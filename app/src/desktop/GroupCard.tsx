@@ -43,12 +43,16 @@ export default function GroupCard({ group, onOpen }: { group: Group; onOpen: () 
             {group.isPlaying && <View style={{ width: 6, height: 6, borderRadius: radii.pill, backgroundColor: accent }} />}
           </View>
           {idle ? (
-            <Text numberOfLines={1} style={[type.small, { marginTop: 3, color: colors.fgSubtle }]}>Nothing playing · {here}</Text>
-          ) : (
+            <Text numberOfLines={1} style={[type.small, { marginTop: 3, color: colors.fgSubtle }]}>Nothing playing</Text>
+          ) : tr.title ? (
             <>
               <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg, marginTop: 3 }}>{tr.title}</Text>
-              <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.fgMuted }]}>{(group.isPlaying ? '' : 'Paused · ') + (tr.artist || here)}</Text>
+              {!!tr.artist && <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.fgMuted }]}>{(group.isPlaying ? '' : 'Paused · ') + tr.artist}</Text>}
             </>
+          ) : (
+            // Playing, but the speaker reported no track metadata — be honest
+            // (don't fake a song or repeat the room name where the song goes).
+            <Text numberOfLines={1} style={[type.small, { marginTop: 3, color: colors.fgSubtle }]}>{group.isPlaying ? 'Track details unavailable' : 'Paused'}</Text>
           )}
         </View>
         <ChevronRight size={20} color={colors.fgSubtle} />
@@ -63,13 +67,15 @@ export default function GroupCard({ group, onOpen }: { group: Group; onOpen: () 
         <Pressable onPress={ctrl.next} hitSlop={8}><Next size={20} fill={colors.fg} /></Pressable>
       </View>
 
-      {/* Progress (read-only here; scrub lives in the focused view). */}
-      {!idle && (
+      {/* Timeline — ONLY for a real finite track. Sonos reports no usable
+          position for live streams / sparse-metadata sources, so rather than
+          show an inaccurate (interpolated) bar we omit it entirely. */}
+      {prog.finite && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ fontFamily: font.mono, fontSize: 10.5, color: colors.fgMuted, width: 30, textAlign: 'right' }}>{fmt(prog.elapsed)}</Text>
           <TrackBar value={prog.fraction} onScrub={() => {}} trackColor={ink(0.1)} fillColor={ink(0.4)} height={3} disabled style={{ flex: 1 }} />
           <Text style={{ fontFamily: font.mono, fontSize: 10.5, color: colors.fgMuted, width: 34 }}>
-            {prog.isLive ? 'LIVE' : prog.remaining === null ? '' : `-${fmt(prog.remaining)}`}
+            {prog.remaining === null ? '' : `-${fmt(prog.remaining)}`}
           </Text>
         </View>
       )}

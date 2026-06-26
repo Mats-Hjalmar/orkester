@@ -12,6 +12,10 @@ export interface ProgressModel {
   isLive: boolean;
   /** True when there is genuinely nothing playing (placeholder track/group). */
   isNothing: boolean;
+  /** True ONLY for a real finite track (dur>0). The timeline is rendered only
+   *  when this is true; for live/unknown/sparse data we have no accurate
+   *  position, so callers hide the scrubber rather than show a bogus one. */
+  finite: boolean;
   /** 0..1 fill for the scrubber; 0 for live/nothing (no math on dur<=0). */
   fraction: number;
   /** Elapsed label (mm:ss). Counts up even for live streams. */
@@ -27,6 +31,7 @@ export function progressOf(group: Group, track: Track): ProgressModel {
   return {
     isNothing,
     isLive,
+    finite,
     fraction: finite ? Math.max(0, Math.min(1, group.progress / track.dur)) : 0,
     elapsed: group.progress,
     remaining: finite ? Math.max(0, track.dur - group.progress) : null,
