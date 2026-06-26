@@ -58,6 +58,22 @@ function createWindow(): void {
     },
   });
 
+  // Diagnostics: renderer console + load/preload failures normally only show in
+  // the DevTools console — forward them to the terminal so headless runs surface
+  // the real cause of a blank window.
+  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    console.log(`[renderer:${level}] ${message}  (${sourceId}:${line})`);
+  });
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.log(`[renderer] did-fail-load ${code} ${desc} ${url}`);
+  });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.log(`[renderer] process-gone ${JSON.stringify(details)}`);
+  });
+  win.webContents.on('preload-error', (_e, preloadPath, err) => {
+    console.log(`[preload-error] ${preloadPath} ${err && err.stack ? err.stack : err}`);
+  });
+
   // electron-vite injects ELECTRON_RENDERER_URL in dev; load the built file otherwise.
   const devUrl = process.env.ELECTRON_RENDERER_URL;
   if (devUrl) {

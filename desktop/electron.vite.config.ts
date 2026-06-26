@@ -53,10 +53,15 @@ export default defineConfig({
     // Vite's own resolver (with the plugin + `.web` extensions) handle them,
     // the same path the production rollup build already takes successfully.
     optimizeDeps: {
-      // Only react-native-svg needs excluding (its Fabric files break the
-      // esbuild prebundle scan). react-native-web is the renderer substrate and
-      // must NOT be external; @orkester/core is a workspace dep (not prebundled).
-      exclude: ['react-native-svg'],
+      // PREBUNDLE react-native-svg (+ its buffer dep). It has many internal
+      // CJS/ESM named imports between its own files; if it is NOT prebundled,
+      // Vite serves them raw and the renderer dies with "does not provide an
+      // export named 'Buffer'/'parse'/…" (blank window). Prebundling lets esbuild
+      // do the CJS→ESM interop. The `.web.*`-first resolveExtensions below makes
+      // the prebundle pick react-native-svg's web files, so its Fabric/native
+      // components (which import RN internals the RNW alias can't map) are never
+      // pulled in.
+      include: ['react-native-svg', 'buffer'],
       esbuildOptions: {
         resolveExtensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'],
       },
