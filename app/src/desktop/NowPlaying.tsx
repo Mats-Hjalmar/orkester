@@ -139,6 +139,28 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
               </View>
             )}
           </CoverArt>
+
+          {/* The coordinator's queue, directly below the artwork. Hidden when
+              empty (some streaming sources play without a queue) — no placeholder. */}
+          {queue.length > 0 && (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
+                <Queue size={16} color={colors.fgSubtle} />
+                <Text style={type.eyebrow}>Queue · {queue.length}</Text>
+              </View>
+              <View>
+                {queue.map((q, i) => (
+                  <QueueRow
+                    key={`${i}:${q.title}:${q.artist}`}
+                    item={q}
+                    motif={config.coverMotif}
+                    accent={accent}
+                    current={!idle && q.title === tr.title && q.artist === tr.artist}
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         {/* details */}
@@ -204,28 +226,6 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
             {chips.map((c) => <SpeakerChip key={c.id} chip={c} showIcon />)}
           </View>
-
-          {/* The coordinator's queue, below now playing. Hidden when empty (some
-              streaming sources play without a queue) — no placeholder chrome. */}
-          {queue.length > 0 && (
-            <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 30, marginBottom: 8 }}>
-                <Queue size={16} color={colors.fgSubtle} />
-                <Text style={type.eyebrow}>Queue · {queue.length}</Text>
-              </View>
-              <View>
-                {queue.map((q, i) => (
-                  <QueueRow
-                    key={`${i}:${q.title}:${q.artist}`}
-                    item={q}
-                    motif={config.coverMotif}
-                    accent={accent}
-                    current={!idle && q.title === tr.title && q.artist === tr.artist}
-                  />
-                ))}
-              </View>
-            </>
-          )}
         </View>
       </ScrollView>
     </View>
