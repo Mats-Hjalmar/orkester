@@ -17,11 +17,21 @@ import type { HttpTransport } from '../sonos';
  * Frozen so no downstream module can mutate the shared options object.
  */
 export const parserOptions: Readonly<
-  Pick<X2jOptions, 'removeNSPrefix' | 'ignoreAttributes' | 'parseTagValue'>
+  Pick<X2jOptions, 'removeNSPrefix' | 'ignoreAttributes' | 'parseTagValue' | 'processEntities'>
 > = Object.freeze({
   removeNSPrefix: true,
   ignoreAttributes: false,
   parseTagValue: false,
+  // fast-xml-parser caps total entity expansions (default 1000) and expanded
+  // size (default 100KB) to thwart billion-laughs attacks. A real Sonos queue
+  // is large and legitimately escaped (every albumArtURI carries many &amp;),
+  // so it trips those caps. The source is a trusted LAN device, so raise the
+  // limits well past any real queue while keeping entity DECODING on.
+  processEntities: {
+    enabled: true,
+    maxTotalExpansions: 5_000_000,
+    maxExpandedLength: 50_000_000,
+  },
 });
 
 /** Constructs an XMLParser using the shared engine configuration. */

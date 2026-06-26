@@ -181,6 +181,22 @@ describe('parseQueueItems', () => {
     expect(parseQueueItems('')).toEqual([]);
     expect(parseQueueItems('not xml')).toEqual([]);
   });
+
+  it('parses a large, heavily-escaped queue past the default entity-expansion cap', () => {
+    // A real queue trips fast-xml-parser's default 1000-entity guard: each
+    // albumArtURI carries several &amp; and there are many items. Build 300
+    // items (~5 entities each ≈ 1500 expansions) and assert it parses.
+    const items = Array.from({ length: 300 }, (_, i) =>
+      `<item><dc:title>Track ${i}</dc:title><upnp:artist>Artist ${i}</upnp:artist>` +
+      `<upnp:albumArtURI>/getaa?s=1&amp;u=x&amp;sid=9&amp;flags=8224&amp;sn=1</upnp:albumArtURI></item>`,
+    ).join('');
+    const didl =
+      '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" ' +
+      'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">' + items + '</DIDL-Lite>';
+    const parsed = parseQueueItems(didl);
+    expect(parsed).toHaveLength(300);
+    expect(parsed[0].albumArt).toBe('/getaa?s=1&u=x&sid=9&flags=8224&sn=1');
+  });
 });
 
 describe('empty/garbage all-empty', () => {
