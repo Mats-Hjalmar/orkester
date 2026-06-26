@@ -61,7 +61,7 @@ class ScriptedTransport implements HttpTransport {
       case 'GetTransportInfo':
         return ok('<CurrentTransportState>PLAYING</CurrentTransportState>');
       case 'GetPositionInfo':
-        return ok(`<TrackDuration>0:04:55</TrackDuration><TrackMetaData>${escapeXMLText(DIDL)}</TrackMetaData><RelTime>0:01:23</RelTime>`);
+        return ok(`<Track>1</Track><TrackDuration>0:04:55</TrackDuration><TrackMetaData>${escapeXMLText(DIDL)}</TrackMetaData><RelTime>0:01:23</RelTime>`);
       case 'GetTransportSettings':
         return ok('<PlayMode>SHUFFLE_NOREPEAT</PlayMode>');
       case 'GetVolume':
@@ -118,6 +118,7 @@ describe('SonosApi.getNowPlaying', () => {
       shuffle: true,
       repeat: 'none',
       artUrl: '', // the scripted DIDL carries no albumArtURI
+      queueIndex: 0, // <Track>1</Track> -> 0-based 0
     });
   });
 

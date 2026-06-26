@@ -53,6 +53,8 @@ export interface Group {
   repeat: boolean;
   muted: boolean;
   queueIds: string[];
+  /** 0-based index of the current track within the queue, or -1 if not a queue. */
+  queueIndex: number;
 }
 
 export interface Config {

@@ -188,7 +188,13 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
   const ctrl = groupControls(g.id);
   const prog = progressOf(g, tr);
   const vol = (g.muted ? 0 : store.groupVol(g)) / 100;
-  const queue = queueFor(g.id);
+  // "Up next" = the queue AFTER the currently-playing track, so the top of the
+  // list is genuinely the next song and skipping advances it off the top. The
+  // current track is already shown big above. qStart is the absolute queue index
+  // of the first up-next item (drag/reorder maps local -> absolute through it).
+  const fullQueue = queueFor(g.id);
+  const qStart = g.queueIndex >= 0 ? g.queueIndex + 1 : 0;
+  const upNext = fullQueue.slice(qStart);
 
   return (
     <View style={{ flex: 1 }}>
@@ -212,21 +218,21 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
 
           {/* The coordinator's queue, directly below the artwork. Hidden when
               empty (some streaming sources play without a queue) — no placeholder. */}
-          {queue.length > 0 && (
+          {upNext.length > 0 && (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
                 <Queue size={16} color={colors.fgSubtle} />
-                <Text style={[type.eyebrow, { flex: 1 }]}>Queue · {queue.length}</Text>
+                <Text style={[type.eyebrow, { flex: 1 }]}>Up next · {upNext.length}</Text>
                 <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                   <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
                 </Pressable>
               </View>
               <QueueList
-                items={queue}
+                items={upNext}
                 motif={config.coverMotif}
                 accent={accent}
-                isCurrent={(q) => !idle && q.title === tr.title && q.artist === tr.artist}
-                onReorder={(from, to) => reorderQueue(g.id, from, to)}
+                isCurrent={() => false}
+                onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
               />
             </>
           )}

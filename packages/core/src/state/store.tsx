@@ -123,6 +123,7 @@ function placeholderGroup(): Group {
     repeat: false,
     muted: false,
     queueIds: [],
+    queueIndex: -1,
   };
 }
 

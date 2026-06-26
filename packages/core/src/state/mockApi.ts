@@ -109,6 +109,7 @@ export class MockApi implements Api {
       shuffle: g.shuffle,
       repeat: g.repeat,
       artUrl: '', // the mock has no real album art; the drawn cover shows
+      queueIndex: 0, // the mock queue is seeded from the current track
     };
   }
 

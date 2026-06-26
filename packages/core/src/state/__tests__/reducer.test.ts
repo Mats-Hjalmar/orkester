@@ -20,6 +20,7 @@ const NP: ApiNowPlaying = {
   shuffle: true,
   repeat: 'all',
   artUrl: '',
+  queueIndex: 0,
 };
 
 describe('reducer topology lifecycle', () => {

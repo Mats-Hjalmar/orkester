@@ -414,6 +414,12 @@ export interface NowPlaying {
   duration: string;
   /** Absolute album-art URL resolved against the coordinator, "" if none. */
   albumArtUrl: string;
+  /**
+   * 0-based index of the current track within the queue (Q:0), or -1 when the
+   * source isn't a queue (radio/line-in/streaming). Derived from GetPositionInfo's
+   * 1-based `Track`. Lets the UI show true "up next" and move it as you skip.
+   */
+  queueIndex: number;
 }
 
 /** Parsed metadata from a DIDL-Lite document. albumArt is the raw upnp:albumArtURI. */
@@ -640,8 +646,12 @@ export async function getNowPlaying(
   const meta = extractResponseArg(resp, 'TrackMetaData');
   const { title, artist, album, albumArt } = parseTrackMetadata(meta);
   const albumArtUrl = resolveAlbumArt(coordinatorBase, albumArt);
+  // GetPositionInfo's `Track` is the 1-based position in the queue; 0 /
+  // NOT_IMPLEMENTED means "not playing from a queue" -> -1.
+  const trackNo = parseInt(extractResponseArg(resp, 'Track').trim(), 10);
+  const queueIndex = Number.isFinite(trackNo) && trackNo > 0 ? trackNo - 1 : -1;
 
-  return { state, title, artist, album, position, duration, albumArtUrl };
+  return { state, title, artist, album, position, duration, albumArtUrl, queueIndex };
 }
 
 /** One track in the coordinator's play queue, with art resolved to absolute. */

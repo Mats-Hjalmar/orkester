@@ -118,6 +118,7 @@ const positionInfoResponse =
   '<?xml version="1.0"?>' +
   '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
   `<s:Body><u:GetPositionInfoResponse xmlns:u="${AV_TRANSPORT_TYPE}">` +
+  '<Track>1</Track>' +
   '<TrackDuration>0:04:55</TrackDuration>' +
   '<TrackMetaData>' +
   escapeXMLText(didl) +
@@ -178,6 +179,7 @@ describe('SonosClient — full mock facade flow', () => {
       position: '0:01:23',
       duration: '0:04:55',
       albumArtUrl: '',
+      queueIndex: 0, // <Track>1</Track> -> 0-based 0
     });
 
     // getVolume off the player.

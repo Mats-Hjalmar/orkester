@@ -183,6 +183,7 @@ export function reducer(s: State, a: Action): State {
           repeat: prior?.repeat ?? false,
           muted: prior?.muted ?? false,
           queueIds: [],
+          queueIndex: prior?.queueIndex ?? -1,
         };
       });
       // Keep the active group if it still exists, else fall back to the first.
@@ -210,6 +211,7 @@ export function reducer(s: State, a: Action): State {
         progress: a.np.positionSeconds,
         shuffle: a.np.shuffle,
         repeat: a.np.repeat !== 'none',
+        queueIndex: a.np.queueIndex,
       });
       return { ...s, groups, tracks: { ...s.tracks, [id]: track } };
     }
@@ -229,6 +231,7 @@ export function reducer(s: State, a: Action): State {
         shuffle: a.np.shuffle,
         repeat: a.np.repeat !== 'none',
         muted: allMuted,
+        queueIndex: a.np.queueIndex,
       });
       const roomVol = { ...s.roomVol };
       const roomMute = { ...s.roomMute };

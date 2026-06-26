@@ -202,6 +202,7 @@ describe('control.getNowPlaying', () => {
       '<?xml version="1.0"?>' +
       '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
       `<s:Body><u:GetPositionInfoResponse xmlns:u="${AV_TRANSPORT_TYPE}">` +
+      '<Track>3</Track>' +
       '<TrackDuration>0:04:55</TrackDuration>' +
       '<TrackMetaData>' +
       escapeXMLText(didl) +
@@ -221,6 +222,7 @@ describe('control.getNowPlaying', () => {
       position: '0:01:23',
       duration: '0:04:55',
       albumArtUrl: '',
+      queueIndex: 2, // <Track>3</Track> -> 0-based 2
     });
     expect(t.requests).toHaveLength(2);
   });

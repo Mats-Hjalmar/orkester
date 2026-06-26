@@ -54,6 +54,8 @@ export interface ApiNowPlaying {
   repeat: RepeatMode;
   /** Absolute album-art URL for the current track, "" if none. */
   artUrl: string;
+  /** 0-based index of the current track in the queue, or -1 if not a queue. */
+  queueIndex: number;
 }
 
 /** One track in a group's play queue. */

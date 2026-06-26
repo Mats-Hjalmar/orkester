@@ -118,6 +118,7 @@ export class SonosApi implements Api {
       shuffle: settings.shuffle,
       repeat: settings.repeat,
       artUrl: np.albumArtUrl,
+      queueIndex: np.queueIndex,
     };
   }
 
