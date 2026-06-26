@@ -75,6 +75,10 @@ export interface Store {
   isLiked: (id: string) => boolean;
   /** The group coordinator's play queue (fetched on focus/refresh); [] if none. */
   queueFor: (gid: string) => QueueItem[];
+  /** Clears the group's queue on the speaker, then re-reads it (Sonos is truth). */
+  clearQueue: (gid: string) => void;
+  /** Moves a queue track on the speaker (0-based), then re-reads it (Sonos is truth). */
+  reorderQueue: (gid: string, fromIndex: number, toIndex: number) => void;
   // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
   groupControls: (gid: string) => GroupControls;
   /** Marks a group as "focused" so its now-playing polls at the fast cadence. */
@@ -517,6 +521,30 @@ export function StoreProvider({
       },
 
       queueFor: (gid: string) => state.queues[gid] ?? [],
+
+      // Queue edits go to the SPEAKER and we re-read from it — the Sonos queue is
+      // the source of truth, never an optimistic local splice. The re-fetch runs
+      // in `finally` so a failure still resyncs the UI to the speaker's real state.
+      clearQueue: (gid: string) => {
+        if (gid === '') return;
+        void (async () => {
+          try {
+            await api.clearQueue(gid);
+          } finally {
+            await fetchQueue.current(gid);
+          }
+        })();
+      },
+      reorderQueue: (gid: string, fromIndex: number, toIndex: number) => {
+        if (gid === '' || fromIndex === toIndex) return;
+        void (async () => {
+          try {
+            await api.reorderQueue(gid, fromIndex, toIndex);
+          } finally {
+            await fetchQueue.current(gid);
+          }
+        })();
+      },
 
       refresh: () => {
         void (async () => {

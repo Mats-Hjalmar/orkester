@@ -132,6 +132,14 @@ export class SonosApi implements Api {
     }));
   }
 
+  clearQueue(groupId: string): Promise<void> {
+    return this.client.clearQueue(this.groupFor(groupId));
+  }
+
+  reorderQueue(groupId: string, fromIndex: number, toIndex: number): Promise<void> {
+    return this.client.reorderQueue(this.groupFor(groupId), fromIndex, toIndex);
+  }
+
   play(groupId: string): Promise<void> {
     return this.client.play(this.groupFor(groupId));
   }

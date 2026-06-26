@@ -84,6 +84,10 @@ export interface Api {
   getNowPlaying(groupId: string): Promise<ApiNowPlaying>;
   /** Reads the group coordinator's current play queue, in order. */
   getQueue(groupId: string): Promise<ApiQueueItem[]>;
+  /** Removes every track from the group's queue. */
+  clearQueue(groupId: string): Promise<void>;
+  /** Moves the track at fromIndex to toIndex (0-based) within the group's queue. */
+  reorderQueue(groupId: string, fromIndex: number, toIndex: number): Promise<void>;
   play(groupId: string): Promise<void>;
   pause(groupId: string): Promise<void>;
   next(groupId: string): Promise<void>;

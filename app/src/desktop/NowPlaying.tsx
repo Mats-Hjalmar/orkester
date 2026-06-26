@@ -1,9 +1,9 @@
-import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import TrackBar from '../components/TrackBar';
 import SpeakerChip from '../components/SpeakerChip';
-import { ChevronRight, Dots, Next, Pause, Play, Plus, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
+import { ChevronRight, Dots, Grip, Next, Pause, Play, Plus, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -45,19 +45,83 @@ function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+// Fixed row height so the drag math (dy / ROW_H) maps cleanly to row offsets.
+const QUEUE_ROW_H = 52;
+
 // One row in the queue list: real album art (or a synthesized cover) + title +
-// artist. The currently-playing entry is marked with an accent dot + bolder title.
-function QueueRow({ item, motif, accent, current }: { item: QueueItem; motif: Motif; accent: string; current: boolean }) {
+// artist. The currently-playing entry is marked with an accent dot + bolder
+// title. `handle` is the drag affordance, rendered at the right.
+function QueueRow({ item, motif, accent, current, handle }: { item: QueueItem; motif: Motif; accent: string; current: boolean; handle?: React.ReactNode }) {
   const art = synthesizeArt(item.title || item.album, item.artist);
   const title = item.title || item.album || '';
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ fontFamily: current ? font.bodySemiBold : font.bodyMedium, fontSize: 14, color: colors.fg }}>{title}</Text>
         {!!item.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgMuted, marginTop: 1 }}>{item.artist}</Text>}
       </View>
       {current && <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: accent }} />}
+      {handle}
+    </View>
+  );
+}
+
+// A drag-to-reorder queue. Each row has a grip handle bound to a PanResponder;
+// dragging it shifts the surrounding rows to show where the track will land, and
+// on release we ask the SPEAKER to reorder (the store re-reads from Sonos — no
+// optimistic local splice). The fixed row height makes dy → row-offset exact.
+function QueueList({ items, motif, accent, isCurrent, onReorder }: {
+  items: QueueItem[];
+  motif: Motif;
+  accent: string;
+  isCurrent: (q: QueueItem) => boolean;
+  onReorder: (from: number, to: number) => void;
+}) {
+  const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
+  const targetOf = (from: number, dy: number) =>
+    Math.max(0, Math.min(items.length - 1, from + Math.round(dy / QUEUE_ROW_H)));
+
+  return (
+    <View>
+      {items.map((item, index) => {
+        const pan = PanResponder.create({
+          onStartShouldSetPanResponder: () => true,
+          onMoveShouldSetPanResponder: () => true,
+          onPanResponderGrant: () => setDrag({ from: index, dy: 0 }),
+          onPanResponderMove: (_e, gs) => setDrag({ from: index, dy: gs.dy }),
+          onPanResponderRelease: (_e, gs) => {
+            const to = targetOf(index, gs.dy);
+            setDrag(null);
+            if (to !== index) onReorder(index, to);
+          },
+          onPanResponderTerminate: () => setDrag(null),
+        });
+
+        const isDragged = drag?.from === index;
+        let translateY = 0;
+        if (drag) {
+          const to = targetOf(drag.from, drag.dy);
+          if (isDragged) translateY = drag.dy;
+          else if (drag.from < to && index > drag.from && index <= to) translateY = -QUEUE_ROW_H;
+          else if (drag.from > to && index < drag.from && index >= to) translateY = QUEUE_ROW_H;
+        }
+
+        const handle = (
+          <View {...pan.panHandlers} style={{ padding: 6, cursor: 'grab' } as any}>
+            <Grip size={16} color={colors.fgSubtle} />
+          </View>
+        );
+
+        return (
+          <View
+            key={`${index}:${item.title}:${item.artist}`}
+            style={{ height: QUEUE_ROW_H, justifyContent: 'center', transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1 }}
+          >
+            <QueueRow item={item} motif={motif} accent={accent} current={isCurrent(item)} handle={handle} />
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -69,7 +133,7 @@ function QueueRow({ item, motif, accent, current }: { item: QueueItem; motif: Mo
 // present, so onBack is omitted and no back button renders.
 export default function DesktopNowPlaying({ group, onBack }: { group?: Group; onBack?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, config, groupControls, queueFor } = store;
+  const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const status = state.topologyStatus;
@@ -146,19 +210,18 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
                 <Queue size={16} color={colors.fgSubtle} />
-                <Text style={type.eyebrow}>Queue · {queue.length}</Text>
+                <Text style={[type.eyebrow, { flex: 1 }]}>Queue · {queue.length}</Text>
+                <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+                </Pressable>
               </View>
-              <View>
-                {queue.map((q, i) => (
-                  <QueueRow
-                    key={`${i}:${q.title}:${q.artist}`}
-                    item={q}
-                    motif={config.coverMotif}
-                    accent={accent}
-                    current={!idle && q.title === tr.title && q.artist === tr.artist}
-                  />
-                ))}
-              </View>
+              <QueueList
+                items={queue}
+                motif={config.coverMotif}
+                accent={accent}
+                isCurrent={(q) => !idle && q.title === tr.title && q.artist === tr.artist}
+                onReorder={(from, to) => reorderQueue(g.id, from, to)}
+              />
             </>
           )}
         </View>

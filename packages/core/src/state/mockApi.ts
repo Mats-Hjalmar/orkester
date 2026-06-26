@@ -112,16 +112,37 @@ export class MockApi implements Api {
     };
   }
 
-  async getQueue(groupId: string): Promise<ApiQueueItem[]> {
+  // Per-group queue, lazily seeded from the library so clear/reorder mutate a
+  // real list (the source of truth here, standing in for the speaker).
+  private queues: Record<string, ApiQueueItem[]> = {};
+
+  private queueOf(groupId: string): ApiQueueItem[] {
     const g = this.groupOrThrow(groupId);
-    // A plausible upcoming queue: the current track plus the next few from the
-    // library, wrapping around (mock has no real art → drawn covers show).
-    const out: ApiQueueItem[] = [];
-    for (let i = 0; i < 8; i++) {
-      const tr = MOCK_LIBRARY[(g.trackIndex + i) % MOCK_LIBRARY.length];
-      out.push({ title: tr.title, artist: tr.artist, album: tr.album, artUrl: '' });
+    if (!this.queues[groupId]) {
+      this.queues[groupId] = Array.from({ length: 8 }, (_, i) => {
+        const tr = MOCK_LIBRARY[(g.trackIndex + i) % MOCK_LIBRARY.length];
+        return { title: tr.title, artist: tr.artist, album: tr.album, artUrl: '' };
+      });
     }
-    return out;
+    return this.queues[groupId];
+  }
+
+  async getQueue(groupId: string): Promise<ApiQueueItem[]> {
+    return this.queueOf(groupId).map((q) => ({ ...q }));
+  }
+
+  async clearQueue(groupId: string): Promise<void> {
+    this.groupOrThrow(groupId);
+    this.queues[groupId] = [];
+  }
+
+  async reorderQueue(groupId: string, fromIndex: number, toIndex: number): Promise<void> {
+    const q = this.queueOf(groupId);
+    if (fromIndex < 0 || fromIndex >= q.length || toIndex < 0 || toIndex >= q.length) {
+      throw new Error(`reorderQueue: index out of range (from=${fromIndex}, to=${toIndex}, len=${q.length})`);
+    }
+    const [moved] = q.splice(fromIndex, 1);
+    q.splice(toIndex, 0, moved);
   }
 
   async play(groupId: string): Promise<void> {

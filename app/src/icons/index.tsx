@@ -182,6 +182,20 @@ export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
+// Drag handle — six dots (2×3). Grab to reorder a queue row.
+export function Grip({ size = 18, color = '#1A1814' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Circle cx={9} cy={6} r={1.5} />
+      <Circle cx={15} cy={6} r={1.5} />
+      <Circle cx={9} cy={12} r={1.5} />
+      <Circle cx={15} cy={12} r={1.5} />
+      <Circle cx={9} cy={18} r={1.5} />
+      <Circle cx={15} cy={18} r={1.5} />
+    </Svg>
+  );
+}
+
 // Circular refresh — two arrows chasing round, with arrowheads. Used by the
 // manual "reconnect" button (the Sonos connection can drift).
 export function Refresh({ size = 18, color = '#1A1814' }: IconProps) {

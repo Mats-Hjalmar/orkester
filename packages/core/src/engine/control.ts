@@ -672,6 +672,61 @@ export async function getQueue(
   }));
 }
 
+/** RemoveAllTracksFromQueue — empties the coordinator's queue. */
+export function clearQueueRequest(): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'RemoveAllTracksFromQueue',
+    args: [instanceArg()],
+    base: 'coordinator',
+  };
+}
+
+/**
+ * ReorderTracksInQueue — moves ONE track within the queue. Indices here are
+ * 0-based; Sonos wants 1-based StartingIndex + InsertBefore, where InsertBefore
+ * is in the queue's ORIGINAL numbering. Moving DOWN inserts before (to+2),
+ * moving UP before (to+1) — derived 1-based as (toPos<fromPos?toPos:toPos+1).
+ * UpdateID 0 lets the speaker use its current queue version.
+ */
+export function reorderQueueRequest(fromIndex: number, toIndex: number): ControlRequest {
+  if (fromIndex < 0 || toIndex < 0) {
+    throw new Error(`reorderQueue: indices must be non-negative (from=${fromIndex}, to=${toIndex})`);
+  }
+  const startingIndex = fromIndex + 1;
+  const insertBefore = toIndex < fromIndex ? toIndex + 1 : toIndex + 2;
+  return {
+    service: avTransport(),
+    action: 'ReorderTracksInQueue',
+    args: [
+      instanceArg(),
+      { name: 'StartingIndex', value: String(startingIndex) },
+      { name: 'NumberOfTracks', value: '1' },
+      { name: 'InsertBefore', value: String(insertBefore) },
+      { name: 'UpdateID', value: '0' },
+    ],
+    base: 'coordinator',
+  };
+}
+
+/** clearQueue removes every track from the coordinator's queue. */
+export async function clearQueue(transport: HttpTransport, coordinatorBase: string): Promise<void> {
+  const req = clearQueueRequest();
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
+/** reorderQueue moves the track at fromIndex to toIndex (0-based) in the queue. */
+export async function reorderQueue(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  fromIndex: number,
+  toIndex: number,
+): Promise<void> {
+  if (fromIndex === toIndex) return;
+  const req = reorderQueueRequest(fromIndex, toIndex);
+  await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+}
+
 /** getVolume returns the master-channel volume (0–100) for a player. */
 export async function getVolume(transport: HttpTransport, playerBase: string): Promise<number> {
   const req = getVolumeRequest();

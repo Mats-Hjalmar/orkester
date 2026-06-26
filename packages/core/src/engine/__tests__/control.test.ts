@@ -7,6 +7,8 @@ import {
   parseQueueItems,
   parseStreamContent,
   resolveAlbumArt,
+  clearQueueRequest,
+  reorderQueueRequest,
   setVolumeRequest,
   AV_TRANSPORT_TYPE,
   RENDERING_CONTROL_TYPE,
@@ -196,6 +198,34 @@ describe('parseQueueItems', () => {
     const parsed = parseQueueItems(didl);
     expect(parsed).toHaveLength(300);
     expect(parsed[0].albumArt).toBe('/getaa?s=1&u=x&sid=9&flags=8224&sn=1');
+  });
+});
+
+describe('queue editing requests', () => {
+  const argMap = (req: ReturnType<typeof reorderQueueRequest>) =>
+    Object.fromEntries(req.args.map((a) => [a.name, a.value]));
+
+  it('clearQueueRequest is RemoveAllTracksFromQueue on the coordinator', () => {
+    const req = clearQueueRequest();
+    expect(req.action).toBe('RemoveAllTracksFromQueue');
+    expect(req.base).toBe('coordinator');
+    expect(req.service.controlURL).toBe('/MediaRenderer/AVTransport/Control');
+    expect(argMap(req)).toEqual({ InstanceID: '0' });
+  });
+
+  it('reorder moving DOWN (0->2) → StartingIndex 1, InsertBefore 4 (1-based, original numbering)', () => {
+    const m = argMap(reorderQueueRequest(0, 2));
+    expect(m).toEqual({ InstanceID: '0', StartingIndex: '1', NumberOfTracks: '1', InsertBefore: '4', UpdateID: '0' });
+  });
+
+  it('reorder moving UP (3->1) → StartingIndex 4, InsertBefore 2', () => {
+    const m = argMap(reorderQueueRequest(3, 1));
+    expect(m.StartingIndex).toBe('4');
+    expect(m.InsertBefore).toBe('2');
+  });
+
+  it('reorderQueueRequest rejects negative indices (no silent bad request)', () => {
+    expect(() => reorderQueueRequest(-1, 0)).toThrow();
   });
 });
 
