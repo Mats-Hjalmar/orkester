@@ -164,6 +164,36 @@ describe('reducer atomic groupSnapshot', () => {
   });
 });
 
+describe('reducer groupQueue', () => {
+  const Q = [
+    { title: 'A', artist: 'X', album: '', artUrl: '' },
+    { title: 'B', artist: 'Y', album: '', artUrl: '' },
+  ];
+
+  it('stores a group queue', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, { type: 'groupQueue', groupId: 'g1', items: Q });
+    expect(s.queues.g1).toHaveLength(2);
+    expect(s.queues.g1[0].title).toBe('A');
+  });
+
+  it('is a no-op (same state ref) when the queue is unchanged — slow poll never churns', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, { type: 'groupQueue', groupId: 'g1', items: Q });
+    const after = reducer(s, { type: 'groupQueue', groupId: 'g1', items: Q.map((q) => ({ ...q })) });
+    expect(after).toBe(s); // identical content -> no new state
+  });
+
+  it('updates when the queue actually changes (reorder/add)', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, { type: 'groupQueue', groupId: 'g1', items: Q });
+    const reordered = [Q[1], Q[0]];
+    const after = reducer(s, { type: 'groupQueue', groupId: 'g1', items: reordered });
+    expect(after).not.toBe(s);
+    expect(after.queues.g1[0].title).toBe('B');
+  });
+});
+
 describe('reducer tick interpolation', () => {
   it('advances a playing finite track but holds at the end', () => {
     let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });

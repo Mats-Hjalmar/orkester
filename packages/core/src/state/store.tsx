@@ -41,6 +41,7 @@ const NOWPLAYING_POLL_MS = 1000;
 const BACKGROUND_NP_POLL_MS = 2500;
 const VOLUME_POLL_MS = 2500;
 const TOPOLOGY_POLL_MS = 10000;
+const QUEUE_POLL_MS = 5000;
 const TICK_MS = 1000;
 
 /**
@@ -347,6 +348,16 @@ export function StoreProvider({
       else if (st === 'error') void loadTopology.current('load');
     }, TOPOLOGY_POLL_MS);
 
+    // The FOCUSED group's queue. Sonos has no cheap push for this, so we poll —
+    // slowly, since the queue changes only when someone (us or the Sonos app)
+    // adds/removes/reorders. The reducer drops a no-op when the queue is unchanged,
+    // so this is free when nothing happened (and won't disturb an in-progress drag).
+    const queueTimer = setInterval(() => {
+      if (cancelled) return;
+      const focused = focusedGroupId.current || stateRef.current.groups[0]?.id || '';
+      if (focused) void fetchQueue.current(focused);
+    }, QUEUE_POLL_MS);
+
     return () => {
       cancelled = true;
       clearInterval(npTimer);
@@ -354,6 +365,7 @@ export function StoreProvider({
       clearInterval(tickTimer);
       clearInterval(volTimer);
       clearInterval(topoTimer);
+      clearInterval(queueTimer);
     };
     // api is stable for the provider's lifetime; do not re-subscribe on it.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -239,8 +239,20 @@ export function reducer(s: State, a: Action): State {
       return { ...s, groups, roomVol, roomMute, tracks: { ...s.tracks, [id]: track } };
     }
 
-    case 'groupQueue':
+    case 'groupQueue': {
+      // Drop a no-op when the queue is unchanged so the slow poll doesn't churn
+      // the array reference every tick (no needless re-render; an in-progress
+      // drag is left alone). Items are small + ordered, so a shallow field
+      // compare is enough.
+      const prev = s.queues[a.groupId];
+      if (prev && prev.length === a.items.length && prev.every((p, i) => {
+        const n = a.items[i];
+        return p.title === n.title && p.artist === n.artist && p.album === n.album && p.artUrl === n.artUrl;
+      })) {
+        return s;
+      }
       return { ...s, queues: { ...s.queues, [a.groupId]: a.items } };
+    }
 
     case 'tick': {
       let changed = false;

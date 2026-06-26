@@ -83,7 +83,9 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
     Math.max(0, Math.min(items.length - 1, from + Math.round(dy / QUEUE_ROW_H)));
 
   return (
-    <View>
+    // userSelect:none so dragging a handle doesn't start a text selection
+    // (the default browser behaviour in react-native-web on mouse-drag).
+    <View style={{ userSelect: 'none' } as any}>
       {items.map((item, index) => {
         const pan = PanResponder.create({
           onStartShouldSetPanResponder: () => true,
@@ -108,7 +110,11 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
         }
 
         const handle = (
-          <View {...pan.panHandlers} style={{ padding: 6, cursor: 'grab' } as any}>
+          <View
+            {...pan.panHandlers}
+            // grab cursor + no text-select/scroll-gesture stealing the drag.
+            style={{ padding: 6, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
+          >
             <Grip size={16} color={colors.fgSubtle} />
           </View>
         );
