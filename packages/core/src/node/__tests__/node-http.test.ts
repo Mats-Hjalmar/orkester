@@ -21,6 +21,8 @@ interface CapturedRequest {
   url?: string;
   soapAction?: string | string[];
   contentType?: string | string[];
+  contentLength?: string | string[];
+  transferEncoding?: string | string[];
   body: string;
 }
 
@@ -36,6 +38,8 @@ describe('NodeHttpTransport (loopback http.Server)', () => {
         url: req.url,
         soapAction: req.headers['soapaction'],
         contentType: req.headers['content-type'],
+        contentLength: req.headers['content-length'],
+        transferEncoding: req.headers['transfer-encoding'],
         body: Buffer.concat(chunks).toString('utf8'),
       };
       // Mixed-case response header to exercise the lowercased-key contract.
@@ -82,6 +86,11 @@ describe('NodeHttpTransport (loopback http.Server)', () => {
     expect(captured.url).toBe('/MediaRenderer/AVTransport/Control');
     expect(captured.soapAction).toBe(soapAction);
     expect(captured.body).toBe(requestBody);
+
+    // Sonos's UPnP server hangs on a chunked request body — the transport MUST
+    // send an explicit Content-Length and NOT Transfer-Encoding: chunked.
+    expect(captured.contentLength).toBe(String(Buffer.byteLength(requestBody)));
+    expect(captured.transferEncoding).toBeUndefined();
 
     // Response is mapped: status, lowercased headers, body.
     expect(res.status).toBe(200);
