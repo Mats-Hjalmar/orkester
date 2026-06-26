@@ -129,23 +129,14 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
             <Text style={type.eyebrow}>{here}</Text>
           </View>
 
-          {idle ? (
+          {/* Nothing playing → show no title and no transport. The empty cover +
+              the room context already say it; people understand. Controls only
+              appear when there's actually something to control. */}
+          {!idle && (
             <>
-              <Text style={{ fontFamily: font.display, fontSize: 48, lineHeight: 52, letterSpacing: -1, color: colors.fg, marginTop: 14 }}>Nothing playing here</Text>
-              <Text style={{ fontFamily: font.body, fontSize: 16, color: colors.fgMuted, marginTop: 12, lineHeight: 23, maxWidth: 460 }}>
-                Start something from the Sonos app (or AirPlay/line‑in) and Orkester takes over the
-                controls — play/pause, skip, seek, volume and grouping all work here. Picking tracks
-                and stations inside Orkester is coming in a later pass.
-              </Text>
-            </>
-          ) : (
-            <>
-              {tr.title ? (
+              {/* Title only when the speaker reports one — no fabricated label. */}
+              {!!tr.title && (
                 <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: colors.fg, marginTop: 14 }}>{tr.title}</Text>
-              ) : (
-                // Playing, but the speaker reported no track metadata — honest,
-                // not a fabricated song title.
-                <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 40, lineHeight: 46, letterSpacing: -0.6, color: colors.fgMuted, marginTop: 14 }}>Track details unavailable</Text>
               )}
               {!!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 19, color: colors.fgMuted, marginTop: 10 }}>{tr.artist}</Text>}
               {!!tr.album && (
@@ -156,39 +147,39 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
                 <CircleButton><Plus size={19} color={colors.fg} /></CircleButton>
                 <CircleButton><Dots size={19} color={colors.fg} /></CircleButton>
               </View>
+
+              {/* Inline transport for THIS group. */}
+              <View style={{ marginTop: 30, gap: 14, maxWidth: 560 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 26 }}>
+                  <Pressable onPress={() => ctrl.setShuffle(!g.shuffle)} hitSlop={8}><Shuffle size={20} color={g.shuffle ? colors.fg : colors.fgSubtle} /></Pressable>
+                  <Pressable onPress={ctrl.prev} hitSlop={8}><Prev size={24} fill={colors.fg} /></Pressable>
+                  <Pressable onPress={ctrl.togglePlay} style={{ width: 56, height: 56, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', boxShadow: shadow.sm } as any}>
+                    {g.isPlaying ? <Pause size={22} fill={accentText} /> : <Play size={22} fill={accentText} />}
+                  </Pressable>
+                  <Pressable onPress={ctrl.next} hitSlop={8}><Next size={24} fill={colors.fg} /></Pressable>
+                  <Pressable onPress={() => ctrl.setRepeat(!g.repeat)} hitSlop={8}><Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} /></Pressable>
+                </View>
+                {/* Timeline + scrub — ONLY for a real finite track. For live/unknown
+                    metadata there's no accurate position, so we show no scrubber
+                    rather than an interpolated, inaccurate one. */}
+                {prog.finite && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 34, textAlign: 'right' }}>{fmt(prog.elapsed)}</Text>
+                    <TrackBar value={prog.fraction} onScrub={ctrl.seek} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb style={{ flex: 1 }} />
+                    <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 38 }}>
+                      {prog.remaining === null ? '' : `-${fmt(prog.remaining)}`}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
+                    {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
+                  </Pressable>
+                  <TrackBar value={vol} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} style={{ flex: 1 }} />
+                </View>
+              </View>
             </>
           )}
-
-          {/* Inline transport for THIS group. */}
-          <View style={{ marginTop: 30, gap: 14, maxWidth: 560, opacity: idle ? 0.55 : 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 26 }}>
-              <Pressable onPress={() => ctrl.setShuffle(!g.shuffle)} hitSlop={8}><Shuffle size={20} color={g.shuffle ? colors.fg : colors.fgSubtle} /></Pressable>
-              <Pressable onPress={ctrl.prev} hitSlop={8}><Prev size={24} fill={colors.fg} /></Pressable>
-              <Pressable onPress={ctrl.togglePlay} style={{ width: 56, height: 56, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', boxShadow: shadow.sm } as any}>
-                {g.isPlaying ? <Pause size={22} fill={accentText} /> : <Play size={22} fill={accentText} />}
-              </Pressable>
-              <Pressable onPress={ctrl.next} hitSlop={8}><Next size={24} fill={colors.fg} /></Pressable>
-              <Pressable onPress={() => ctrl.setRepeat(!g.repeat)} hitSlop={8}><Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} /></Pressable>
-            </View>
-            {/* Timeline + scrub — ONLY for a real finite track. For live/unknown
-                metadata there's no accurate position, so we show no scrubber
-                rather than an interpolated, inaccurate one. */}
-            {prog.finite && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 34, textAlign: 'right' }}>{fmt(prog.elapsed)}</Text>
-                <TrackBar value={prog.fraction} onScrub={ctrl.seek} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb style={{ flex: 1 }} />
-                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 38 }}>
-                  {prog.remaining === null ? '' : `-${fmt(prog.remaining)}`}
-                </Text>
-              </View>
-            )}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
-                {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
-              </Pressable>
-              <TrackBar value={vol} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} style={{ flex: 1 }} />
-            </View>
-          </View>
 
           <Text style={[type.eyebrow, { marginTop: 34, marginBottom: 11 }]}>Speakers — tap to group</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>

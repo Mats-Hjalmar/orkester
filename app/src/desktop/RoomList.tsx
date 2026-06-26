@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
-import { Pause, Play, Plus, Speaker } from '../icons';
+import { ChevronRight, Pause, Play, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -10,22 +10,32 @@ import { accentTextOf, groupCount, idleRooms } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group } from '../state/types';
 
-// The now-playing one-liner for a compact row. Honest: real title (— artist) when
-// known, "Nothing playing" when idle, "Playing" when playing without metadata.
-function lineFor(idle: boolean, title: string, artist: string, isPlaying: boolean): string {
-  if (idle) return 'Nothing playing';
-  if (title) return artist ? `${title} — ${artist}` : title;
-  return isPlaying ? 'Playing' : 'Paused';
+// The now-playing one-liner for a compact row: the real title (— artist) when
+// known. When idle — or playing without metadata — we show NOTHING (no second
+// line). The cover and the playing dot already say it; no fabricated status text.
+function lineFor(idle: boolean, title: string, artist: string): string {
+  if (idle || !title) return '';
+  return artist ? `${title} — ${artist}` : title;
 }
 
 function GroupRow({ group, selected, onSelect }: { group: Group; selected: boolean; onSelect: () => void }) {
   const store = useStore();
-  const { config, getTrack, groupName, groupControls } = store;
+  const { config, getTrack, groupName, roomName, groupControls } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const tr = getTrack(group.trackId);
   const idle = group.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const ctrl = groupControls(group.id);
+
+  // Every speaker in the group, by name — so you can see the whole group, not a
+  // "+N" summary. The 320px rail can't fit many names on one line, so a
+  // multi-speaker group collapses to a single ellipsized line with a chevron;
+  // tapping the chevron rolls it open to wrap and reveal every speaker. A
+  // single-speaker group has nothing hidden → no chevron.
+  const names = group.roomIds.map(roomName);
+  const multi = names.length > 1;
+  const label = names.length ? names.join('   ·   ') : groupName(group);
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <Pressable
@@ -44,14 +54,26 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
       <CoverArt size={46} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg, flexShrink: 1 }}>
-            {groupName(group)}
+          <Text numberOfLines={expanded ? undefined : 1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg, flex: 1 }}>
+            {label}
           </Text>
           {group.isPlaying && <View style={{ width: 6, height: 6, borderRadius: radii.pill, backgroundColor: accent }} />}
+          {multi && (
+            <Pressable
+              onPress={(e) => { e.stopPropagation?.(); setExpanded((v) => !v); }}
+              hitSlop={6}
+              style={({ pressed }) => ({ padding: 2, opacity: pressed ? 0.5 : 1, transform: [{ rotate: expanded ? '90deg' : '0deg' }] })}
+            >
+              <ChevronRight size={14} color={colors.fgSubtle} />
+            </Pressable>
+          )}
         </View>
-        <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
-          {lineFor(idle, tr.title, tr.artist, group.isPlaying)}
-        </Text>
+        {(() => {
+          const line = lineFor(idle, tr.title, tr.artist);
+          return line ? (
+            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>{line}</Text>
+          ) : null;
+        })()}
       </View>
       {/* Quick play/pause for this group, without leaving the list. */}
       {!idle && (
@@ -88,7 +110,7 @@ export default function RoomList({ selectedId, onSelect }: { selectedId: string 
   return (
     <View style={{ width: 320, flex: 'none' as any, borderRightWidth: 1, borderRightColor: ink(0.07), backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 4 }} showsVerticalScrollIndicator={false}>
-        <Text style={[type.eyebrow, { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 8 }]}>Rooms</Text>
+        <Text style={[type.eyebrow, { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 8 }]}>Groups</Text>
         {groups.map((g) => (
           <GroupRow key={g.id} group={g} selected={g.id === selectedId} onSelect={() => onSelect(g.id)} />
         ))}
@@ -99,7 +121,6 @@ export default function RoomList({ selectedId, onSelect }: { selectedId: string 
             <Speaker size={20} color={colors.fgSubtle} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 14, color: colors.fg }}>{r.name}</Text>
-              <Text style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 1 }}>Not playing</Text>
             </View>
             <Pressable
               onPress={() => startGroup(r.id)}
@@ -110,12 +131,6 @@ export default function RoomList({ selectedId, onSelect }: { selectedId: string 
             </Pressable>
           </View>
         ))}
-
-        {/* "Add a room" is deferred — visible but inert. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, marginTop: 8, opacity: 0.45 }}>
-          <Plus size={18} color={colors.fgMuted} />
-          <Text style={{ fontFamily: font.body, fontSize: 13.5, color: colors.fgMuted }}>Add a room</Text>
-        </View>
       </ScrollView>
     </View>
   );
