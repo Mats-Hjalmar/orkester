@@ -117,6 +117,7 @@ export class SonosApi implements Api {
       durationSeconds: parseRelTime(np.duration),
       shuffle: settings.shuffle,
       repeat: settings.repeat,
+      artUrl: np.albumArtUrl,
     };
   }
 

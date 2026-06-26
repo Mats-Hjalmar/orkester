@@ -177,6 +177,7 @@ describe('SonosClient — full mock facade flow', () => {
       album: 'Led Zeppelin IV',
       position: '0:01:23',
       duration: '0:04:55',
+      albumArtUrl: '',
     });
 
     // getVolume off the player.

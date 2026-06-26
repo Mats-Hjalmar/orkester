@@ -220,6 +220,7 @@ describe('control.getNowPlaying', () => {
       album: 'Led Zeppelin IV',
       position: '0:01:23',
       duration: '0:04:55',
+      albumArtUrl: '',
     });
     expect(t.requests).toHaveLength(2);
   });

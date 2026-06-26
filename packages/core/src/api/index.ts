@@ -52,6 +52,8 @@ export interface ApiNowPlaying {
   durationSeconds: number;
   shuffle: boolean;
   repeat: RepeatMode;
+  /** Absolute album-art URL for the current track, "" if none. */
+  artUrl: string;
 }
 
 /**

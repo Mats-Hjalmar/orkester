@@ -108,6 +108,8 @@ function trackFromNowPlaying(id: string, np: ApiNowPlaying): Track {
     cat: '',
     dur: np.durationSeconds,
     ...synthesizeArt(title, np.artist),
+    // Real album art when the speaker reports it; "" falls back to the drawn cover.
+    artUrl: np.artUrl,
   };
 }
 

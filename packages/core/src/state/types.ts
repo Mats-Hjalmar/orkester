@@ -20,6 +20,8 @@ export interface Track {
   dur: number; // seconds (0 for live streams)
   coverBg: string;
   coverShape: string;
+  /** Real album-art URL from the speaker; when absent the synthesized cover* art shows. */
+  artUrl?: string;
 }
 
 export interface Room {

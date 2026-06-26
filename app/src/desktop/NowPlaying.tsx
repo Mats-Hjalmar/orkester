@@ -107,7 +107,7 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', gap: 44, padding: 44, paddingTop: 44 }} showsVerticalScrollIndicator={false}>
         {/* cover */}
         <View style={{ width: 374 }}>
-          <CoverArt size={374} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg}>
+          <CoverArt size={374} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg} artUrl={idle ? undefined : tr.artUrl}>
             {!idle && (
               <>
                 <Text style={{ position: 'absolute', left: 18, top: 16, fontFamily: font.mono, fontSize: 11, color: 'rgba(26,24,20,0.5)' }}>{tr.cat}</Text>

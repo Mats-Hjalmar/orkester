@@ -383,13 +383,17 @@ export interface NowPlaying {
   position: string;
   /** TrackDuration; "NOT_IMPLEMENTED" for live streams. */
   duration: string;
+  /** Absolute album-art URL resolved against the coordinator, "" if none. */
+  albumArtUrl: string;
 }
 
-/** Parsed title/artist/album triple from a DIDL-Lite document. */
+/** Parsed metadata from a DIDL-Lite document. albumArt is the raw upnp:albumArtURI. */
 export interface TrackMetadata {
   title: string;
   artist: string;
   album: string;
+  /** Raw upnp:albumArtURI (coordinator-relative or absolute); "" if none. */
+  albumArt: string;
 }
 
 // --- DIDL-Lite metadata parsing ---
@@ -429,7 +433,7 @@ function asArray(value: unknown): unknown[] {
  * mirroring Go's `if err != nil || len(d.Items)==0 { return "","","" }`.
  */
 export function parseTrackMetadata(meta: string): TrackMetadata {
-  const empty: TrackMetadata = { title: '', artist: '', album: '' };
+  const empty: TrackMetadata = { title: '', artist: '', album: '', albumArt: '' };
   const trimmed = meta.trim();
   if (trimmed === '') {
     return empty;
@@ -458,6 +462,7 @@ export function parseTrackMetadata(meta: string): TrackMetadata {
     artist = textOf(it.creator).trim();
   }
   const album = textOf(it.album).trim();
+  const albumArt = textOf(it.albumArtURI).trim();
 
   const sc = textOf(it.streamContent).trim();
   if (sc !== '') {
@@ -468,7 +473,20 @@ export function parseTrackMetadata(meta: string): TrackMetadata {
     }
   }
 
-  return { title, artist, album };
+  return { title, artist, album, albumArt };
+}
+
+/**
+ * Resolves a DIDL albumArtURI to an absolute URL. Sonos returns either an
+ * absolute http(s) URL (e.g. a station logo) or a coordinator-relative path
+ * (e.g. /getaa?...) served from the coordinator's :1400 endpoint. "" stays "".
+ */
+export function resolveAlbumArt(coordinatorBase: string, albumArt: string): string {
+  const a = albumArt.trim();
+  if (a === '') return '';
+  if (/^https?:\/\//i.test(a)) return a;
+  const path = a.startsWith('/') ? a : '/' + a;
+  return coordinatorBase.replace(/\/+$/, '') + path;
 }
 
 /**
@@ -560,9 +578,10 @@ export async function getNowPlaying(
   const duration = extractResponseArg(resp, 'TrackDuration');
   const position = extractResponseArg(resp, 'RelTime');
   const meta = extractResponseArg(resp, 'TrackMetaData');
-  const { title, artist, album } = parseTrackMetadata(meta);
+  const { title, artist, album, albumArt } = parseTrackMetadata(meta);
+  const albumArtUrl = resolveAlbumArt(coordinatorBase, albumArt);
 
-  return { state, title, artist, album, position, duration };
+  return { state, title, artist, album, position, duration, albumArtUrl };
 }
 
 /** getVolume returns the master-channel volume (0–100) for a player. */

@@ -117,6 +117,7 @@ describe('SonosApi.getNowPlaying', () => {
       durationSeconds: 295, // 0:04:55
       shuffle: true,
       repeat: 'none',
+      artUrl: '', // the scripted DIDL carries no albumArtURI
     });
   });
 

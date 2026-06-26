@@ -51,7 +51,7 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
         borderColor: selected ? ink(0.12) : 'transparent',
       })}
     >
-      <CoverArt size={46} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} />
+      <CoverArt size={46} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={tr.artUrl} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text numberOfLines={expanded ? undefined : 1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg, flex: 1 }}>

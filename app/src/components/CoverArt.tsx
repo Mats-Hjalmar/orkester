@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ViewStyle } from 'react-native';
+import { Image, View, ViewStyle } from 'react-native';
 import { Motif } from '../state/types';
 import { radii } from '../theme/tokens';
 
@@ -11,14 +11,16 @@ interface Props {
   radius?: number;
   shadow?: string; // optional boxShadow, applied to an OUTER wrapper (never on the clip)
   ring?: string; // optional accent ring color (now-playing track highlight)
+  artUrl?: string; // real album art from the speaker; when set it replaces the drawn motif
   children?: React.ReactNode; // overlay labels (cat/year), positioned by caller
 }
 
-// A drawn cover: a pastel field with one oversized circle "motif" clipped by the
-// rounded square. `sun` = a disc high-centred; `arc` = a big disc rising from the
-// bottom edge. Shadow and overflow:'hidden' must never share a node, so the
-// shadow lives on the outer wrapper and the clip on the inner view.
-export default function CoverArt({ size, coverBg, coverShape, motif, radius = radii.lg, shadow, ring, children }: Props) {
+// A cover: the speaker's real album art when we have a URL, otherwise a drawn
+// pastel field with one oversized circle "motif" clipped by the rounded square
+// (`sun` = a disc high-centred; `arc` = a big disc rising from the bottom edge).
+// Shadow and overflow:'hidden' must never share a node, so the shadow lives on
+// the outer wrapper and the clip on the inner view.
+export default function CoverArt({ size, coverBg, coverShape, motif, radius = radii.lg, shadow, ring, artUrl, children }: Props) {
   const shape: ViewStyle =
     motif === 'arc'
       ? { width: size * 1.28, height: size * 1.28, left: size * -0.14, bottom: size * -0.58 }
@@ -35,7 +37,11 @@ export default function CoverArt({ size, coverBg, coverShape, motif, radius = ra
   return (
     <View style={outer}>
       <View style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', backgroundColor: coverBg }}>
-        <View style={[{ position: 'absolute', borderRadius: 999, backgroundColor: coverShape }, shape]} />
+        {artUrl ? (
+          <Image source={{ uri: artUrl }} style={{ width: size, height: size }} resizeMode="cover" />
+        ) : (
+          <View style={[{ position: 'absolute', borderRadius: 999, backgroundColor: coverShape }, shape]} />
+        )}
         {children}
       </View>
     </View>

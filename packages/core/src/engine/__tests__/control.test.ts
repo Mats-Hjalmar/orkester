@@ -5,6 +5,7 @@ import {
   renderingControl,
   parseTrackMetadata,
   parseStreamContent,
+  resolveAlbumArt,
   setVolumeRequest,
   AV_TRANSPORT_TYPE,
   RENDERING_CONTROL_TYPE,
@@ -132,17 +133,44 @@ describe('both radio fallbacks', () => {
   });
 });
 
+describe('album art', () => {
+  it('parseTrackMetadata extracts the raw upnp:albumArtURI', () => {
+    const didl =
+      '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" ' +
+      'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">' +
+      '<item><dc:title>Black Dog</dc:title><upnp:artist>Led Zeppelin</upnp:artist>' +
+      '<upnp:albumArtURI>/getaa?s=1&amp;u=x-sonos-spotify%3atrack</upnp:albumArtURI>' +
+      '</item></DIDL-Lite>';
+    expect(parseTrackMetadata(didl).albumArt).toBe('/getaa?s=1&u=x-sonos-spotify%3atrack');
+  });
+
+  it('resolveAlbumArt prefixes a relative path with the coordinator base', () => {
+    expect(resolveAlbumArt('http://192.168.1.10:1400', '/getaa?s=1&u=x')).toBe(
+      'http://192.168.1.10:1400/getaa?s=1&u=x',
+    );
+    // trailing slash on the base is collapsed, missing leading slash is added
+    expect(resolveAlbumArt('http://192.168.1.10:1400/', 'getaa?u=y')).toBe(
+      'http://192.168.1.10:1400/getaa?u=y',
+    );
+  });
+
+  it('resolveAlbumArt passes an absolute http(s) URL through unchanged, "" stays ""', () => {
+    expect(resolveAlbumArt('http://192.168.1.10:1400', 'https://logo.cdn/x.png')).toBe('https://logo.cdn/x.png');
+    expect(resolveAlbumArt('http://192.168.1.10:1400', '')).toBe('');
+  });
+});
+
 describe('empty/garbage all-empty', () => {
   it('parseTrackMetadata("") -> all empty', () => {
-    expect(parseTrackMetadata('')).toEqual({ title: '', artist: '', album: '' });
+    expect(parseTrackMetadata('')).toEqual({ title: '', artist: '', album: '', albumArt: '' });
   });
 
   it('parseTrackMetadata("not xml") -> all empty (no throw)', () => {
-    expect(parseTrackMetadata('not xml')).toEqual({ title: '', artist: '', album: '' });
+    expect(parseTrackMetadata('not xml')).toEqual({ title: '', artist: '', album: '', albumArt: '' });
   });
 
   it('whitespace-only -> all empty', () => {
-    expect(parseTrackMetadata('   \n  ')).toEqual({ title: '', artist: '', album: '' });
+    expect(parseTrackMetadata('   \n  ')).toEqual({ title: '', artist: '', album: '', albumArt: '' });
   });
 });
 

@@ -108,6 +108,7 @@ export class MockApi implements Api {
       durationSeconds: tr.dur,
       shuffle: g.shuffle,
       repeat: g.repeat,
+      artUrl: '', // the mock has no real album art; the drawn cover shows
     };
   }
 
