@@ -7,7 +7,17 @@
 // from MOCK_LIBRARY with locally-advancing progress. Grouping moves rooms
 // between groups in memory. node-free, react-free.
 
-import type { Api, ApiGroup, ApiNowPlaying, ApiQueueItem, ApiRoom, ApiTopology } from '../api';
+import type {
+  Api,
+  ApiGroup,
+  ApiNowPlaying,
+  ApiQueueItem,
+  ApiRoom,
+  ApiSearchItem,
+  ApiSpotifyLink,
+  ApiTopology,
+  SpotifySearchKind,
+} from '../api';
 import type { RepeatMode } from '../engine';
 import { MOCK_LIBRARY, MOCK_ROOMS, type MockTrack } from './mockLibrary';
 
@@ -243,5 +253,66 @@ export class MockApi implements Api {
   /** Drops now-empty groups. */
   private prune(): void {
     this.groups = this.groups.filter((g) => g.roomIds.length > 0);
+  }
+
+  // --- Spotify catalog search (mock: search the in-memory library) ---
+
+  private spotifyLinked = false;
+
+  async isSpotifyLinked(): Promise<boolean> {
+    return this.spotifyLinked;
+  }
+
+  async startSpotifyLink(roomId: string): Promise<ApiSpotifyLink> {
+    this.requireRoom(roomId);
+    // The mock has no real device link; hand back a placeholder URL and let the
+    // first poll "complete" it so the demo flow is exercisable end to end.
+    return { regUrl: 'https://example.com/mock-spotify-link', linkCode: 'MOCK-CODE', showLinkCode: true };
+  }
+
+  async pollSpotifyLink(): Promise<boolean> {
+    this.spotifyLinked = true;
+    return true;
+  }
+
+  async searchSpotify(query: string, _kind: SpotifySearchKind): Promise<ApiSearchItem[]> {
+    if (!this.spotifyLinked) {
+      // Mirror the real Api: searching before linking is an error, not [].
+      throw new Error('Spotify is not linked yet');
+    }
+    const q = query.trim().toLowerCase();
+    if (q === '') return [];
+    return MOCK_LIBRARY.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        t.artist.toLowerCase().includes(q) ||
+        t.album.toLowerCase().includes(q),
+    ).map((t, i) => ({
+      id: `mock:spotify:${i}`,
+      title: t.title,
+      artist: t.artist,
+      album: t.album,
+      artUrl: '',
+      isContainer: false,
+      uri: `mock:spotify:${i}`,
+      metadata: '',
+    }));
+  }
+
+  async enqueueSearchItem(groupId: string, item: ApiSearchItem): Promise<void> {
+    // Add to queue: append to the (lazily-seeded) queue, leave playback alone.
+    const q = this.queueOf(groupId);
+    q.push({ title: item.title, artist: item.artist, album: item.album, artUrl: item.artUrl });
+  }
+
+  async playSearchItem(groupId: string, item: ApiSearchItem): Promise<void> {
+    // Play now: jump the current track to the hit and replace the queue.
+    const g = this.groupOrThrow(groupId);
+    const idx = MOCK_LIBRARY.findIndex((t) => t.title === item.title && t.artist === item.artist);
+    if (idx >= 0) g.trackIndex = idx;
+    g.isPlaying = true;
+    g.positionSeconds = 0;
+    this.lastAdvance = Date.now();
+    this.queues[groupId] = [{ title: item.title, artist: item.artist, album: item.album, artUrl: item.artUrl }];
   }
 }

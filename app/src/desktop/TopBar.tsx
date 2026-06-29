@@ -1,13 +1,19 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { Refresh, Wave } from '../icons';
+import { Refresh, Search, Wave } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { type } from '../theme/type';
 import { useStore } from '../state/store';
 
-// Wordmark + a manual refresh (the Sonos connection drifts).
-export default function TopBar() {
+// Wordmark + a Spotify-search toggle + a manual refresh (the Sonos connection drifts).
+export default function TopBar({
+  searchOpen,
+  onToggleSearch,
+}: {
+  searchOpen?: boolean;
+  onToggleSearch?: () => void;
+}) {
   const { refresh, refreshing } = useStore();
   return (
     <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: ink(0.07) }}>
@@ -17,6 +23,26 @@ export default function TopBar() {
         <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgSubtle, paddingBottom: 1 }}>multi-room sound</Text>
       </View>
       <View style={{ flex: 1 }} />
+      {/* Toggle the Spotify search pane. Highlighted (filled) while open. */}
+      {onToggleSearch && (
+        <Pressable
+          testID="search-toggle"
+          onPress={onToggleSearch}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            flexDirection: 'row', alignItems: 'center', gap: 8,
+            height: 38, paddingHorizontal: 14, borderRadius: radii.pill,
+            borderWidth: 1, borderColor: searchOpen ? 'transparent' : ink(0.12),
+            backgroundColor: searchOpen ? colors.fg : colors.bgPaper,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Search size={17} color={searchOpen ? colors.bgPaper : colors.fg} />
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: searchOpen ? colors.bgPaper : colors.fg }}>
+            Search
+          </Text>
+        </Pressable>
+      )}
       {/* Manual reconnect + reload. Disabled (with a spinner) while in flight. */}
       <Pressable
         testID="refresh-button"

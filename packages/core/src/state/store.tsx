@@ -28,7 +28,7 @@ import {
   placeholderTrack,
   reducer,
 } from './reducer';
-import type { Api } from '../api';
+import type { Api, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
 import type { RepeatMode } from '../engine';
 
 const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun', mobileNowDark: false };
@@ -80,6 +80,19 @@ export interface Store {
   clearQueue: (gid: string) => void;
   /** Moves a queue track on the speaker (0-based), then re-reads it (Sonos is truth). */
   reorderQueue: (gid: string, fromIndex: number, toIndex: number) => void;
+  // --- Spotify catalog search (imperative; the search panel owns its results) ---
+  /** True once a Spotify token is saved (device-linked). */
+  isSpotifyLinked: () => Promise<boolean>;
+  /** Starts the one-time device link via a room; returns the URL/code to show. */
+  startSpotifyLink: (roomId: string) => Promise<ApiSpotifyLink>;
+  /** Polls whether the link completed (persists the token on success). */
+  pollSpotifyLink: () => Promise<boolean>;
+  /** Searches the Spotify catalog (THROWS NotLinkedError when not yet linked). */
+  searchSpotify: (query: string, kind: SpotifySearchKind) => Promise<ApiSearchItem[]>;
+  /** Appends a hit to the group's queue (no playback change), then re-reads the queue. */
+  enqueueSearchItem: (gid: string, item: ApiSearchItem) => Promise<void>;
+  /** Plays a hit now, REPLACING the queue, then refreshes now-playing + queue. */
+  playSearchItem: (gid: string, item: ApiSearchItem) => Promise<void>;
   // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
   groupControls: (gid: string) => GroupControls;
   /** Marks a group as "focused" so its now-playing polls at the fast cadence. */
@@ -557,6 +570,28 @@ export function StoreProvider({
             await fetchQueue.current(gid);
           }
         })();
+      },
+
+      // Spotify search is imperative request/response (not polled state): the
+      // panel calls these and holds its own result list. Errors PROPAGATE so the
+      // panel can show "not linked" / failures (no silent swallow).
+      isSpotifyLinked: () => api.isSpotifyLinked(),
+      startSpotifyLink: (roomId: string) => api.startSpotifyLink(roomId),
+      pollSpotifyLink: () => api.pollSpotifyLink(),
+      searchSpotify: (query: string, kind: SpotifySearchKind) => api.searchSpotify(query, kind),
+      enqueueSearchItem: async (gid: string, item: ApiSearchItem) => {
+        if (gid === '') throw new Error('no group selected to add to');
+        await api.enqueueSearchItem(gid, item);
+        // Add-to-queue does not change playback — only re-read the queue.
+        await fetchQueue.current(gid);
+      },
+      playSearchItem: async (gid: string, item: ApiSearchItem) => {
+        if (gid === '') throw new Error('no group selected to play on');
+        await api.playSearchItem(gid, item);
+        // Play-now changes the current track + queue: focus + atomic refresh + requeue.
+        focusedGroupId.current = gid;
+        await refreshGroup.current(gid);
+        await fetchQueue.current(gid);
       },
 
       refresh: () => {

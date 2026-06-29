@@ -15,7 +15,16 @@ export type {
 
 export type { Motif, Track, Room, Group, Config, MView, TopologyStatus } from './state';
 
-export type { Api, ApiRoom, ApiGroup, ApiTopology, ApiNowPlaying } from './api';
+export type {
+  Api,
+  ApiRoom,
+  ApiGroup,
+  ApiTopology,
+  ApiNowPlaying,
+  ApiSearchItem,
+  ApiSpotifyLink,
+  SpotifySearchKind,
+} from './api';
 
 // The Sonos protocol engine — RN-safe (consumes injected transports, no node:*).
 // Re-exported here as VALUES so `@orkester/core` callers get SonosClient and the

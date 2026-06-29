@@ -15,16 +15,18 @@ import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { SonosClient } from '@orkester/core';
 import { SonosApi } from '@orkester/core/state';
-import { NodeHttpTransport, NodeDiscoveryTransport } from '@orkester/core/node';
+import { NodeHttpTransport, NodeDiscoveryTransport, NodeCredentialStore } from '@orkester/core/node';
 import type { Api } from '@orkester/core';
 import { API_METHODS, channelFor, type ApiMethod } from '../ipc-contract';
 
-// One engine, one Api, for the whole app lifetime.
+// One engine, one Api, for the whole app lifetime. The NodeCredentialStore backs
+// Spotify search with ~/.config/orkester/auth.json — the same token the CLI's
+// `orkester spotify-link` writes, so a link from either side works in both.
 const client = new SonosClient({
   http: new NodeHttpTransport(),
   discovery: new NodeDiscoveryTransport(),
 });
-const api: Api = new SonosApi(client);
+const api: Api = new SonosApi(client, new NodeCredentialStore());
 
 /**
  * Registers every Api method as an ipcMain.handle channel. Each handler forwards
