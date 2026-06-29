@@ -309,17 +309,17 @@ describe('grouping / seek / playmode symbols now present', () => {
 });
 
 describe('still-deferred symbols absent', () => {
-  it('does not export ApplyVolumeArg / queue / browse helpers', () => {
+  it('does not export ApplyVolumeArg', () => {
     const mod = control as Record<string, unknown>;
     // Relative-volume clamping (ApplyVolumeArg) stays deferred.
     expect(mod.ApplyVolumeArg).toBeUndefined();
     expect(mod.applyVolumeArg).toBeUndefined();
-    // Queue building / favorites / browse stay deferred.
-    expect(mod.AddURIToQueue).toBeUndefined();
-    expect(mod.addURIToQueue).toBeUndefined();
-    expect(mod.PlayFromQueue).toBeUndefined();
-    expect(mod.playFromQueue).toBeUndefined();
-    expect(mod.PlayItem).toBeUndefined();
-    expect(mod.playItem).toBeUndefined();
+  });
+
+  it('now exports the enqueue/play path (added for Spotify search)', () => {
+    const mod = control as Record<string, unknown>;
+    expect(typeof mod.addURIToQueue).toBe('function');
+    expect(typeof mod.playFromQueue).toBe('function');
+    expect(typeof mod.playItem).toBe('function');
   });
 });

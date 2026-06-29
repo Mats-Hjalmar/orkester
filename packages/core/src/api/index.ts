@@ -67,6 +67,68 @@ export interface ApiQueueItem {
   artUrl: string;
 }
 
+/** A Spotify catalog search category. */
+export type SpotifySearchKind = 'tracks' | 'albums' | 'artists' | 'playlists';
+
+/**
+ * One Spotify catalog search hit. `uri`/`metadata` are OPAQUE playback fields
+ * (the Sonos enqueue URI + DIDL) the UI must pass back verbatim to
+ * enqueueSearchItem — it should never construct or inspect them.
+ */
+export interface ApiSearchItem {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  /** Absolute album/playlist art URL, "" if none. */
+  artUrl: string;
+  isContainer: boolean;
+  /** Opaque: the Sonos enqueue/transport URI. */
+  uri: string;
+  /** Opaque: the DIDL-Lite metadata to enqueue alongside `uri`. */
+  metadata: string;
+}
+
+/**
+ * What the UI shows the user to complete a one-time Spotify device link: open
+ * `regUrl` in a browser, optionally display `linkCode`. After the user
+ * authorizes, the host polls Api.pollSpotifyLink until it resolves true.
+ */
+export interface ApiSpotifyLink {
+  regUrl: string;
+  linkCode: string;
+  showLinkCode: boolean;
+}
+
+/**
+ * The persisted Spotify SMAPI auth, minted by the device-link flow. Shared shape
+ * across the Go CLI's auth.json and the TS CredentialStore implementations.
+ */
+export interface SpotifyAuth {
+  /** Raw Sonos music-service id (e.g. 9) — the enqueue URI's `sid`. */
+  serviceId: number;
+  /** serviceId*256+7 — the SA_RINCON{seed} account seed used in DIDL metadata. */
+  seed: number;
+  /** The SMAPI HTTPS endpoint (the service's own URL). */
+  endpoint: string;
+  authToken: string;
+  privateKey: string;
+  householdId: string;
+  /** Per-household account serial in the enqueue URI's `sn` (default "1"). */
+  accountSn: string;
+}
+
+/**
+ * Persists the Spotify auth token across sessions. Injected into SonosApi so the
+ * engine stays node-free: a Node host backs it with ~/.config/orkester/auth.json
+ * (see ../node/configStore), an RN host with secure storage, the mock with
+ * memory. load() returns null when nothing is saved (never throws for absence).
+ */
+export interface CredentialStore {
+  load(): Promise<SpotifyAuth | null>;
+  save(auth: SpotifyAuth): Promise<void>;
+}
+
 /**
  * The high-level control API the engine-backed store drives. Every method is
  * async and surfaces faults by REJECTING (no silent swallow): the store applies
@@ -112,4 +174,34 @@ export interface Api {
   leaveGroup(roomId: string): Promise<void>;
   /** Detaches `roomId` into a fresh standalone group (alias of leaveGroup). */
   startGroup(roomId: string): Promise<void>;
+
+  // --- Spotify catalog search ---
+  /** True once a Spotify token has been minted + persisted (device-linked). */
+  isSpotifyLinked(): Promise<boolean>;
+  /**
+   * Starts the one-time Spotify device link via `roomId`'s player (any room
+   * works; the token is household-wide). Returns the URL/code to show the user.
+   */
+  startSpotifyLink(roomId: string): Promise<ApiSpotifyLink>;
+  /**
+   * Polls whether the in-progress link has completed; on success it persists the
+   * token and resolves true. Resolves false while still pending. THROWS if no
+   * link was started or the link failed/expired.
+   */
+  pollSpotifyLink(): Promise<boolean>;
+  /**
+   * Searches the Spotify catalog. THROWS (NotLinkedError) when not yet linked.
+   * Returns hits carrying opaque playback fields for enqueue/play.
+   */
+  searchSpotify(query: string, kind: SpotifySearchKind): Promise<ApiSearchItem[]>;
+  /**
+   * Appends a search hit to the END of the group's queue WITHOUT changing what
+   * is currently playing ("add to queue").
+   */
+  enqueueSearchItem(groupId: string, item: ApiSearchItem): Promise<void>;
+  /**
+   * Plays a search hit NOW, REPLACING the group's queue ("play now"). Destructive
+   * to the existing queue by design; use enqueueSearchItem to append instead.
+   */
+  playSearchItem(groupId: string, item: ApiSearchItem): Promise<void>;
 }

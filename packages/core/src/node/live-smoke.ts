@@ -30,14 +30,22 @@
 
 import { NodeDiscoveryTransport } from './discoveryTransport';
 import { NodeHttpTransport } from './httpTransport';
+import { NodeCredentialStore } from './configStore';
 import { SonosClient } from '../engine/client';
+import { SonosApi } from '../state/sonosApi';
 import { rooms } from '../engine/topology';
 
 async function main(): Promise<void> {
-  const roomQuery = process.argv[2];
-  const waitMs = process.argv[3] ? Number(process.argv[3]) : 3000;
+  // Optional `--search <term>` runs a Spotify catalog search (read-only) using
+  // the token written by `orkester spotify-link`. Positional args keep working.
+  const argv = process.argv.slice(2);
+  const searchAt = argv.indexOf('--search');
+  const searchTerm = searchAt >= 0 ? argv[searchAt + 1] : undefined;
+  const positional = searchAt >= 0 ? argv.slice(0, searchAt) : argv;
+  const roomQuery = positional[0];
+  const waitMs = positional[1] ? Number(positional[1]) : 3000;
   if (Number.isNaN(waitMs)) {
-    throw new Error(`invalid waitMs: ${process.argv[3]}`);
+    throw new Error(`invalid waitMs: ${positional[1]}`);
   }
 
   const client = new SonosClient({
@@ -71,6 +79,20 @@ async function main(): Promise<void> {
 
   const vol = await client.getVolume(room);
   console.log(`[live-smoke] volume: ${vol}`);
+
+  if (searchTerm !== undefined) {
+    const api = new SonosApi(client, new NodeCredentialStore());
+    if (!(await api.isSpotifyLinked())) {
+      console.log('[live-smoke] Spotify not linked — run `orkester spotify-link <room>` first.');
+    } else {
+      console.log(`[live-smoke] searching Spotify tracks for "${searchTerm}" ...`);
+      const hits = await api.searchSpotify(searchTerm, 'tracks');
+      for (const h of hits.slice(0, 10)) {
+        console.log(`  - ${h.title} — ${h.artist}  [${h.uri}]`);
+      }
+      console.log(`[live-smoke] ${hits.length} hit(s).`);
+    }
+  }
 
   console.log('[live-smoke] done.');
 }

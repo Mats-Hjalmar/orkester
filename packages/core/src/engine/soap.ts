@@ -58,7 +58,7 @@ export function instanceArg(): Arg {
  * encoding/xml.EscapeText: & < > ' " plus the control whitespace tab/newline/CR
  * (so multi-line DIDL metadata survives a round-trip intact).
  */
-function escapeXMLText(value: string): string {
+export function escapeXMLText(value: string): string {
   let out = '';
   for (const ch of value) {
     switch (ch) {

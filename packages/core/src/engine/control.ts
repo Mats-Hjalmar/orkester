@@ -872,3 +872,115 @@ export async function setPlayMode(
   const req = setPlayModeRequest(settingsToPlayMode(settings));
   await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
 }
+
+// --- enqueue / play-an-item (ported from queue.go) -------------------------
+
+/**
+ * AddURIToQueue appends (asNext=false) or inserts after the current track
+ * (asNext=true) a URI + its DIDL metadata onto the coordinator's queue. Ported
+ * from queue.go. Routes to the coordinator base.
+ */
+export function addURIToQueueRequest(uri: string, metadata: string, asNext: boolean): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'AddURIToQueue',
+    args: [
+      instanceArg(),
+      { name: 'EnqueuedURI', value: uri },
+      { name: 'EnqueuedURIMetaData', value: metadata },
+      { name: 'DesiredFirstTrackNumberEnqueued', value: '0' },
+      { name: 'EnqueueAsNext', value: asNext ? '1' : '0' },
+    ],
+    base: 'coordinator',
+  };
+}
+
+/**
+ * addURIToQueue enqueues a URI and returns FirstTrackNumberEnqueued — the
+ * 1-based queue position the item landed at, which playFromQueue must seek to
+ * (do not assume position 1). THROWS if the response number is unparseable.
+ */
+export async function addURIToQueue(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  uri: string,
+  metadata: string,
+  asNext: boolean,
+): Promise<number> {
+  const req = addURIToQueueRequest(uri, metadata, asNext);
+  const resp = await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+  const s = extractResponseArg(resp, 'FirstTrackNumberEnqueued').trim();
+  const n = parseInt(s, 10);
+  if (Number.isNaN(n)) {
+    throw new Error(`parse FirstTrackNumberEnqueued "${s}"`);
+  }
+  return n;
+}
+
+/**
+ * playFromQueue points the coordinator at its own queue, seeks to the given
+ * 1-based track, and starts playback. coordinatorUUID is the coordinator's bare
+ * RINCON UUID. Sonos does not auto-switch to the queue when items are added over
+ * UPnP, so this explicit step is required. Ported from queue.go.
+ */
+export async function playFromQueue(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  coordinatorUUID: string,
+  track: number,
+): Promise<void> {
+  await setAVTransportURI(transport, coordinatorBase, `x-rincon-queue:${coordinatorUUID}#0`, '');
+  if (track > 0) {
+    await seekTrack(transport, coordinatorBase, track);
+  }
+  await play(transport, coordinatorBase);
+}
+
+/**
+ * directStreamSchemes are URI schemes that are single continuous broadcast
+ * streams — they play via a direct SetAVTransportURI rather than the queue.
+ * Ported from queue.go.
+ */
+export const DIRECT_STREAM_SCHEMES = [
+  'x-sonosapi-stream:',
+  'x-sonosapi-radio:',
+  'x-rincon-mp3radio:',
+  'x-sonosapi-hls:',
+  'x-rincon-stream:',
+  'x-sonos-htastream:',
+];
+
+/** A playable item: its enqueue/transport URI and (possibly empty) DIDL metadata. */
+export interface EnqueueItem {
+  uri: string;
+  metadata: string;
+}
+
+function isDirectStream(uri: string): boolean {
+  return DIRECT_STREAM_SCHEMES.some((s) => uri.startsWith(s));
+}
+
+/**
+ * playItem plays a favorite/playlist/track/stream on the group coordinator,
+ * choosing the transport path by URI scheme: broadcast streams are set directly
+ * as the transport URI; everything else (containers, cpcontainer favorites,
+ * Spotify tracks) is enqueued then played from the queue (a cpcontainer fed to
+ * SetAVTransportURI returns UPnP fault 714). Ported from queue.go's PlayItem.
+ */
+export async function playItem(
+  transport: HttpTransport,
+  coordinatorBase: string,
+  coordinatorUUID: string,
+  item: EnqueueItem,
+): Promise<void> {
+  if (item.uri === '') {
+    throw new Error('item has no playable URI');
+  }
+  if (isDirectStream(item.uri)) {
+    await setAVTransportURI(transport, coordinatorBase, item.uri, item.metadata);
+    await play(transport, coordinatorBase);
+    return;
+  }
+  const track = await addURIToQueue(transport, coordinatorBase, item.uri, item.metadata, false);
+  await playFromQueue(transport, coordinatorBase, coordinatorUUID, track);
+}

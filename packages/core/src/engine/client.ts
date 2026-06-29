@@ -49,7 +49,25 @@ import {
   setPlayMode as controlSetPlayMode,
   joinGroup as controlJoinGroup,
   leaveGroup as controlLeaveGroup,
+  addURIToQueue as controlAddURIToQueue,
+  playFromQueue as controlPlayFromQueue,
+  type EnqueueItem,
 } from './control';
+import {
+  type MusicServiceInfo,
+  listAvailableServices,
+  findService,
+  getHouseholdId,
+} from './musicservices';
+import {
+  type AppLink,
+  type SMAPICredentials,
+  type SMAPIService,
+  type SMAPIItem,
+  getAppLink,
+  getDeviceAuthToken,
+  search as smapiSearch,
+} from './smapi';
 
 /** The injected transports a SonosClient is constructed with. */
 export interface SonosTransports {
@@ -269,5 +287,76 @@ export class SonosClient {
   /** Mutes/unmutes the room's own player. */
   setMute(room: ResolvedRoom, mute: boolean): Promise<void> {
     return controlSetMute(this.http, this.playerBase(room), mute);
+  }
+
+  // --- Spotify catalog search (SMAPI) -------------------------------------
+  //
+  // Discovery (services list, household id, device link) talks to the LOCAL
+  // device (the room's player base). The search itself talks to the service's
+  // own absolute HTTPS endpoint. Enqueue/play routes to the group coordinator,
+  // reusing the same playItem path as a browsed favorite.
+
+  /**
+   * Finds the named content service + household id off the room's player. THROWS
+   * (listing what IS available) when the service is absent — no silent fallback.
+   */
+  async findMusicService(
+    room: ResolvedRoom,
+    name: string,
+  ): Promise<{ service: MusicServiceInfo; householdId: string }> {
+    const base = this.playerBase(room);
+    const services = await listAvailableServices(this.http, base);
+    const service = findService(services, name);
+    const householdId = await getHouseholdId(this.http, base);
+    return { service, householdId };
+  }
+
+  /** Starts the SMAPI device-link flow (getAppLink). */
+  startAppLink(service: SMAPIService, householdId: string): Promise<AppLink> {
+    return getAppLink(this.http, service, householdId);
+  }
+
+  /**
+   * Claims the device-link token. Throws LinkPendingError until the user
+   * authorizes in the browser (the caller polls).
+   */
+  claimDeviceToken(
+    service: SMAPIService,
+    householdId: string,
+    link: AppLink,
+  ): Promise<{ authToken: string; privateKey: string }> {
+    return getDeviceAuthToken(this.http, service, householdId, link.linkCode, link.linkDeviceId);
+  }
+
+  /** Runs a Spotify catalog search against the service endpoint. */
+  searchService(
+    service: SMAPIService,
+    creds: SMAPICredentials,
+    category: string,
+    term: string,
+    count: number,
+  ): Promise<SMAPIItem[]> {
+    return smapiSearch(this.http, service, creds, category, term, 0, count);
+  }
+
+  /**
+   * Adds an item to the END of the group's queue WITHOUT changing what is
+   * currently playing (the "add to queue" action). The item's tracks are
+   * appended; for a container URI Sonos expands it into the queue.
+   */
+  async enqueue(room: ResolvedRoom, item: EnqueueItem): Promise<void> {
+    await controlAddURIToQueue(this.http, this.coordinatorBase(room), item.uri, item.metadata, false);
+  }
+
+  /**
+   * Plays an item NOW by REPLACING the queue: clears the current queue, adds the
+   * item, and starts it from the top (the "play now" action). Destructive to the
+   * existing queue by design — use enqueue() to append without interrupting.
+   */
+  async playNow(room: ResolvedRoom, item: EnqueueItem): Promise<void> {
+    const base = this.coordinatorBase(room);
+    await controlClearQueue(this.http, base);
+    const track = await controlAddURIToQueue(this.http, base, item.uri, item.metadata, false);
+    await controlPlayFromQueue(this.http, base, room.group.coordinator, track);
   }
 }

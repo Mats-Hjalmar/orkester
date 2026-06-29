@@ -9,17 +9,33 @@
 // No silent fallbacks: an unknown room/group id THROWS (a stale id is a real
 // bug); a discovery/topology failure propagates out of load/refresh.
 
-import type { Api, ApiGroup, ApiNowPlaying, ApiQueueItem, ApiRoom, ApiTopology } from '../api';
+import type {
+  Api,
+  ApiGroup,
+  ApiNowPlaying,
+  ApiQueueItem,
+  ApiRoom,
+  ApiSearchItem,
+  ApiSpotifyLink,
+  ApiTopology,
+  CredentialStore,
+  SpotifySearchKind,
+} from '../api';
 import type { RepeatMode } from '../engine';
 import {
   type Household,
   type Member,
   type Group as SonosGroupT,
   type ResolvedRoom,
+  type MusicServiceInfo,
+  type AppLink,
   coordinatorMember,
   groupName as engineGroupName,
   parseRelTime,
   rooms as engineRooms,
+  serviceSeed,
+  spotifyEnqueueItem,
+  NotLinkedError,
 } from '../engine';
 // Import the SonosClient type directly from its module (not the barrel): it is
 // used only as a type here, and reexporting the class through ../engine creates
@@ -29,6 +45,17 @@ import type { SonosClient } from '../engine/client';
 /** How long to listen for SSDP on the initial discovery, in ms. */
 const DISCOVER_WAIT_MS = 3000;
 
+// Spotify's SMAPI search categories are SINGULAR ids (artist/album/track/
+// playlist), discovered via getMetadata("search"); the plural user-facing
+// SpotifySearchKind maps onto them. Sending the plural form returns a
+// "Action not found" fault. (Spotify-specific; we only support Spotify today.)
+const SPOTIFY_SEARCH_CATEGORY: Record<SpotifySearchKind, string> = {
+  tracks: 'track',
+  albums: 'album',
+  artists: 'artist',
+  playlists: 'playlist',
+};
+
 export class SonosApi implements Api {
   private readonly client: SonosClient;
   /** The most-recent topology + a responder base for cheap refresh. */
@@ -37,9 +64,24 @@ export class SonosApi implements Api {
   private roomIndex = new Map<string, ResolvedRoom>();
   /** groupId -> SonosGroup for the current household. */
   private groupIndex = new Map<string, SonosGroupT>();
+  /** Persists the Spotify token; undefined disables the Spotify methods. */
+  private readonly credentials: CredentialStore | undefined;
+  /** In-progress device link (set by startSpotifyLink, consumed by pollSpotifyLink). */
+  private pendingLink:
+    | { service: MusicServiceInfo; householdId: string; link: AppLink }
+    | undefined;
 
-  constructor(client: SonosClient) {
+  constructor(client: SonosClient, credentials?: CredentialStore) {
     this.client = client;
+    this.credentials = credentials;
+  }
+
+  /** The injected store, or a thrown error when Spotify support wasn't wired. */
+  private requireCredentials(): CredentialStore {
+    if (!this.credentials) {
+      throw new Error('Spotify support is not configured (no CredentialStore injected)');
+    }
+    return this.credentials;
   }
 
   // --- topology ---
@@ -204,6 +246,102 @@ export class SonosApi implements Api {
   startGroup(roomId: string): Promise<void> {
     // A "start" is just detaching the room into its own standalone group.
     return this.client.leaveGroup(this.roomFor(roomId));
+  }
+
+  // --- Spotify catalog search ---
+
+  /** How many catalog hits to request/show per search. */
+  private static readonly SEARCH_LIMIT = 20;
+
+  async isSpotifyLinked(): Promise<boolean> {
+    const auth = await this.requireCredentials().load();
+    return auth !== null;
+  }
+
+  async startSpotifyLink(roomId: string): Promise<ApiSpotifyLink> {
+    this.requireCredentials(); // fail fast if Spotify support isn't wired
+    const room = this.roomFor(roomId);
+    const { service, householdId } = await this.client.findMusicService(room, 'Spotify');
+    const link = await this.client.startAppLink(
+      { id: service.id, endpoint: service.endpoint },
+      householdId,
+    );
+    this.pendingLink = { service, householdId, link };
+    return { regUrl: link.regUrl, linkCode: link.linkCode, showLinkCode: link.showLinkCode };
+  }
+
+  async pollSpotifyLink(): Promise<boolean> {
+    const store = this.requireCredentials();
+    if (!this.pendingLink) {
+      throw new Error('no Spotify link in progress; call startSpotifyLink first');
+    }
+    const { service, householdId, link } = this.pendingLink;
+    let token: { authToken: string; privateKey: string };
+    try {
+      token = await this.client.claimDeviceToken(
+        { id: service.id, endpoint: service.endpoint },
+        householdId,
+        link,
+      );
+    } catch (err) {
+      // LinkPendingError means "user hasn't authorized yet" — keep polling.
+      if (err instanceof Error && err.name === 'LinkPendingError') return false;
+      throw err;
+    }
+    await store.save({
+      serviceId: service.id,
+      seed: serviceSeed(service),
+      endpoint: service.endpoint,
+      authToken: token.authToken,
+      privateKey: token.privateKey,
+      householdId,
+      accountSn: '1',
+    });
+    this.pendingLink = undefined;
+    return true;
+  }
+
+  async searchSpotify(query: string, kind: SpotifySearchKind): Promise<ApiSearchItem[]> {
+    const auth = await this.requireCredentials().load();
+    if (auth === null) throw new NotLinkedError();
+
+    const hits = await this.client.searchService(
+      { id: auth.serviceId, endpoint: auth.endpoint },
+      { authToken: auth.authToken, privateKey: auth.privateKey, householdId: auth.householdId },
+      SPOTIFY_SEARCH_CATEGORY[kind],
+      query,
+      SonosApi.SEARCH_LIMIT,
+    );
+
+    const out: ApiSearchItem[] = [];
+    for (const h of hits) {
+      let enqueue;
+      try {
+        enqueue = spotifyEnqueueItem(h, auth.serviceId, auth.seed, auth.accountSn);
+      } catch {
+        // Skip item types we can't enqueue rather than failing the whole search.
+        continue;
+      }
+      out.push({
+        id: h.id,
+        title: h.title,
+        artist: h.artist,
+        album: h.album,
+        artUrl: h.artUrl,
+        isContainer: h.isContainer,
+        uri: enqueue.uri,
+        metadata: enqueue.metadata,
+      });
+    }
+    return out;
+  }
+
+  enqueueSearchItem(groupId: string, item: ApiSearchItem): Promise<void> {
+    return this.client.enqueue(this.groupFor(groupId), { uri: item.uri, metadata: item.metadata });
+  }
+
+  playSearchItem(groupId: string, item: ApiSearchItem): Promise<void> {
+    return this.client.playNow(this.groupFor(groupId), { uri: item.uri, metadata: item.metadata });
   }
 
   /** Exposed for tests/diagnostics: the household the maps were built from. */

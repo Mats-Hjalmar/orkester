@@ -5,6 +5,7 @@
 // surface, which must stay node-free.
 
 export { NodeHttpTransport } from './httpTransport';
+export { NodeCredentialStore } from './configStore';
 export {
   NodeDiscoveryTransport,
   makeDatagramHandler,

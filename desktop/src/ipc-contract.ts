@@ -28,6 +28,12 @@ export const API_METHODS = [
   'joinGroup',
   'leaveGroup',
   'startGroup',
+  'isSpotifyLinked',
+  'startSpotifyLink',
+  'pollSpotifyLink',
+  'searchSpotify',
+  'enqueueSearchItem',
+  'playSearchItem',
 ] as const;
 
 export type ApiMethod = (typeof API_METHODS)[number];
