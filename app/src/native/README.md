@@ -1,32 +1,43 @@
-# Native (Android) Sonos engine — SPIKE-GATED
+# Native (iOS/Android) Sonos engine — SPIKE-GATED
 
-The Android app can run the Sonos engine **in-process** (unlike Electron, which
+The mobile app can run the Sonos engine **in-process** (unlike Electron, which
 runs it in a separate Node process). The transports here are RN-specific:
 
 - `RnFetchHttpTransport` — UPnP SOAP over RN `fetch` to `http://<ip>:1400`.
   Mirrors `NodeHttpTransport`: a non-2xx is **returned, not thrown**, so the SOAP
-  layer can decode UPnP faults. Needs `usesCleartextTraffic` (set in `app.json`).
-- `JsiUdpDiscoveryTransport` — SSDP over UDP via `react-native-jsi-udp`, reusing
-  the node-free `searchProbe` / `parseSSDPResponse` from `@orkester/core/engine`.
-  Acquires/releases a `MulticastLock` around the discovery window.
+  layer can decode UPnP faults. Needs `usesCleartextTraffic` (Android, set via
+  `expo-build-properties` in `app.json`).
+- `ZeroconfDiscoveryTransport` — **mDNS/Bonjour** discovery via
+  `react-native-zeroconf` (`_sonos._tcp`). Reuses the engine's `SSDPResult`
+  contract: the speaker's TXT record carries `location` (the
+  `device_description.xml` URL) and `uuid` (the RINCON USN), so the rest of the
+  engine (`fetchTopology`, control) is reused unchanged.
 - `makeNativeApi()` composes both into an in-process `SonosApi`.
 
-Metro resolution keeps the **web bundle node-free**: `makeNativeApi.native.ts`
-(jsi-udp) is used on a device; `makeNativeApi.ts` (a throwing stub) is the web
+## Why mDNS and not SSDP
+
+On the target LAN the speakers answer **mDNS** (`_sonos._tcp`) but **not** SSDP
+M-SEARCH — see `findings/mobile-discovery-mdns.md` for the probe results. mDNS is
+also the strictly easier path on iOS: Bonjour needs only the **Local Network
+permission** (`NSLocalNetworkUsageDescription` + `NSBonjourServices` in
+`app.json`), whereas SSDP multicast would require Apple's **approval-gated**
+`com.apple.developer.networking.multicast` entitlement. (The old
+`react-native-jsi-udp`/SSDP transport was removed.)
+
+Metro resolution keeps the **web bundle clean**: `makeNativeApi.native.ts`
+(zeroconf) is used on a device; `makeNativeApi.ts` (a throwing stub) is the web
 fallback. `App.tsx` further guards with `Platform.OS !== 'web'` + a lazy
-`require`, so `expo export --platform web` never pulls in jsi-udp (verified: 0
-refs in the web bundle).
+`require`, so `expo export --platform web` never pulls in the native module.
 
 ## ⚠️ This path is NOT proven
 
-`react-native-jsi-udp` (last release Nov 2024, v1.3.0) is **unverified on RN 0.81
-/ New Architecture**, and Android **drops inbound multicast** without a held
-`WifiManager.MulticastLock` (there is no Expo core module for it). There is **no
-device in CI**, so nothing here is known to work. `USE_NATIVE_ENGINE` in
-`App.tsx` is **`false`** — the app ships on `MockApi` until the spike below
-passes on the actual Nothing Phone.
+`react-native-zeroconf` (v0.14.0, Dec 2025) is a legacy native module relying on
+RN's New-Architecture interop layer; it is **unverified on RN 0.81 / New Arch** on
+real hardware, and there is **no device in CI**. `NATIVE_ENGINE_PLATFORMS` in
+`App.tsx` is `{ ios: false, android: false }` — the app ships on `MockApi` until
+the spike below passes on the actual device, per platform.
 
-## Step 1 — run the SSDP spike on the device (USER)
+## Step 1 — run the mDNS spike on the device (USER)
 
 The spike (`SpikeScreen.native.tsx`) runs ONLY discovery and reports whether a
 speaker is found. Mount it from a throwaway dev entry (do not commit), e.g. point
@@ -42,35 +53,43 @@ Then build + install a **dev client** (Expo Go can't load custom native modules)
 
 ```bash
 # from app/
-npx expo install expo-build-properties react-native-jsi-udp   # pin SDK-54-correct versions
-npx expo prebuild --platform android --clean                  # generate android/ with the perms + plugin
-npx eas build --platform android --profile development          # or: npx expo run:android  (local toolchain)
-# install the resulting .apk on the Nothing Phone, open it, tap "Run discovery (4s)"
+npx expo install react-native-zeroconf expo-build-properties   # SDK-54-correct versions
+npx expo prebuild --platform android --clean                    # generate android/ (perms)
+npx expo run:android                                            # local toolchain; or EAS dev build
+# (iOS: npx expo prebuild --platform ios --clean && npx expo run:ios — grant the
+#  Local Network prompt on first launch)
+# open the app, tap "Run discovery (4s)"
 ```
 
-**Pass criteria:** at least one responder appears with a `192.168.x.x` address and
-a `RINCON_…` USN. **If zero responders on Android**, the `MulticastLock` is
-required — see Step 2.
+**Pass criteria:** at least one responder appears with an IPv4 address (this LAN
+is `10.10.x.x`, NOT `192.168.x.x` — do not assume the prefix) and a `RINCON_…`
+USN.
 
-## Step 2 — MulticastLock (if the spike finds nothing)
+## Step 2 — if the spike finds nothing
 
-Add a tiny config-plugin native module exposing `acquire()/release()` around
-`WifiManager.createMulticastLock(...).acquire()/.release()`, pass it into
-`JsiUdpDiscoveryTransport(lock)` / `makeNativeApi(lock)`, and re-run the spike.
-`CHANGE_WIFI_MULTICAST_STATE` + `ACCESS_WIFI_STATE` are already declared in
-`app.json`.
+- **Android:** `react-native-zeroconf` has two impls — the default Android `NSD`
+  and a newer `DNSSD`. If `NSD` is flaky, try the `DNSSD` impl
+  (`zeroconf.scan('sonos','tcp','local.', ImplType.DNSSD)`). Confirm
+  `CHANGE_WIFI_MULTICAST_STATE` + `ACCESS_WIFI_STATE` are present (they are, in
+  `app.json`).
+- **iOS:** confirm the Local Network permission was granted (Settings → the app →
+  Local Network) and `NSBonjourServices` lists `_sonos._tcp`.
+- **Either:** verify the device is on the same Wi-Fi/subnet as the speakers (no
+  VLAN/AP isolation).
+- **New-Arch sanity:** if discovery errors on load, the module may not be loading
+  under bridgeless — rule it out with a one-off legacy build (`newArchEnabled:false`,
+  a SDK-54-only diagnostic; RN 0.82+ removes the option).
 
-### Fallbacks if jsi-udp multicast stays broken
+### Fallback if mDNS stays broken
 
-- **zeroconf / mDNS** discovery instead of SSDP (`_sonos._tcp` is not standard,
-  but `_spotify-connect` / device mDNS can locate speakers), then `fetchTopology`.
 - **Seed IP**: let the user type a speaker IP; skip discovery and call
-  `fetchTopology(transport, "http://<ip>:1400")` directly.
-- **Legacy-arch dev build** (`newArchEnabled:false`) to rule out a New-Arch JSI
-  regression.
+  `fetchTopology(transport, "http://<ip>:1400")` directly. (Still subject to the
+  iOS Local Network permission, since it's unicast to a local IP.)
 
-## Step 3 — turn the engine on (after the spike passes)
+## Step 3 — turn the engine on (after the spike passes, per platform)
 
-Set `USE_NATIVE_ENGINE = true` in `App.tsx`, rebuild the dev client, and confirm:
-rooms populate, **Play** starts a real speaker, volume drag changes it, grouping
-works, shuffle/repeat reflect in the official Sonos app.
+Set the passing platform to `true` in `NATIVE_ENGINE_PLATFORMS` in `App.tsx`
+(Android and iOS independently), rebuild the dev client, and confirm: rooms
+populate, **Play** starts a real speaker, volume drag changes it, grouping works,
+shuffle/repeat reflect in the official Sonos app. Handle the Local-Network-denied
+state on control calls (surface it — no silent fallback).

@@ -13,7 +13,14 @@
       "backgroundColor": "#F2EFE8"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Orkester finds and controls your Sonos speakers on this Wi-Fi network.",
+        "NSBonjourServices": [
+          "_sonos._tcp"
+        ]
+      },
+      "bundleIdentifier": "com.anonymous.orkester"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +33,8 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE"
-      ]
+      ],
+      "package": "com.anonymous.orkester"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -40,7 +48,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

@@ -4,26 +4,31 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@orkester/core": "workspace:*",
     "@expo-google-fonts/fragment-mono": "^0.4.2",
     "@expo-google-fonts/instrument-serif": "^0.4.1",
     "@expo-google-fonts/manrope": "^0.4.2",
+    "@orkester/core": "workspace:*",
+    "@react-navigation/native": "^7.3.4",
+    "@react-navigation/native-stack": "^7.17.6",
     "expo": "~54.0.34",
     "expo-build-properties": "~0.14.8",
     "expo-font": "~14.0.12",
+    "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
-    "react-native-jsi-udp": "1.3.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "react-native-zeroconf": "^0.14.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

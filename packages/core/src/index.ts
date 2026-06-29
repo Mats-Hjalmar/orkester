@@ -13,7 +13,7 @@ export type {
   DiscoveryTransport,
 } from './sonos';
 
-export type { Motif, Track, Room, Group, Config, MView, TopologyStatus } from './state';
+export type { Motif, Track, Room, Group, Config, TopologyStatus } from './state';
 
 export type {
   Api,

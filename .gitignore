@@ -25,3 +25,6 @@ app/dist/
 
 # create-feature workflow run records (local only)
 .pipeline-runs/
+
+# Claude Code local runtime
+.claude/

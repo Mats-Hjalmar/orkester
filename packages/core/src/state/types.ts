@@ -63,7 +63,5 @@ export interface Config {
   mobileNowDark: boolean;
 }
 
-export type MView = 'nowplaying' | 'home' | 'rooms' | 'search';
-
 /** Topology load lifecycle, surfaced to the UI for empty/loading/error states. */
 export type TopologyStatus = 'idle' | 'loading' | 'ready' | 'error';

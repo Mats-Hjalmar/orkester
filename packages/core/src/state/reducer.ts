@@ -9,12 +9,11 @@
 // No silent fallbacks: a missing track id throws (it is a real wiring bug), and
 // the provider surfaces Api rejections by reverting + recording topologyError.
 
-import type { Config, Group, MView, QueueItem, Room, Track, TopologyStatus } from './types';
+import type { Config, Group, QueueItem, Room, Track, TopologyStatus } from './types';
 import type { ApiNowPlaying, ApiTopology } from '../api';
 import { synthesizeArt } from './art';
 
 export interface State {
-  mView: MView;
   /** Local-only UI state — the engine has no "liked" concept. */
   liked: Record<string, boolean>;
   /** roomId -> 0..100. */
@@ -52,7 +51,6 @@ export function placeholderTrack(): Track {
 
 export function initialState(): State {
   return {
-    mView: 'nowplaying',
     liked: {},
     roomVol: {},
     roomMute: {},
@@ -146,8 +144,7 @@ export type Action =
   | { type: 'setRoomMuteOptimistic'; roomId: string; muted: boolean }
   // local-only
   | { type: 'toggleLike'; id: string }
-  | { type: 'selectGroup'; gid: string }
-  | { type: 'setView'; view: MView };
+  | { type: 'selectGroup'; gid: string };
 
 function patchGroup(s: State, gid: string, patch: Partial<Group>): Group[] {
   return s.groups.map((g) => (g.id === gid ? { ...g, ...patch } : g));
@@ -299,10 +296,7 @@ export function reducer(s: State, a: Action): State {
       return { ...s, liked: { ...s.liked, [a.id]: !s.liked[a.id] } };
 
     case 'selectGroup':
-      return { ...s, activeGroupId: a.gid, mView: 'nowplaying' };
-
-    case 'setView':
-      return { ...s, mView: a.view };
+      return { ...s, activeGroupId: a.gid };
 
     default:
       return s;

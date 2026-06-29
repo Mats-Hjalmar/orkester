@@ -5,168 +5,33 @@ import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
+import { useSpotifySearch, SPOTIFY_SEARCH_KINDS } from '@orkester/core/state';
 import { accentTextOf } from '../state/selectors';
 import type { Group } from '../state/types';
-import type { ApiSearchItem, SpotifySearchKind } from '@orkester/core';
+import type { ApiSearchItem } from '@orkester/core';
 
-// Spotify catalog search, desktop pane. All domain logic lives in @orkester/core
-// (shared by desktop + app); this is purely the UI, driven through useStore():
-//   - isSpotifyLinked / startSpotifyLink / pollSpotifyLink  (one-time device link)
-//   - searchSpotify(query, kind)                            (catalog search)
-//   - enqueueSearchItem(groupId, item)                      (play on a group)
-// It owns its own result/link state — search is imperative request/response,
-// not part of the polled store state.
+// Spotify catalog search, desktop pane. All domain logic lives in the shared
+// useSpotifySearch hook (@orkester/core/state) — the same one the mobile Search
+// screen uses; this component is purely the desktop UI. The hook owns the link
+// state machine + search/enqueue/play; the component owns presentation and the
+// platform `Linking.openURL` (kept out of core so it imports only react).
 
-const KINDS: SpotifySearchKind[] = ['tracks', 'albums', 'artists', 'playlists'];
-const POLL_MS = 2500;
-
-type LinkState =
-  | { status: 'checking' }
-  | { status: 'unlinked' }
-  | { status: 'linking'; regUrl: string; linkCode: string; showLinkCode: boolean }
-  | { status: 'linked' };
+const KINDS = SPOTIFY_SEARCH_KINDS;
 
 export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
-  const {
-    isSpotifyLinked,
-    startSpotifyLink,
-    pollSpotifyLink,
-    searchSpotify,
-    enqueueSearchItem,
-    playSearchItem,
-    roomName,
-    config,
-  } = useStore();
+  const { roomName, config } = useStore();
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
 
-  const [link, setLink] = React.useState<LinkState>({ status: 'checking' });
-  const [query, setQuery] = React.useState('');
-  const [kind, setKind] = React.useState<SpotifySearchKind>('tracks');
-  const [results, setResults] = React.useState<ApiSearchItem[]>([]);
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState('');
-  const [notice, setNotice] = React.useState('');
-
-  const playRoomId = group?.roomIds[0] ?? '';
   const groupLabel = group ? group.roomIds.map(roomName).join(' · ') || 'this group' : 'this group';
 
-  // Initial link check.
-  React.useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const linked = await isSpotifyLinked();
-        if (!cancelled) setLink({ status: linked ? 'linked' : 'unlinked' });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('[spotify] isSpotifyLinked failed:', messageOf(e));
-        if (!cancelled) setError(messageOf(e));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isSpotifyLinked]);
+  const { link, query, setQuery, kind, setKind, results, busy, error, notice, beginLink, runSearch, addToQueue, playNow } =
+    useSpotifySearch({ groupId: group?.id ?? '', roomIdForLink: group?.roomIds[0] ?? '', groupLabel });
 
-  // While linking, poll until the user authorizes in the browser. Pending polls
-  // resolve false (keep waiting); only a definitive failure throws. Bounded by a
-  // ~3-minute timeout so a stuck link surfaces instead of spinning forever.
-  React.useEffect(() => {
-    if (link.status !== 'linking') return;
-    let cancelled = false;
-    let attempts = 0;
-    const maxAttempts = Math.ceil((3 * 60 * 1000) / POLL_MS);
-    const timer = setInterval(() => {
-      attempts += 1;
-      if (attempts > maxAttempts) {
-        clearInterval(timer);
-        if (!cancelled) {
-          setError('Timed out waiting for Spotify authorization. Try linking again.');
-          setLink({ status: 'unlinked' });
-        }
-        return;
-      }
-      void (async () => {
-        try {
-          const done = await pollSpotifyLink();
-          if (!cancelled && done) setLink({ status: 'linked' });
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.error('[spotify] pollSpotifyLink failed:', messageOf(e));
-          if (!cancelled) {
-            setError(messageOf(e));
-            setLink({ status: 'unlinked' });
-          }
-        }
-      })();
-    }, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [link.status, pollSpotifyLink]);
-
-  const beginLink = async () => {
-    setError('');
-    if (playRoomId === '') {
-      setError('No room available to link through — wait for speakers to appear.');
-      return;
-    }
-    try {
-      const info = await startSpotifyLink(playRoomId);
-      setLink({ status: 'linking', regUrl: info.regUrl, linkCode: info.linkCode, showLinkCode: info.showLinkCode });
-      void Linking.openURL(info.regUrl).catch(() => {});
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[spotify] startSpotifyLink failed:', messageOf(e));
-      setError(messageOf(e));
-    }
-  };
-
-  // searchKind defaults to the current selection, but a kind chip passes the
-  // newly-picked kind so switching categories re-searches the same query without
-  // waiting for the (async) state update.
-  const runSearch = async (searchKind: SpotifySearchKind = kind) => {
-    const q = query.trim();
-    if (q === '') return;
-    setBusy(true);
-    setError('');
-    setNotice('');
-    try {
-      const hits = await searchSpotify(q, searchKind);
-      setResults(hits);
-      if (hits.length === 0) setNotice(`No ${searchKind} match "${q}".`);
-    } catch (e) {
-      // NotLinkedError surfaces as a re-link prompt; everything else is shown.
-      if (e instanceof Error && e.name === 'NotLinkedError') {
-        setLink({ status: 'unlinked' });
-      } else {
-        setError(messageOf(e));
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const addToQueue = async (item: ApiSearchItem) => {
-    setError('');
-    try {
-      await enqueueSearchItem(group?.id ?? '', item);
-      setNotice(`Added "${item.title}" to the queue on ${groupLabel}.`);
-    } catch (e) {
-      setError(messageOf(e));
-    }
-  };
-
-  const playNow = async (item: ApiSearchItem) => {
-    setError('');
-    try {
-      await playSearchItem(group?.id ?? '', item);
-      setNotice(`Playing "${item.title}"${item.artist ? ` — ${item.artist}` : ''} on ${groupLabel}.`);
-    } catch (e) {
-      setError(messageOf(e));
-    }
+  // The hook starts the link + returns the URL; the desktop opens it in a browser.
+  const onBeginLink = async () => {
+    const info = await beginLink();
+    if (info) void Linking.openURL(info.regUrl).catch(() => {});
   };
 
   return (
@@ -203,7 +68,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
               the token is stored locally and reused after that.
             </Text>
             <Pressable
-              onPress={() => void beginLink()}
+              onPress={() => void onBeginLink()}
               style={({ pressed }) => ({
                 alignSelf: 'flex-start',
                 flexDirection: 'row',
@@ -494,8 +359,4 @@ function capitalizeKind(item: ApiSearchItem): string {
   const parts = item.id.split(':');
   const kind = parts.length >= 2 ? parts[1] : 'item';
   return kind.charAt(0).toUpperCase() + kind.slice(1);
-}
-
-function messageOf(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

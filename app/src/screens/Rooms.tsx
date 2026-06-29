@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import RoomGroupCard from '../components/RoomGroupCard';
-import { Play, Speaker } from '../icons';
+import { Play, Refresh, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -11,7 +11,7 @@ import { TopologyNotice, topologyPhase } from '../components/TopologyState';
 
 export default function Rooms() {
   const store = useStore();
-  const { state, config, startGroup } = store;
+  const { state, config, startGroup, refresh, refreshing } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const idle = idleRooms(store);
@@ -19,7 +19,34 @@ export default function Rooms() {
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 56, paddingHorizontal: 22, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
-      <Text style={type.displayXL}>Rooms</Text>
+      {/* Title + a manual reconnect/reload — the Sonos connection drifts, so the
+          user can force a re-discover + re-fetch (mirrors the desktop TopBar). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <Text style={type.displayXL}>Rooms</Text>
+        <Pressable
+          onPress={refresh}
+          disabled={refreshing}
+          hitSlop={8}
+          accessibilityLabel="Refresh"
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            height: 40,
+            paddingHorizontal: 14,
+            borderRadius: radii.pill,
+            borderWidth: 1,
+            borderColor: ink(0.12),
+            backgroundColor: colors.bgPaper,
+            opacity: refreshing ? 0.6 : pressed ? 0.7 : 1,
+          })}
+        >
+          {refreshing ? <ActivityIndicator size="small" color={colors.fgMuted} /> : <Refresh size={16} color={colors.fg} />}
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </Text>
+        </Pressable>
+      </View>
       <Text style={[type.bodyMuted, { marginTop: 8 }]}>
         Each group plays its own thing. Tap a group to control it; tap a speaker to move it.
       </Text>

@@ -2,24 +2,25 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import CoverArt from './CoverArt';
 import TrackBar from './TrackBar';
-import SpeakerChip from './SpeakerChip';
 import { ChevronRight, VolumeHigh } from '../icons';
 import { Group } from '../state/types';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
-import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { chipsFor } from '../state/selectors';
+import { useNav } from '../navigation';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 
-// A group on the Rooms screen: its cover/name/now-playing, a group volume bar,
-// and tappable speaker chips that move rooms between groups.
+// A group row on the rooms-first list: cover, name, what it's playing, and a
+// quick group-volume bar. Tapping it drills into the room's DETAIL (NowPlaying),
+// where transport/queue/search/speaker-grouping live. The volume bar stays here
+// for at-a-glance adjustment without drilling in; its press is isolated so it
+// doesn't trigger the row's navigation.
 export default function RoomGroupCard({ group }: { group: Group }) {
   const store = useStore();
-  const { state, config, getTrack, groupName, groupVol, selectGroup, setGroupVol } = store;
+  const nav = useNav();
+  const { config, getTrack, groupName, roomName, groupVol, selectGroup, setGroupVol } = store;
   const tr = getTrack(group.trackId);
   const accent = config.accentColor;
-  const active = group.id === state.activeGroupId;
   const nothing = tr.id === PLACEHOLDER_TRACK_ID;
   // A real group may be idle (nothing queued yet) — read "Nothing playing"
   // rather than "Paused · Nothing playing · ".
@@ -27,21 +28,34 @@ export default function RoomGroupCard({ group }: { group: Group }) {
     ? 'Nothing playing'
     : (group.isPlaying ? '' : 'Paused · ') + tr.title + ' · ' + tr.artist;
   const vol = (group.muted ? 0 : groupVol(group)) / 100;
-  const chips = chipsFor(store, group);
+  // Full room list under the name (so the card shows the whole group, not "+N").
+  const roomsLine = group.roomIds.map(roomName).join(' · ');
 
   return (
-    <View style={{ backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: active ? accent : ink(0.1), borderRadius: 20, padding: 16 }}>
-      <Pressable onPress={() => selectGroup(group.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-        <CoverArt size={48} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} />
+    <Pressable
+      onPress={() => {
+        // Select the group (sets the active group the detail/search/speakers
+        // screens read) then push its detail — the stack owns the back nav.
+        selectGroup(group.id);
+        nav.navigate('Room');
+      }}
+      accessibilityLabel={`Open ${groupName(group)}`}
+      style={({ pressed }) => ({ backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), borderRadius: 20, padding: 16, opacity: pressed ? 0.85 : 1 })}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
+        <CoverArt size={48} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={nothing ? undefined : tr.artUrl} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
             <Text numberOfLines={1} style={[type.title, { flexShrink: 1 }]}>{groupName(group)}</Text>
             {group.isPlaying && <View style={{ width: 6, height: 6, borderRadius: radii.pill, backgroundColor: accent }} />}
           </View>
           <Text numberOfLines={1} style={[type.small, { marginTop: 2, color: colors.fgSubtle }]}>{playingText}</Text>
+          {group.roomIds.length > 1 && (
+            <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.fgFaint }]}>{roomsLine}</Text>
+          )}
         </View>
         <ChevronRight size={20} color={colors.fgSubtle} />
-      </Pressable>
+      </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
         <VolumeHigh size={16} color={colors.fgMuted} />
@@ -54,13 +68,6 @@ export default function RoomGroupCard({ group }: { group: Group }) {
           style={{ flex: 1 }}
         />
       </View>
-
-      <Text style={[type.eyebrow, { fontSize: 10, marginTop: 16, marginBottom: 9 }]}>Speakers</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {chips.map((c) => (
-          <SpeakerChip key={c.id} chip={c} />
-        ))}
-      </View>
-    </View>
+    </Pressable>
   );
 }

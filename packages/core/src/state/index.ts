@@ -6,10 +6,20 @@
 // with transports, MockApi for demo/web) and injects it into StoreProvider.
 
 // Stable UI-facing state types.
-export type { Motif, Track, Room, QueueItem, Group, Config, MView, TopologyStatus } from './types';
+export type { Motif, Track, Room, QueueItem, Group, Config, TopologyStatus } from './types';
 
 // The store provider + hook + helpers (keeps the mock store's useStore surface).
 export { StoreProvider, useStore, fmt, type Store } from './store';
+
+// Shared Spotify catalog-search behavior (link state machine + search/enqueue/
+// play), consumed by the desktop pane and the mobile Search screen.
+export {
+  useSpotifySearch,
+  SPOTIFY_SEARCH_KINDS,
+  type SpotifySearch,
+  type SpotifySearchTarget,
+  type LinkState,
+} from './useSpotifySearch';
 
 // The reducer + state shape (exported for adapter/unit tests).
 export {

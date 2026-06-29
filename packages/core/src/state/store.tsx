@@ -19,7 +19,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import type { Config, Group, MView, QueueItem, Track } from './types';
+import type { Config, Group, QueueItem, Track } from './types';
 import {
   type Action,
   type State,
@@ -119,7 +119,6 @@ export interface Store {
   toggleRoomInGroup: (gid: string, roomId: string) => void;
   startGroup: (roomId: string) => void;
   selectGroup: (gid: string) => void;
-  setView: (view: MView) => void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -665,7 +664,6 @@ export function StoreProvider({
             await loadTopology.current('refresh');
           }
         })();
-        dispatchRef.current({ type: 'setView', view: 'nowplaying' });
       },
 
       selectGroup: (gid: string) => {
@@ -673,8 +671,6 @@ export function StoreProvider({
         dispatchRef.current({ type: 'selectGroup', gid });
         void pollNowPlaying.current(gid);
       },
-
-      setView: (view: MView) => dispatchRef.current({ type: 'setView', view }),
     };
   }, [state, config, api, refreshing]);
 
