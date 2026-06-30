@@ -58,6 +58,18 @@ const SPOTIFY_SEARCH_CATEGORY: Record<SpotifySearchKind, string> = {
   playlists: 'playlist',
 };
 
+/**
+ * Duck-typed SMAPIFault check — deliberately NOT `instanceof`. tsup bundles each
+ * package entry separately, so the SMAPIFault thrown by the engine (the `.` entry,
+ * where smapiCall/parseSMAPIFault live) is a DIFFERENT class identity from the
+ * SMAPIFault this module (the `./state` entry) imports. `instanceof` across that
+ * boundary is always false, which is exactly why the token-refresh retry never
+ * fired in the packaged app. Match on the stable `name` instead.
+ */
+function isSMAPIFault(e: unknown): e is SMAPIFault {
+  return e instanceof Error && e.name === 'SMAPIFault';
+}
+
 export class SonosApi implements Api {
   private readonly client: SonosClient;
   /** The most-recent topology + a responder base for cheap refresh. */
@@ -322,15 +334,15 @@ export class SonosApi implements Api {
       hits = await runSearch(auth);
     } catch (err) {
       // SMAPI loginTokens expire, surfacing as a `Client.TokenRefreshRequired`
-      // fault. The documented refresh carries new credentials in the fault's
-      // <detail>: persist them and retry ONCE. If the fault carries no new token,
-      // or the refreshed token is itself rejected, the stored token can't be
-      // refreshed in place — surface a re-link prompt (NotLinkedError), not a raw
-      // SMAPI fault. The raw fault body is logged so the wire shape is diagnosable.
-      if (!(err instanceof SMAPIFault) || !err.isTokenRefresh()) throw err;
+      // fault that carries fresh credentials in its <detail>: persist them and
+      // retry ONCE. Only if the fault carries no new token, or the refreshed token
+      // is itself rejected, do we give up and prompt a re-link (NotLinkedError) —
+      // never a raw SMAPI fault. Logs avoid the fault body (it contains the live
+      // token/key); `err.detail` still holds it for an inspector if needed.
+      if (!isSMAPIFault(err) || !err.isTokenRefresh()) throw err;
 
       if (!err.refreshedToken) {
-        console.warn('[orkester:smapi] tokenRefreshRequired with no refreshed token in <detail>; re-link required. Fault body:\n', err.detail ?? '(no body captured)');
+        console.warn(`[orkester:smapi] ${err.code}: fault carried no refreshed token; re-link required.`);
         throw new NotLinkedError('Spotify session expired — please re-link Spotify.');
       }
 
@@ -343,8 +355,8 @@ export class SonosApi implements Api {
       try {
         hits = await runSearch(refreshed);
       } catch (retryErr) {
-        if (retryErr instanceof SMAPIFault && retryErr.isTokenRefresh()) {
-          console.warn('[orkester:smapi] refreshed token still rejected; re-link required. Fault body:\n', retryErr.detail ?? '(no body captured)');
+        if (isSMAPIFault(retryErr) && retryErr.isTokenRefresh()) {
+          console.warn(`[orkester:smapi] ${retryErr.code}: refreshed token still rejected; re-link required.`);
           throw new NotLinkedError('Spotify session expired — please re-link Spotify.');
         }
         throw retryErr;

@@ -279,4 +279,35 @@ describe('SonosApi.searchSpotify token refresh', () => {
       message: expect.stringMatching(/re-link/i),
     });
   });
+
+  // Regression: in the packaged app, tsup bundles each entry separately, so the
+  // SMAPIFault thrown by the engine bundle is a DIFFERENT class identity than the
+  // one sonosApi imports. The handler must match on `name`, not `instanceof` (an
+  // `instanceof` check misses this and the raw fault escaped to the UI).
+  it('recognises a foreign-identity SMAPIFault and still refreshes + retries', async () => {
+    class ForeignFault extends Error {
+      readonly code = 'ns0:Client.TokenRefreshRequired';
+      readonly refreshedToken = { authToken: 'NEW-TOKEN', privateKey: 'NEW-KEY' };
+      readonly detail = '<fault/>';
+      constructor() {
+        super('SMAPI fault ns0:Client.TokenRefreshRequired: tokenRefreshRequired');
+        this.name = 'SMAPIFault';
+      }
+      isTokenRefresh(): boolean { return true; }
+    }
+    let calls = 0;
+    const saved: SpotifyAuth[] = [];
+    const store: CredentialStore = { load: async () => AUTH, save: async (a) => { saved.push(a); } };
+    const fakeClient = {
+      searchService: async () => {
+        calls += 1;
+        if (calls === 1) throw new ForeignFault();
+        return [{ id: 'spotify:track:x', itemType: 'track', title: 'Song', artist: 'A', album: '', artUrl: '', isContainer: false }];
+      },
+    } as unknown as SonosClient;
+    const api = new SonosApi(fakeClient, store);
+    const hits = await api.searchSpotify('q', 'tracks');
+    expect(hits).toHaveLength(1);
+    expect(saved).toEqual([expect.objectContaining({ authToken: 'NEW-TOKEN', privateKey: 'NEW-KEY' })]);
+  });
 });
