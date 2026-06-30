@@ -44,6 +44,12 @@ const TOPOLOGY_POLL_MS = 10000;
 const QUEUE_POLL_MS = 5000;
 const TICK_MS = 1000;
 
+// Fallback shown for a room whose real volume isn't known yet — never fetched, or
+// the fetch failed. Volume is always fetched from the speaker first (the poll loop
+// + refreshGroup); this only applies on a miss, so the slider rests near 1/3
+// instead of pinned to silent (0).
+const DEFAULT_ROOM_VOLUME = 33;
+
 /**
  * Group-targeted transport controls. The rooms-first desktop UI controls every
  * group IN PLACE — without changing any global selection — by calling
@@ -406,7 +412,11 @@ export function StoreProvider({
 
     const groupVol = (g: Group) => {
       if (!g.roomIds.length) return 0;
-      return Math.round(g.roomIds.reduce((acc, r) => acc + (state.roomVol[r] || 0), 0) / g.roomIds.length);
+      // Per-room real volume when known (a genuine 0 stays 0 via ??), else the
+      // DEFAULT_ROOM_VOLUME fallback for a not-yet-fetched / failed room.
+      return Math.round(
+        g.roomIds.reduce((acc, r) => acc + (state.roomVol[r] ?? DEFAULT_ROOM_VOLUME), 0) / g.roomIds.length,
+      );
     };
 
     const setVolForRooms = (roomIds: string[], frac: number) => {
