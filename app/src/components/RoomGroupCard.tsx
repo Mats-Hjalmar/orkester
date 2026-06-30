@@ -69,6 +69,8 @@ export default function RoomGroupCard({ group }: { group: Group }) {
             trackColor={ink(0.1)}
             fillColor={colors.fg}
             height={5}
+            thumb
+            grabThumbOnly
             style={{ flex: 1 }}
           />
         </View>

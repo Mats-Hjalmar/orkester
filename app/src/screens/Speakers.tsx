@@ -50,7 +50,7 @@ export default function Speakers() {
       {groupVolume !== null && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
           <VolumeHigh size={18} color={colors.fgMuted} />
-          <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={(f) => setGroupVol(g.id, f)} trackColor={ink(0.12)} fillColor={colors.fg} height={5} style={{ flex: 1 }} />
+          <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={(f) => setGroupVol(g.id, f)} trackColor={ink(0.12)} fillColor={colors.fg} height={5} thumb grabThumbOnly style={{ flex: 1 }} />
         </View>
       )}
 
