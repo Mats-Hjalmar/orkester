@@ -65,3 +65,26 @@ impl later.
   - Engine read-only parity (no UI): `pnpm --filter @orkester/core smoke:live --
     "<room>" 3000 --search "miles davis"` (uses the token saved by the desktop
     link, since both share `~/.config/orkester/auth.json`).
+- 2026-06-30: SMAPI loginTokens expire ~hourly; the service signals it with a
+  `Client.TokenRefreshRequired` SOAP fault whose `<detail><refreshAuthTokenResult>`
+  carries a fresh `authToken` + `privateKey` (confirmed on the wire — Spotify also
+  includes `<userInfo>` with nickname/accountTier). The controller must persist the
+  new credentials and retry the call; there is NO separate refresh method. So this
+  is auto-recoverable — re-linking is NOT required for a normal expiry.
+- 2026-06-30 (load-bearing bug): the token-refresh retry in `SonosApi.searchSpotify`
+  silently never fired in the packaged/dev app because it gated on
+  `err instanceof SMAPIFault`. tsup bundles each package entry SEPARATELY, so the
+  SMAPIFault thrown by the engine (the `.`/`dist/index.cjs` entry, where
+  smapiCall/parseSMAPIFault live) is a DIFFERENT class identity from the SMAPIFault
+  that `@orkester/core/state` (`dist/state/index.cjs`, where SonosApi lives) imports.
+  `instanceof` across that entry boundary is ALWAYS false → the handler fell through
+  to `throw err` and the raw fault hit the UI, even with a valid refreshed token in
+  hand. Fix: match faults by `name === 'SMAPIFault'` (duck guard `isSMAPIFault`), never
+  `instanceof`, for any error that crosses an entry boundary. Unit tests in one module
+  graph (vitest) share a single class identity and CANNOT catch this — the regression
+  test throws a foreign-identity fault (own class, name 'SMAPIFault') on purpose.
+  Same caution applies to NotLinkedError: `useSpotifySearch` already keys off
+  `e.name === 'NotLinkedError'` (correct), not instanceof.
+- 2026-06-30: Do NOT log the raw refresh fault body — its `<detail>` contains the
+  live authToken/privateKey. Log `fault.code` only. `SMAPIFault.detail` still holds
+  the body for an interactive inspector.
