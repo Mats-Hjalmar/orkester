@@ -26,5 +26,6 @@ app/dist/
 # create-feature workflow run records (local only)
 .pipeline-runs/
 
-# Claude Code local runtime
-.claude/
+# Claude Code local runtime (but track shared skills)
+.claude/*
+!.claude/skills/
