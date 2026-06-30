@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, GestureResponderEvent, ViewStyle } from 'react-native';
+import { ActivityIndicator, View, GestureResponderEvent, ViewStyle } from 'react-native';
 import { radii } from '../theme/tokens';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   height?: number; // bar thickness
   hitSlop?: number; // vertical touch padding
   thumb?: boolean; // draggable dot at the head
+  loading?: boolean; // show a spinner at the thumb while the value is being applied
   // Only grab when the touch lands on/near the thumb, not anywhere on the track.
   // Stops a scroll-drag (touch) or a stray click (desktop) over the wide bar from
   // scrubbing — e.g. jerking the volume to max. Implies a thumb to aim for.
@@ -27,7 +28,7 @@ const THUMB_GRAB_RADIUS = 22;
 // `grabThumbOnly` the bar only responds near the thumb, so a scroll or stray click
 // on the rest of the track is ignored. When `disabled` (a live stream has no finite
 // duration, or nothing is playing) the bar is inert and dimmed.
-export default function TrackBar({ value, onScrub, trackColor, fillColor, height = 4, hitSlop = 8, thumb = false, grabThumbOnly = false, disabled = false, style }: Props) {
+export default function TrackBar({ value, onScrub, trackColor, fillColor, height = 4, hitSlop = 8, thumb = false, loading = false, grabThumbOnly = false, disabled = false, style }: Props) {
   const width = useRef(0);
 
   const handle = (e: GestureResponderEvent) => {
@@ -63,7 +64,12 @@ export default function TrackBar({ value, onScrub, trackColor, fillColor, height
     >
       <View style={{ height, borderRadius: radii.pill, backgroundColor: trackColor, width: '100%' }}>
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: radii.pill, backgroundColor: fillColor, width: pct as any }} />
-        {thumb && (
+        {loading ? (
+          // Spinner at the thumb while the new value is being written to the speaker.
+          <View style={{ position: 'absolute', top: '50%', left: pct as any, transform: [{ translateX: -9 }, { translateY: -9 }] }}>
+            <ActivityIndicator size="small" color={fillColor} />
+          </View>
+        ) : thumb ? (
           <View
             style={{
               position: 'absolute',
@@ -76,7 +82,7 @@ export default function TrackBar({ value, onScrub, trackColor, fillColor, height
               transform: [{ translateX: -6 }, { translateY: -6 }],
             }}
           />
-        )}
+        ) : null}
       </View>
     </View>
   );

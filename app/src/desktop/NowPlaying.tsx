@@ -288,7 +288,7 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
                     <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
                       {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
                     </Pressable>
-                    <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly style={{ flex: 1 }} />
+                    <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(g)} style={{ flex: 1 }} />
                   </View>
                 )}
               </View>

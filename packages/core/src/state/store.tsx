@@ -40,6 +40,12 @@ const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun', mobi
 const NOWPLAYING_POLL_MS = 1000;
 const BACKGROUND_NP_POLL_MS = 2500;
 const VOLUME_POLL_MS = 2500;
+// Min gap between setVolume writes to one speaker while dragging a slider (the UI
+// still updates optimistically every scrub event; only the network write is paced).
+const VOLUME_WRITE_MS = 120;
+// After a local volume write, ignore the room in the volume poll for this long so a
+// stale real reading doesn't snap the slider back during/just after a drag.
+const VOLUME_QUIET_MS = 1500;
 const TOPOLOGY_POLL_MS = 10000;
 const QUEUE_POLL_MS = 5000;
 const TICK_MS = 1000;
@@ -75,6 +81,9 @@ export interface Store {
   /** The group's volume (0–100), or null when not backed by a real reading from
    * every member speaker. null means hide the control — never show a guessed slider. */
   groupVol: (g: Group) => number | null;
+  /** True while a volume change for any member speaker is being written/applied
+   * (drives the loading spinner on the slider thumb). */
+  volumeSettling: (g: Group) => boolean;
   isLiked: (id: string) => boolean;
   /** The group coordinator's play queue (fetched on focus/refresh); [] if none. */
   queueFor: (gid: string) => QueueItem[];
@@ -156,6 +165,12 @@ export function StoreProvider({
   // the refresh button can show a spinner. Transient UI only — not in the reducer.
   const [refreshing, setRefreshing] = useState(false);
 
+  // roomId -> true while a volume write for that room is in flight or queued, so the
+  // slider thumb can show a loading spinner until the change is applied. Transient
+  // UI only. Driven off the volWrite throttle + volInFlight counter below.
+  const [volSettling, setVolSettling] = useState<Record<string, boolean>>({});
+  const volInFlight = useRef(new Map<string, number>());
+
   // Refs so the long-lived poll/effect closures always see the latest state +
   // dispatch without re-subscribing every render.
   const stateRef = useRef(state);
@@ -177,6 +192,16 @@ export function StoreProvider({
   const inFlightRefresh = useRef(new Set<string>());
   // Round-robin cursor over non-focused groups for background now-playing polls.
   const rrCursor = useRef(0);
+  // Per-room volume-write throttle. Dragging a slider fires many scrub events per
+  // second; we update the UI optimistically on every one but send at most one
+  // setVolume to the speaker per VOLUME_WRITE_MS (leading + trailing latest), so we
+  // don't flood the LAN and lag the drag. `latest` is the most recent target; a
+  // running `timer` means the throttle window is open.
+  const volWrite = useRef(new Map<string, { latest: number; pending: boolean; timer: ReturnType<typeof setTimeout> }>());
+  // When a room's volume was last written locally (ms). The volume poll skips a
+  // room inside VOLUME_QUIET_MS of a write so a slightly-stale real reading can't
+  // yank the thumb back mid- or just-after a drag.
+  const lastVolWriteAt = useRef(new Map<string, number>());
 
   // --- side-effect helpers ------------------------------------------------
 
@@ -290,6 +315,9 @@ export function StoreProvider({
     const roomIds = new Set<string>();
     for (const g of s.groups) for (const r of g.roomIds) roomIds.add(r);
     for (const roomId of roomIds) {
+      // Skip a room we just wrote to: a slightly-stale real reading here would snap
+      // the slider back during or right after a drag. The next poll reconciles it.
+      if (Date.now() - (lastVolWriteAt.current.get(roomId) ?? 0) < VOLUME_QUIET_MS) continue;
       try {
         const [volume, muted] = await Promise.all([api.getVolume(roomId), api.getMute(roomId)]);
         dispatchRef.current({ type: 'roomVolume', roomId, volume });
@@ -420,17 +448,72 @@ export function StoreProvider({
       );
     };
 
+    // A room is "settling" while a write is in flight OR a throttle window is open
+    // (more paced writes may follow). Recompute and only setState on a transition so
+    // we don't re-render on every paced send.
+    const syncSettling = (roomId: string) => {
+      const busy = (volInFlight.current.get(roomId) ?? 0) > 0 || volWrite.current.has(roomId);
+      setVolSettling((prev) => {
+        if (!!prev[roomId] === busy) return prev;
+        const next = { ...prev };
+        if (busy) next[roomId] = true;
+        else delete next[roomId];
+        return next;
+      });
+    };
+
+    // Push one paced setVolume to the speaker, reverting (re-read) only on failure.
+    // The optimistic UI update is done by the caller on every scrub; this is just
+    // the network write, so it carries no optimistic dispatch of its own.
+    const sendVolume = (roomId: string, v: number) => {
+      lastVolWriteAt.current.set(roomId, Date.now());
+      volInFlight.current.set(roomId, (volInFlight.current.get(roomId) ?? 0) + 1);
+      syncSettling(roomId);
+      void (async () => {
+        try {
+          await api.setVolume(roomId, v);
+        } catch {
+          try {
+            const real = await api.getVolume(roomId);
+            dispatchRef.current({ type: 'roomVolume', roomId, volume: real });
+          } catch {
+            // Bounded by the next volume poll.
+          }
+        } finally {
+          volInFlight.current.set(roomId, Math.max(0, (volInFlight.current.get(roomId) ?? 1) - 1));
+          syncSettling(roomId);
+        }
+      })();
+    };
+
     const setVolForRooms = (roomIds: string[], frac: number) => {
       const v = Math.max(0, Math.min(100, Math.round(frac * 100)));
       for (const roomId of roomIds) {
-        void optimistic.current(
-          { type: 'setRoomVolOptimistic', roomId, volume: v },
-          () => api.setVolume(roomId, v),
-          async () => {
-            const real = await api.getVolume(roomId);
-            dispatchRef.current({ type: 'roomVolume', roomId, volume: real });
-          },
-        );
+        // Immediate, network-free UI update so the fill tracks the thumb smoothly.
+        dispatchRef.current({ type: 'setRoomVolOptimistic', roomId, volume: v });
+        // Pace the actual speaker write: send the leading edge now, then at most one
+        // more per VOLUME_WRITE_MS carrying the latest value (incl. a trailing send
+        // after the drag stops), instead of one SOAP call per scrub event.
+        const slot = volWrite.current.get(roomId);
+        if (slot) {
+          slot.latest = v;
+          slot.pending = true;
+          continue;
+        }
+        sendVolume(roomId, v);
+        const tick = () => {
+          const s = volWrite.current.get(roomId);
+          if (s && s.pending) {
+            s.pending = false;
+            sendVolume(roomId, s.latest);
+            s.timer = setTimeout(tick, VOLUME_WRITE_MS);
+          } else {
+            volWrite.current.delete(roomId);
+            syncSettling(roomId);
+          }
+        };
+        volWrite.current.set(roomId, { latest: v, pending: false, timer: setTimeout(tick, VOLUME_WRITE_MS) });
+        syncSettling(roomId);
       }
     };
 
@@ -544,6 +627,7 @@ export function StoreProvider({
       roomName,
       groupName,
       groupVol,
+      volumeSettling: (g: Group) => g.roomIds.some((r) => volSettling[r]),
       isLiked: (id: string) => !!state.liked[id],
 
       groupControls,
@@ -683,7 +767,7 @@ export function StoreProvider({
         void pollNowPlaying.current(gid);
       },
     };
-  }, [state, config, api, refreshing]);
+  }, [state, config, api, refreshing, volSettling]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

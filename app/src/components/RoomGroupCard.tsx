@@ -18,7 +18,7 @@ import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 export default function RoomGroupCard({ group }: { group: Group }) {
   const store = useStore();
   const nav = useNav();
-  const { config, getTrack, groupName, roomName, groupVol, selectGroup, setGroupVol } = store;
+  const { config, getTrack, groupName, roomName, groupVol, volumeSettling, selectGroup, setGroupVol } = store;
   const tr = getTrack(group.trackId);
   const accent = config.accentColor;
   const nothing = tr.id === PLACEHOLDER_TRACK_ID;
@@ -71,6 +71,7 @@ export default function RoomGroupCard({ group }: { group: Group }) {
             height={5}
             thumb
             grabThumbOnly
+            loading={volumeSettling(group)}
             style={{ flex: 1 }}
           />
         </View>
