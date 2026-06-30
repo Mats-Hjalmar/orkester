@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import TrackBar from '../components/TrackBar';
 import SpeakerChip from '../components/SpeakerChip';
+import QueueRow from '../components/QueueRow';
 import { ChevronRight, Dots, Grip, Next, Pause, Play, Plus, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
@@ -10,7 +11,7 @@ import { font } from '../theme/fonts';
 import { fmt, useStore } from '../state/store';
 import { accentTextOf, chipsFor, groupCount } from '../state/selectors';
 import { progressOf } from '../components/trackProgress';
-import { PLACEHOLDER_TRACK_ID, synthesizeArt } from '@orkester/core/state';
+import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
 
@@ -47,25 +48,6 @@ function BackButton({ onPress }: { onPress: () => void }) {
 
 // Fixed row height so the drag math (dy / ROW_H) maps cleanly to row offsets.
 const QUEUE_ROW_H = 52;
-
-// One row in the queue list: real album art (or a synthesized cover) + title +
-// artist. The currently-playing entry is marked with an accent dot + bolder
-// title. `handle` is the drag affordance, rendered at the right.
-function QueueRow({ item, motif, accent, current, handle }: { item: QueueItem; motif: Motif; accent: string; current: boolean; handle?: React.ReactNode }) {
-  const art = synthesizeArt(item.title || item.album, item.artist);
-  const title = item.title || item.album || '';
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: current ? font.bodySemiBold : font.bodyMedium, fontSize: 14, color: colors.fg }}>{title}</Text>
-        {!!item.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgMuted, marginTop: 1 }}>{item.artist}</Text>}
-      </View>
-      {current && <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: accent }} />}
-      {handle}
-    </View>
-  );
-}
 
 // A drag-to-reorder queue. Each row's grip uses W3C pointer events with pointer
 // CAPTURE — PanResponder is unreliable under react-native-web, but pointer capture
@@ -138,7 +120,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
             key={`${index}:${item.title}:${item.artist}`}
             style={{ height: QUEUE_ROW_H, justifyContent: 'center', transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1 }}
           >
-            <QueueRow item={item} motif={motif} accent={accent} current={isCurrent(item)} handle={handle} />
+            <QueueRow item={item} motif={motif} fg={colors.fg} muted={colors.fgMuted} accent={accent} current={isCurrent(item)} trailing={handle} />
           </View>
         );
       })}

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-na
 import CoverArt from '../components/CoverArt';
 import TrackBar from '../components/TrackBar';
 import TransportRow from '../components/TransportRow';
+import QueueRow from '../components/QueueRow';
 import { ChevronDown, Heart, Queue, Search, Speaker, VolumeHigh, VolumeLow } from '../icons';
 import { colors, ink, paper, shadow, radii, FRAME } from '../theme/tokens';
 import { font } from '../theme/fonts';
@@ -10,52 +11,6 @@ import { fmt, useStore } from '../state/store';
 import { useNav } from '../navigation';
 import { groupCount } from '../state/selectors';
 import { progressOf } from '../components/trackProgress';
-import { synthesizeArt } from '@orkester/core/state';
-import type { Motif, QueueItem } from '../state/types';
-
-// One "Up next" row: cover + title + artist, with up/down reorder controls on the
-// right. Mobile uses tappable chevrons rather than the desktop's pointer-capture
-// drag — pointer capture is web-only and breaks mid-drag under native touch, so a
-// dependency-free, platform-robust control gives the same reorder capability.
-function QueueRow({
-  item,
-  motif,
-  fg,
-  muted,
-  canUp,
-  canDown,
-  onUp,
-  onDown,
-}: {
-  item: QueueItem;
-  motif: Motif;
-  fg: string;
-  muted: string;
-  canUp: boolean;
-  canDown: boolean;
-  onUp: () => void;
-  onDown: () => void;
-}) {
-  const art = synthesizeArt(item.title || item.album, item.artist);
-  const title = item.title || item.album || '';
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 52 }}>
-      <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 14, color: fg }}>{title}</Text>
-        {!!item.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: muted, marginTop: 1 }}>{item.artist}</Text>}
-      </View>
-      <Pressable onPress={onUp} disabled={!canUp} hitSlop={6} style={{ padding: 4, opacity: canUp ? 1 : 0.25 }}>
-        <View style={{ transform: [{ rotate: '180deg' }] }}>
-          <ChevronDown size={18} color={fg} />
-        </View>
-      </Pressable>
-      <Pressable onPress={onDown} disabled={!canDown} hitSlop={6} style={{ padding: 4, opacity: canDown ? 1 : 0.25 }}>
-        <ChevronDown size={18} color={fg} />
-      </Pressable>
-    </View>
-  );
-}
 
 // A bordered pill action (Search / Speakers) on the room detail. Themed by `fg`
 // + `border` so it works on both the light and dark Now Playing.
@@ -210,19 +165,36 @@ export default function NowPlaying() {
               <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: muted }}>Clear</Text>
             </Pressable>
           </View>
-          {upNext.map((item, index) => (
-            <QueueRow
-              key={`${index}:${item.title}:${item.artist}`}
-              item={item}
-              motif={config.coverMotif}
-              fg={fg}
-              muted={muted}
-              canUp={index > 0}
-              canDown={index < upNext.length - 1}
-              onUp={() => reorderQueue(g.id, qStart + index, qStart + index - 1)}
-              onDown={() => reorderQueue(g.id, qStart + index, qStart + index + 1)}
-            />
-          ))}
+          {/* Mobile reorders via tappable chevrons rather than the desktop's
+              pointer-capture drag — pointer capture is web-only and breaks mid-drag
+              under native touch, so chevrons give the same capability everywhere.
+              Each row is wrapped at height 52 (the shared QueueRow owns no height). */}
+          {upNext.map((item, index) => {
+            const canUp = index > 0;
+            const canDown = index < upNext.length - 1;
+            return (
+              <View key={`${index}:${item.title}:${item.artist}`} style={{ height: 52, justifyContent: 'center' }}>
+                <QueueRow
+                  item={item}
+                  motif={config.coverMotif}
+                  fg={fg}
+                  muted={muted}
+                  trailing={
+                    <>
+                      <Pressable onPress={() => reorderQueue(g.id, qStart + index, qStart + index - 1)} disabled={!canUp} hitSlop={6} style={{ padding: 4, opacity: canUp ? 1 : 0.25 }}>
+                        <View style={{ transform: [{ rotate: '180deg' }] }}>
+                          <ChevronDown size={18} color={fg} />
+                        </View>
+                      </Pressable>
+                      <Pressable onPress={() => reorderQueue(g.id, qStart + index, qStart + index + 1)} disabled={!canDown} hitSlop={6} style={{ padding: 4, opacity: canDown ? 1 : 0.25 }}>
+                        <ChevronDown size={18} color={fg} />
+                      </Pressable>
+                    </>
+                  }
+                />
+              </View>
+            );
+          })}
         </View>
       )}
 
