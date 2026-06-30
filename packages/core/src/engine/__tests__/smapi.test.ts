@@ -103,6 +103,31 @@ describe('parseSMAPIFault', () => {
   it('returns null for a non-fault body', () => {
     expect(parseSMAPIFault('<ok/>')).toBeNull();
   });
+
+  it('detects TokenRefreshRequired and extracts the refreshed token from <detail>', () => {
+    const body =
+      '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns0="http://www.sonos.com/Services/1.1"><s:Body>' +
+      '<s:Fault><faultcode>ns0:Client.TokenRefreshRequired</faultcode><faultstring>tokenRefreshRequired</faultstring>' +
+      '<detail><ns0:refreshAuthTokenResult>' +
+      '<ns0:authToken>NEW-TOKEN</ns0:authToken><ns0:privateKey>NEW-KEY</ns0:privateKey>' +
+      '</ns0:refreshAuthTokenResult></detail>' +
+      '</s:Fault></s:Body></s:Envelope>';
+    const fault = parseSMAPIFault(body);
+    expect(fault).not.toBeNull();
+    expect(fault!.isTokenRefresh()).toBe(true);
+    expect(fault!.isRetry()).toBe(false);
+    expect(fault!.refreshedToken).toEqual({ authToken: 'NEW-TOKEN', privateKey: 'NEW-KEY' });
+  });
+
+  it('a non-refresh fault carries no refreshedToken', () => {
+    const body =
+      '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>' +
+      '<s:Fault><faultcode>s:Client.NOT_LINKED_RETRY</faultcode><faultstring>NOT_LINKED_RETRY</faultstring></s:Fault>' +
+      '</s:Body></s:Envelope>';
+    const fault = parseSMAPIFault(body);
+    expect(fault!.isTokenRefresh()).toBe(false);
+    expect(fault!.refreshedToken).toBeUndefined();
+  });
 });
 
 describe('spotifyEnqueueItem', () => {

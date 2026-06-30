@@ -36,7 +36,9 @@ import {
   serviceSeed,
   spotifyEnqueueItem,
   NotLinkedError,
+  SMAPIFault,
 } from '../engine';
+import type { SpotifyAuth } from '../api';
 // Import the SonosClient type directly from its module (not the barrel): it is
 // used only as a type here, and reexporting the class through ../engine creates
 // a circular-chunk warning in the tsup/rollup build.
@@ -302,16 +304,39 @@ export class SonosApi implements Api {
   }
 
   async searchSpotify(query: string, kind: SpotifySearchKind): Promise<ApiSearchItem[]> {
-    const auth = await this.requireCredentials().load();
+    const store = this.requireCredentials();
+    const auth = await store.load();
     if (auth === null) throw new NotLinkedError();
 
-    const hits = await this.client.searchService(
-      { id: auth.serviceId, endpoint: auth.endpoint },
-      { authToken: auth.authToken, privateKey: auth.privateKey, householdId: auth.householdId },
-      SPOTIFY_SEARCH_CATEGORY[kind],
-      query,
-      SonosApi.SEARCH_LIMIT,
-    );
+    const runSearch = (a: SpotifyAuth) =>
+      this.client.searchService(
+        { id: a.serviceId, endpoint: a.endpoint },
+        { authToken: a.authToken, privateKey: a.privateKey, householdId: a.householdId },
+        SPOTIFY_SEARCH_CATEGORY[kind],
+        query,
+        SonosApi.SEARCH_LIMIT,
+      );
+
+    let hits;
+    try {
+      hits = await runSearch(auth);
+    } catch (err) {
+      // SMAPI loginTokens expire; a `Client.TokenRefreshRequired` fault carries
+      // refreshed credentials in its <detail>. Persist them and retry ONCE. No
+      // silent fallback: a refresh fault with no new token, or a second failure,
+      // propagates to the caller.
+      if (err instanceof SMAPIFault && err.isTokenRefresh() && err.refreshedToken) {
+        const refreshed: SpotifyAuth = {
+          ...auth,
+          authToken: err.refreshedToken.authToken,
+          privateKey: err.refreshedToken.privateKey || auth.privateKey,
+        };
+        await store.save(refreshed);
+        hits = await runSearch(refreshed);
+      } else {
+        throw err;
+      }
+    }
 
     const out: ApiSearchItem[] = [];
     for (const h of hits) {

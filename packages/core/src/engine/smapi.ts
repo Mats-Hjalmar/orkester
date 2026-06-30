@@ -46,16 +46,27 @@ export interface SMAPIService {
 /** A parsed SMAPI SOAP fault. The link poll loop keys off isRetry/isFailure. */
 export class SMAPIFault extends Error {
   readonly code: string;
-  constructor(code: string, message: string) {
+  /**
+   * On a `Client.TokenRefreshRequired` fault, Spotify returns the refreshed
+   * loginToken in the fault's <detail> (refreshAuthTokenResult). The caller must
+   * persist these and retry the original call. Undefined for any other fault.
+   */
+  readonly refreshedToken?: { authToken: string; privateKey: string };
+  constructor(code: string, message: string, refreshedToken?: { authToken: string; privateKey: string }) {
     super(`SMAPI fault ${code}: ${message}`);
     this.name = 'SMAPIFault';
     this.code = code;
+    this.refreshedToken = refreshedToken;
   }
   isRetry(): boolean {
     return this.code.includes('NOT_LINKED_RETRY') || this.message.includes('NOT_LINKED_RETRY');
   }
   isFailure(): boolean {
     return this.code.includes('NOT_LINKED_FAILURE') || this.message.includes('NOT_LINKED_FAILURE');
+  }
+  /** The stored token expired; refreshedToken (if present) carries the new one. */
+  isTokenRefresh(): boolean {
+    return this.code.includes('TokenRefreshRequired') || this.message.includes('tokenRefreshRequired');
   }
 }
 
@@ -116,7 +127,16 @@ export function parseSMAPIFault(body: string): SMAPIFault | null {
   const code = tryExtract(body, 'faultcode').trim();
   const msg = tryExtract(body, 'faultstring').trim();
   if (code === '' && msg === '') return null;
-  return new SMAPIFault(code, msg);
+  // A TokenRefreshRequired fault carries the new loginToken in its <detail>
+  // (refreshAuthTokenResult > authToken/privateKey). Capture it so the caller can
+  // persist the refreshed credentials and retry the original call.
+  let refreshedToken: { authToken: string; privateKey: string } | undefined;
+  if (code.includes('TokenRefreshRequired') || msg.includes('tokenRefreshRequired')) {
+    const authToken = tryExtract(body, 'authToken').trim();
+    const privateKey = tryExtract(body, 'privateKey').trim();
+    if (authToken !== '') refreshedToken = { authToken, privateKey };
+  }
+  return new SMAPIFault(code, msg, refreshedToken);
 }
 
 function truncate(body: string, n: number): string {
