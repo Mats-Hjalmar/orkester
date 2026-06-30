@@ -32,10 +32,12 @@ fallback. `App.tsx` further guards with `Platform.OS !== 'web'` + a lazy
 ## ⚠️ This path is NOT proven
 
 `react-native-zeroconf` (v0.14.0, Dec 2025) is a legacy native module relying on
-RN's New-Architecture interop layer; it is **unverified on RN 0.81 / New Arch** on
-real hardware, and there is **no device in CI**. `NATIVE_ENGINE_PLATFORMS` in
-`App.tsx` is `{ ios: false, android: false }` — the app ships on `MockApi` until
-the spike below passes on the actual device, per platform.
+RN's New-Architecture interop layer. The mDNS spike passed on 2026-06-29 (Android
+on real hardware, iOS on the Simulator) and `NATIVE_ENGINE_PLATFORMS` in `App.tsx`
+is now `{ ios: true, android: true }` — but there is still **no device in CI**, and
+the iOS Simulator does **not** enforce the Local Network prompt, so a real iPhone's
+first-launch grant remains unverified. Treat the native path as enabled-but-thin;
+the steps below are the per-platform gate before trusting it on new hardware.
 
 ## Step 1 — run the mDNS spike on the device (USER)
 

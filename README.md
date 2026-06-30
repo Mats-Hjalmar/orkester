@@ -2,101 +2,89 @@
 
 A from-scratch controller for Sonos speakers — a self-hosted replacement for the
 official Sonos app. It speaks the Sonos **local network protocol** (SSDP / UPnP
-SOAP / GENA events) directly, with no cloud dependency.
+SOAP / GENA events) directly, with **no cloud dependency**: discovery, topology,
+transport, volume, grouping and queueing all happen over your LAN.
 
-- **`orkester` CLI:** a Go command-line tool that discovers speakers, maps the
-  household, and controls playback / volume / grouping over the LAN.
-- **Later:** a resident `orkesterd` server (REST + WebSocket) and UI clients in
-  Compose Multiplatform. The CLI comes first and stays useful on its own.
+It ships as **two apps over one shared engine**:
 
-## Status
+| Surface | What it is | Run it |
+| --- | --- | --- |
+| **Desktop** | Electron app. The Sonos engine runs in the main process; the UI is `react-native-web`. | `pnpm desktop` |
+| **Mobile** | Expo app (iOS / Android). Phone-shaped, rooms-first UI. | `pnpm ios` · `pnpm android` |
+| **Web preview** | The desktop UI in a browser (handy for UI work without speakers). | `pnpm web` |
+| **`@orkester/core`** | The shared, React-Native-safe TypeScript Sonos engine + app state. Not run directly. | — |
 
-Working CLI for **discovery, status, transport, volume/mute, and grouping**.
+Both apps share `@orkester/core`, so the protocol logic, the app store, and the
+design tokens live in exactly one place.
 
-- `internal/sonos/ssdp.go` — SSDP M-SEARCH discovery (incl. fast `DiscoverOne`).
-- `internal/sonos/device.go` — device_description.xml parsing, S1/S2 detection.
-- `internal/sonos/soap.go` — SOAP envelope builder + UPnP fault parsing.
-- `internal/sonos/topology.go` — `GetZoneGroupState` → group/coordinator model,
-  room handles (`Slug`) + forgiving resolution (`Resolve`).
-- `internal/sonos/control.go` — AVTransport / RenderingControl actions, grouping,
-  now-playing (DIDL-Lite) parsing.
-- `cmd/orkester/` — the subcommand CLI.
+## Repo layout
 
-## Install / run (on your LAN)
+```
+packages/core/   @orkester/core — Sonos engine (SSDP/SOAP/topology/control/SMAPI),
+                 the app store, theme tokens. RN-safe; node:* only under src/node.
+app/             Expo app. Web → desktop UI (src/desktop); native → phone UI
+                 (src/screens + src/components). Single entry: App.tsx.
+desktop/         Electron shell + IPC bridge. Reuses app/src/desktop via an @app
+                 alias; runs the engine in the main process.
+findings/        Per-subject investigation notes (durable conclusions, dated).
+```
+
+## Quick start
+
+**Prerequisites**
+
+- Node 18+ and **pnpm 9.15** (`corepack enable` picks up the pinned version).
+- This is a pnpm workspace using the **hoisted** node-linker (required by Expo's
+  Metro) — configured in the root `.npmrc` (`node-linker=hoisted`). Nothing to do;
+  just don't switch package managers.
+
+**Install & run**
 
 ```sh
-cd backend
-go install ./cmd/orkester     # puts `orkester` on your PATH (GOBIN / ~/go/bin)
-# or just run without installing:
-go run ./cmd/orkester list
+pnpm install
+pnpm build        # build @orkester/core once (the apps import its dist/)
+pnpm desktop      # Electron desktop app  (builds core first, then launches)
+pnpm web          # desktop UI in a browser at http://localhost:8081
+pnpm ios          # phone app in the iOS simulator
+pnpm android      # phone app on Android
 ```
 
-You target a room by **any unique part of its handle or name** — no exact spelling
-needed. `pause lob` works because only `lobby` matches. When a query matches
-several rooms (`pause dag` → the three dagobah rooms) and you're at a terminal,
-it shows a **numbered picker** to choose one; piped/scripted use errors instead
-(so nothing hangs). Handles (slugs of room names) are shown by `list`.
+> `pnpm web`, `pnpm ios` and `pnpm android` do **not** rebuild `@orkester/core`
+> first (only `pnpm desktop` does). After a fresh clone or a change to
+> `packages/core`, run `pnpm build` once before them.
 
-```sh
-orkester list                  # rooms & groups (shows handles)
-orkester status  lobby         # now playing + volume for that room's group
-orkester play    lob           # unique substring → Lobby; transport → group coordinator
-orkester play    lobby -s jazz # search Favorites/playlists for "jazz" and play a match
-orkester pause   lobby
-orkester next    lobby
-orkester prev    lobby
-orkester volume  lobby         # print volume
-orkester volume  lobby 35      # set absolute (0–100)
-orkester volume  lobby +5      # relative (also -5)
-orkester mute    lobby
-orkester unmute  lobby
-orkester group   bedroom lobby # join bedroom into lobby's group
-orkester ungroup bedroom       # break bedroom out to standalone
-```
+On `pnpm web` you can append `?m=1` to the URL to preview the **phone** UI in a
+centred 390×844 frame without a simulator.
 
-`list` prints a compact tree of handles — grouped rooms (playing in sync) nest
-under their coordinator; standalone rooms are a single line:
-
-```
-kitchen
-lobby
-  └─ bedroom
-```
-
-(`lobby` and `bedroom` are one group; `kitchen` is on its own.)
-
-A `-wait DURATION` flag (default 3s) bounds discovery and **must come before the
-room**: `orkester play -wait 5s lob`. Transport commands route to the group
-coordinator; volume/mute apply to the matched room's own speaker.
-
-`play <room> -s <query>` searches your **Sonos Favorites and saved playlists**
-(over the LAN — no cloud) and plays a title containing the query. The query is
-the exception to "flags before the room": it trails the room and consumes the
-rest of the line, so `orkester play lobby -s coffee jazz` needs no quoting. It
-lists matches and prompts you to pick one; `-pick N` (before the room) chooses
-the Nth match non-interactively for scripts. Anything saved as a favorite —
-including Spotify/Tidal content — plays via the speaker's own stored metadata.
+Both apps default to **mock data**, so they run with no speakers on the LAN. The
+desktop app and (spike-gated) native app connect to real hardware once they're on
+the same network as your Sonos.
 
 ### macOS: Local Network permission
 
-macOS 15+ blocks multicast/local-network access until you grant permission. A
-plain `go run` from a terminal that hasn't been granted **Local Network** access
-will find **0 speakers** even when they're online. Fix:
+macOS 15+ blocks multicast / local-network access until you grant it. Until then
+discovery finds **0 speakers** even when they're online.
 
-- System Settings → Privacy & Security → **Local Network** → enable your terminal
-  (Terminal / iTerm / the app launching the process), then re-run.
-- Also ensure this machine is on the **same LAN/subnet** as the speakers (Sonos
-  on a separate VLAN breaks discovery), and that **UPnP is enabled** on the
-  system (newer firmware lets users turn it off).
+- System Settings → Privacy & Security → **Local Network** → enable the app
+  launching the process (Terminal / iTerm for `pnpm web`, the Electron app for
+  `pnpm desktop`), then re-run.
+- Ensure the machine is on the **same LAN/subnet** as the speakers (a separate
+  VLAN breaks discovery).
 
 ## Test
 
 ```sh
-cd backend
-go test ./...
+pnpm typecheck                          # tsc --noEmit across core + app
+pnpm --filter @orkester/core test       # the engine + store suite (offline, mocked)
 ```
 
-Parsers (SSDP response, device description, SOAP envelope/fault, ZoneGroupState,
-DIDL-Lite now-playing) plus room resolution and volume-arg handling are
-unit-tested against representative Sonos payloads, so the logic is verified
-without needing live speakers.
+All automated tests are **offline** — the engine is driven against recorded Sonos
+payloads and mock transports, so the logic is verified without live speakers. The
+one script that touches real hardware (`smoke:live`) is user-run only.
+
+## Contributing
+
+Each package has an `AGENTS.md` with its conventions and load-bearing invariants
+(the RN/Node boundary, the XML-parsing rules, the IPC contract, etc.). Durable
+investigation notes live in `findings/`. Read those before changing protocol or
+build-boundary code.

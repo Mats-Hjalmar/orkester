@@ -38,8 +38,9 @@ pnpm --filter desktop check:renderer-no-node   # asserts the renderer bundle has
 > The engine talks to real speakers. Run this only on a network with Sonos.
 
 ```bash
-pnpm --filter @orkester/core build
-pnpm --filter desktop dev
+pnpm desktop   # from the repo root: builds @orkester/core, then launches Electron
+# equivalently:
+pnpm --filter @orkester/core build && pnpm --filter desktop dev
 ```
 
 Then in the window that opens:
