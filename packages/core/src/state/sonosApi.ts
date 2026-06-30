@@ -321,20 +321,33 @@ export class SonosApi implements Api {
     try {
       hits = await runSearch(auth);
     } catch (err) {
-      // SMAPI loginTokens expire; a `Client.TokenRefreshRequired` fault carries
-      // refreshed credentials in its <detail>. Persist them and retry ONCE. No
-      // silent fallback: a refresh fault with no new token, or a second failure,
-      // propagates to the caller.
-      if (err instanceof SMAPIFault && err.isTokenRefresh() && err.refreshedToken) {
-        const refreshed: SpotifyAuth = {
-          ...auth,
-          authToken: err.refreshedToken.authToken,
-          privateKey: err.refreshedToken.privateKey || auth.privateKey,
-        };
-        await store.save(refreshed);
+      // SMAPI loginTokens expire, surfacing as a `Client.TokenRefreshRequired`
+      // fault. The documented refresh carries new credentials in the fault's
+      // <detail>: persist them and retry ONCE. If the fault carries no new token,
+      // or the refreshed token is itself rejected, the stored token can't be
+      // refreshed in place — surface a re-link prompt (NotLinkedError), not a raw
+      // SMAPI fault. The raw fault body is logged so the wire shape is diagnosable.
+      if (!(err instanceof SMAPIFault) || !err.isTokenRefresh()) throw err;
+
+      if (!err.refreshedToken) {
+        console.warn('[orkester:smapi] tokenRefreshRequired with no refreshed token in <detail>; re-link required. Fault body:\n', err.detail ?? '(no body captured)');
+        throw new NotLinkedError('Spotify session expired — please re-link Spotify.');
+      }
+
+      const refreshed: SpotifyAuth = {
+        ...auth,
+        authToken: err.refreshedToken.authToken,
+        privateKey: err.refreshedToken.privateKey || auth.privateKey,
+      };
+      await store.save(refreshed);
+      try {
         hits = await runSearch(refreshed);
-      } else {
-        throw err;
+      } catch (retryErr) {
+        if (retryErr instanceof SMAPIFault && retryErr.isTokenRefresh()) {
+          console.warn('[orkester:smapi] refreshed token still rejected; re-link required. Fault body:\n', retryErr.detail ?? '(no body captured)');
+          throw new NotLinkedError('Spotify session expired — please re-link Spotify.');
+        }
+        throw retryErr;
       }
     }
 

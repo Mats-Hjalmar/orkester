@@ -166,8 +166,11 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
       if (hits.length === 0) setNotice(`No ${searchKind} match "${q}".`);
     } catch (e) {
       // NotLinkedError surfaces as a re-link prompt; everything else is shown.
+      // Its message (e.g. "session expired") becomes a notice so the user knows
+      // why the link panel reappeared.
       if (e instanceof Error && e.name === 'NotLinkedError') {
         setLink({ status: 'unlinked' });
+        setNotice(messageOf(e));
       } else {
         setError(messageOf(e));
       }

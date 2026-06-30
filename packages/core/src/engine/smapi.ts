@@ -53,11 +53,15 @@ export class SMAPIFault extends Error {
    * persist these and retry the original call. Undefined for any other fault.
    */
   readonly refreshedToken?: { authToken: string; privateKey: string };
-  constructor(code: string, message: string, refreshedToken?: { authToken: string; privateKey: string }) {
+  /** The raw (truncated) fault body, kept so callers can log the exact wire shape
+   *  when a fault is unexpected (e.g. a token-refresh fault carrying no new token). */
+  readonly detail?: string;
+  constructor(code: string, message: string, refreshedToken?: { authToken: string; privateKey: string }, detail?: string) {
     super(`SMAPI fault ${code}: ${message}`);
     this.name = 'SMAPIFault';
     this.code = code;
     this.refreshedToken = refreshedToken;
+    this.detail = detail;
   }
   isRetry(): boolean {
     return this.code.includes('NOT_LINKED_RETRY') || this.message.includes('NOT_LINKED_RETRY');
@@ -79,10 +83,14 @@ export class LinkPendingError extends Error {
   }
 }
 
-/** Thrown by search/enqueue when no token has been minted yet. */
+/**
+ * Thrown by search/enqueue when there is no usable token: none has been minted
+ * yet, or the stored one expired and can't be refreshed in place (the UI treats
+ * both the same — prompt a re-link). The optional reason is shown to the user.
+ */
 export class NotLinkedError extends Error {
-  constructor() {
-    super('Spotify is not linked yet');
+  constructor(message = 'Spotify is not linked yet') {
+    super(message);
     this.name = 'NotLinkedError';
   }
 }
@@ -137,7 +145,7 @@ export function parseSMAPIFault(body: string): SMAPIFault | null {
     const privateKey = tryExtract(body, 'privateKey').trim();
     if (authToken !== '') refreshedToken = { authToken, privateKey };
   }
-  return new SMAPIFault(code, msg, refreshedToken);
+  return new SMAPIFault(code, msg, refreshedToken, truncate(body, 2000));
 }
 
 function truncate(body: string, n: number): string {

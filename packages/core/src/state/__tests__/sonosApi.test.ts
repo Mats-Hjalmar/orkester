@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DiscoverOptions, HttpRequest, HttpResponse, HttpTransport, SSDPResult } from '../../sonos';
+import type { CredentialStore, SpotifyAuth } from '../../api';
 import { SonosClient } from '../../engine';
 import { SonosApi } from '../sonosApi';
 
@@ -185,5 +186,97 @@ describe('SonosApi error propagation (optimistic revert relies on this)', () => 
     const api = makeApi(t);
     await api.loadTopology();
     await expect(api.play('g1')).rejects.toBeTruthy();
+  });
+});
+
+// --- Spotify search token-refresh handling --------------------------------
+// searchSpotify talks to the SMAPI endpoint via the same injected transport.
+// A `Client.TokenRefreshRequired` fault either carries refreshed credentials in
+// its <detail> (persist + retry) or does not (re-link required). These cover both
+// plus the "refreshed token still rejected" case — none must surface a raw fault.
+
+const AUTH: SpotifyAuth = {
+  serviceId: 9,
+  seed: 2311,
+  endpoint: 'https://spotify.example/smapi',
+  authToken: 'OLD-TOKEN',
+  privateKey: 'OLD-KEY',
+  householdId: 'Sonos_hh',
+  accountSn: '1',
+};
+
+function tokenRefreshFault(withToken: boolean): HttpResponse {
+  const detail = withToken
+    ? '<detail><ns0:refreshAuthTokenResult><ns0:authToken>NEW-TOKEN</ns0:authToken><ns0:privateKey>NEW-KEY</ns0:privateKey></ns0:refreshAuthTokenResult></detail>'
+    : '';
+  return {
+    status: 500,
+    headers: {},
+    body:
+      '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns0="http://www.sonos.com/Services/1.1">' +
+      '<s:Body><s:Fault><faultcode>ns0:Client.TokenRefreshRequired</faultcode><faultstring>tokenRefreshRequired</faultstring>' +
+      detail +
+      '</s:Fault></s:Body></s:Envelope>',
+  };
+}
+
+const SEARCH_OK: HttpResponse = {
+  status: 200,
+  headers: {},
+  body:
+    '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
+    '<s:Body><searchResponse><searchResult>' +
+    '<mediaMetadata><id>spotify:track:abc</id><itemType>track</itemType><title>Song</title>' +
+    '<trackMetadata><artist>Artist</artist></trackMetadata></mediaMetadata>' +
+    '</searchResult></searchResponse></s:Body></s:Envelope>',
+};
+
+/** Returns scripted responses to successive `search` SOAPACTIONs, in order. */
+class SmapiSearchTransport implements HttpTransport {
+  private i = 0;
+  constructor(private readonly responses: HttpResponse[]) {}
+  request(req: HttpRequest): Promise<HttpResponse> {
+    const action = /#([^"]+)"/.exec(req.headers?.SOAPACTION ?? '')?.[1] ?? '';
+    if (action !== 'search') throw new Error(`unexpected SMAPI action ${action}`);
+    const r = this.responses[Math.min(this.i, this.responses.length - 1)];
+    this.i += 1;
+    return Promise.resolve(r);
+  }
+}
+
+function makeSearchApi(responses: HttpResponse[]): { api: SonosApi; saved: SpotifyAuth[] } {
+  const saved: SpotifyAuth[] = [];
+  const store: CredentialStore = {
+    load: async () => AUTH,
+    save: async (a) => { saved.push(a); },
+  };
+  const client = new SonosClient({ http: new SmapiSearchTransport(responses), discovery: new MockDiscovery() });
+  return { api: new SonosApi(client, store), saved };
+}
+
+describe('SonosApi.searchSpotify token refresh', () => {
+  it('refreshes the stored token and retries when the fault embeds one', async () => {
+    const { api, saved } = makeSearchApi([tokenRefreshFault(true), SEARCH_OK]);
+    const hits = await api.searchSpotify('miles', 'tracks');
+    expect(hits).toHaveLength(1);
+    expect(hits[0].title).toBe('Song');
+    expect(saved).toEqual([expect.objectContaining({ authToken: 'NEW-TOKEN', privateKey: 'NEW-KEY' })]);
+  });
+
+  it('surfaces a re-link prompt (NotLinkedError) when the fault embeds no token', async () => {
+    const { api, saved } = makeSearchApi([tokenRefreshFault(false)]);
+    await expect(api.searchSpotify('miles', 'tracks')).rejects.toMatchObject({
+      name: 'NotLinkedError',
+      message: expect.stringMatching(/re-link/i),
+    });
+    expect(saved).toEqual([]); // nothing persisted when there's no new token
+  });
+
+  it('surfaces a re-link prompt when the refreshed token is itself rejected', async () => {
+    const { api } = makeSearchApi([tokenRefreshFault(true), tokenRefreshFault(true)]);
+    await expect(api.searchSpotify('miles', 'tracks')).rejects.toMatchObject({
+      name: 'NotLinkedError',
+      message: expect.stringMatching(/re-link/i),
+    });
   });
 });
