@@ -1,9 +1,9 @@
 // The control-surface contract the engine-backed store talks to.
 //
 // TYPES ONLY in this barrel — zero runtime values, so it stays node-free and the
-// RN-no-node guard never trips on it. Concrete implementations (SonosApi over a
-// SonosClient, MockApi for demo/web) live alongside in ../state and are imported
-// by the runtime that constructs them (Electron main, Android in-process, web).
+// RN-no-node guard never trips on it. The concrete implementation (SonosApi over a
+// SonosClient) lives alongside in ../state and is constructed by each runtime
+// (Electron main, Android in-process).
 //
 // The Api is the ONLY per-runtime difference: the StoreProvider drives the same
 // reducer regardless of which Api it was handed.

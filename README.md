@@ -10,21 +10,23 @@ It ships as **two apps over one shared engine**:
 | Surface | What it is | Run it |
 | --- | --- | --- |
 | **Desktop** | Electron app. The Sonos engine runs in the main process; the UI is `react-native-web`. | `pnpm desktop` |
-| **Mobile** | Expo app (iOS / Android). Phone-shaped, rooms-first UI. | `pnpm ios` · `pnpm android` |
-| **Web preview** | The desktop UI in a browser (handy for UI work without speakers). | `pnpm web` |
+| **Mobile** | Expo app (iOS / Android). Phone-shaped, rooms-first UI; engine in-process. | `pnpm ios` · `pnpm android` |
 | **`@orkester/core`** | The shared, React-Native-safe TypeScript Sonos engine + app state. Not run directly. | — |
 
 Both apps share `@orkester/core`, so the protocol logic, the app store, and the
-design tokens live in exactly one place.
+design tokens live in exactly one place. There is no browser/web target — a browser
+can't discover or control speakers, so both clients run a real engine (the desktop
+in Electron's main process, the mobile app in-process) with **no mock data**.
 
 ## Repo layout
 
 ```
 packages/core/   @orkester/core — Sonos engine (SSDP/SOAP/topology/control/SMAPI),
                  the app store, theme tokens. RN-safe; node:* only under src/node.
-app/             Expo app. Web → desktop UI (src/desktop); native → phone UI
-                 (src/screens + src/components). Single entry: App.tsx.
-desktop/         Electron shell + IPC bridge. Reuses app/src/desktop via an @app
+app/             Expo app (native iOS/Android) — phone UI (src/screens +
+                 src/components), entry App.tsx. Also holds the desktop UI
+                 (src/desktop), which the Electron app renders.
+desktop/         Electron shell + IPC bridge. Renders app/src/desktop via an @app
                  alias; runs the engine in the main process.
 findings/        Per-subject investigation notes (durable conclusions, dated).
 ```
@@ -44,21 +46,17 @@ findings/        Per-subject investigation notes (durable conclusions, dated).
 pnpm install
 pnpm build        # build @orkester/core once (the apps import its dist/)
 pnpm desktop      # Electron desktop app  (builds core first, then launches)
-pnpm web          # desktop UI in a browser at http://localhost:8081
 pnpm ios          # phone app in the iOS simulator
 pnpm android      # phone app on Android
 ```
 
-> `pnpm web`, `pnpm ios` and `pnpm android` do **not** rebuild `@orkester/core`
-> first (only `pnpm desktop` does). After a fresh clone or a change to
-> `packages/core`, run `pnpm build` once before them.
+> `pnpm ios` and `pnpm android` do **not** rebuild `@orkester/core` first (only
+> `pnpm desktop` does). After a fresh clone or a change to `packages/core`, run
+> `pnpm build` once before them.
 
-On `pnpm web` you can append `?m=1` to the URL to preview the **phone** UI in a
-centred 390×844 frame without a simulator.
-
-Both apps default to **mock data**, so they run with no speakers on the LAN. The
-desktop app and (spike-gated) native app connect to real hardware once they're on
-the same network as your Sonos.
+Both clients talk to **real speakers** — there is no mock/demo mode. With no Sonos
+on the LAN the UI shows an empty/error state, never fake data. The mobile app's
+in-process engine is enabled on both platforms (see `app/src/native/README.md`).
 
 ### macOS: Local Network permission
 
@@ -66,8 +64,8 @@ macOS 15+ blocks multicast / local-network access until you grant it. Until then
 discovery finds **0 speakers** even when they're online.
 
 - System Settings → Privacy & Security → **Local Network** → enable the app
-  launching the process (Terminal / iTerm for `pnpm web`, the Electron app for
-  `pnpm desktop`), then re-run.
+  launching the process (the Electron app for `pnpm desktop`; the terminal/simulator
+  for the mobile build), then re-run.
 - Ensure the machine is on the **same LAN/subnet** as the speakers (a separate
   VLAN breaks discovery).
 

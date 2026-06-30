@@ -35,7 +35,7 @@ group **coordinator** base URL. RenderingControl (get/setVolume, get/setMute) â†
 
 `src/engine` = protocol modules (ssdp, device, soap, topology, control, smapi,
 musicservices, client) + the shared XML helpers in `xml.ts`. `src/state` = the
-store, reducer, and the two `Api` impls (`SonosApi`, `MockApi`). `src/node` = the
+store, reducer, and the engine-backed `Api` impl (`SonosApi`). `src/node` = the
 only Node adapters. Tests are co-located in `__tests__/` beside the code they cover
 (`pnpm --filter @orkester/core test`).
 

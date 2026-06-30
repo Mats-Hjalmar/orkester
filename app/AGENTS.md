@@ -10,21 +10,22 @@ writing any Expo/RN code. Don't rely on memory of older Expo APIs.
 
 ## Conventions
 
-- **One entry, two UIs.** `App.tsx` switches on `Platform.OS`: web renders
-  `src/desktop`, native renders the `src/screens` stack. Web can force the phone UI
-  with `?m=1`. Keep both faces working when you touch shared components.
+- **Native only; no web target.** `App.tsx` renders the `src/screens` phone stack
+  and injects the in-process engine. A browser can't discover/control speakers, so
+  there is no web build — `src/desktop` is the desktop UI but is rendered by the
+  Electron app, not here.
 - **The `@app` alias is a contract.** The Electron renderer imports `app/src/desktop`
   via an `@app` alias and **never edits it**. Treat `src/desktop` (and anything it
   imports, like `src/components`) as shared with desktop — a change here ships to
   Electron too. Verify with `pnpm --filter desktop build`.
-- **Platform splits via filename.** `*.native.ts(x)` / `*.web.ts(x)` let Metro pick
-  per platform (e.g. `makeNativeApi.native.ts` vs the `.ts` web stub). Use this —
-  plus a lazy `require` behind `Platform.OS !== 'web'` — to keep device-only native
-  modules out of the web bundle.
+- **Platform splits via filename.** `*.native.ts(x)` lets Metro pick the device impl
+  (e.g. `makeNativeApi.native.ts` vs the `.ts` stub, which now just throws since
+  there's no web build). Keep the lazy `require` behind `Platform.OS !== 'web'` so a
+  stray web build never pulls in device-only native modules.
 - **Re-export facades.** `src/theme/tokens.ts` and `src/state/{store,types}.ts` are
   thin re-exports of `@orkester/core`; the source of truth is core. `src/state/
   selectors.ts` is the app-only exception (UI helpers with no core equivalent).
-- **Native engine is spike-gated.** `NATIVE_ENGINE_PLATFORMS` gates the in-process
-  engine per platform; flip a platform on only after its mDNS spike passes on real
-  hardware. Surface a Local-Network-denied state — never silently show "no
-  speakers". See `src/native/README.md`.
+- **In-process engine, no mock.** The app runs the real engine via `src/native/`
+  (both platforms enabled). There is no mock/demo Api — with no speakers the UI must
+  show an empty/error state. Surface a Local-Network-denied state too; never silently
+  show "no speakers". See `src/native/README.md`.

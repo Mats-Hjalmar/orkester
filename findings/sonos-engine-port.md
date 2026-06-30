@@ -103,3 +103,14 @@
   jsi-udp refs (verified). USE_NATIVE_ENGINE is FALSE — the app ships on MockApi
   until the on-device SSDP spike (SpikeScreen.native.tsx) passes on the Nothing
   Phone. NOT claimed working: no device in CI; jsi-udp unproven on RN 0.81/New Arch.
+- 2026-06-30: MockApi REMOVED. The app no longer ships a mock/demo Api or a web
+  target — both clients run a real engine (mobile in-process via app/src/native;
+  Electron in its main process). Dropped `mockApi.ts`, `mockLibrary.ts`, the
+  `MockApi`/`MOCK_LIBRARY`/`MOCK_ROOMS` exports, the `App.tsx` web/desktop-on-web
+  branch + `?m=1`, the `NATIVE_ENGINE_PLATFORMS` gate (its only purpose was to fall
+  back to MockApi — gone now, the native engine is unconditional), and the `pnpm web`
+  / `app web` scripts. With no speakers the UI must show an empty/error state, never
+  fake data (no silent fallback). The group-isolation test (groupControls.test.ts)
+  keeps its coverage via a tiny in-file stateful fake Api cast to `Api` — test-only,
+  not shipped. A browser can't discover/control speakers, so there is intentionally
+  no web build; the desktop is the Electron app.

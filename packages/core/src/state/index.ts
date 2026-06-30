@@ -2,8 +2,8 @@
 //
 // RN-safe: the provider imports only `react` (a peerDependency; tsup external)
 // and the Api adapters import only the node-free engine. No node:* anywhere, so
-// the RN-no-node guard stays green. The host picks an Api (SonosApi on a runtime
-// with transports, MockApi for demo/web) and injects it into StoreProvider.
+// the RN-no-node guard stays green. The host injects a real, engine-backed Api
+// (SonosApi) into StoreProvider — there is no mock/demo Api.
 
 // Stable UI-facing state types.
 export type { Motif, Track, Room, QueueItem, Group, Config, TopologyStatus } from './types';
@@ -34,7 +34,5 @@ export {
 // Deterministic cover-art synthesis.
 export { synthesizeArt, hashString, COVER_PALETTE } from './art';
 
-// Api implementations.
+// The engine-backed Api implementation.
 export { SonosApi } from './sonosApi';
-export { MockApi } from './mockApi';
-export { MOCK_LIBRARY, MOCK_ROOMS, type MockTrack } from './mockLibrary';

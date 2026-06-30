@@ -33,11 +33,13 @@ fallback. `App.tsx` further guards with `Platform.OS !== 'web'` + a lazy
 
 `react-native-zeroconf` (v0.14.0, Dec 2025) is a legacy native module relying on
 RN's New-Architecture interop layer. The mDNS spike passed on 2026-06-29 (Android
-on real hardware, iOS on the Simulator) and `NATIVE_ENGINE_PLATFORMS` in `App.tsx`
-is now `{ ios: true, android: true }` — but there is still **no device in CI**, and
-the iOS Simulator does **not** enforce the Local Network prompt, so a real iPhone's
-first-launch grant remains unverified. Treat the native path as enabled-but-thin;
-the steps below are the per-platform gate before trusting it on new hardware.
+on real hardware, iOS on the Simulator), so `App.tsx` now always runs this
+in-process engine on a device (the old `NATIVE_ENGINE_PLATFORMS` per-platform gate
+was removed when the mock Api was dropped — there is no fallback). But there is
+still **no device in CI**, and the iOS Simulator does **not** enforce the Local
+Network prompt, so a real iPhone's first-launch grant remains unverified. Treat the
+native path as enabled-but-thin; the steps below are the gate before trusting it on
+new hardware.
 
 ## Step 1 — run the mDNS spike on the device (USER)
 
@@ -88,10 +90,10 @@ USN.
   `fetchTopology(transport, "http://<ip>:1400")` directly. (Still subject to the
   iOS Local Network permission, since it's unicast to a local IP.)
 
-## Step 3 — turn the engine on (after the spike passes, per platform)
+## Step 3 — confirm the engine on the device (after the spike passes)
 
-Set the passing platform to `true` in `NATIVE_ENGINE_PLATFORMS` in `App.tsx`
-(Android and iOS independently), rebuild the dev client, and confirm: rooms
+The engine is always on for native builds (no per-platform gate). Rebuild the dev
+client and confirm: rooms
 populate, **Play** starts a real speaker, volume drag changes it, grouping works,
 shuffle/repeat reflect in the official Sonos app. Handle the Local-Network-denied
 state on control calls (surface it — no silent fallback).

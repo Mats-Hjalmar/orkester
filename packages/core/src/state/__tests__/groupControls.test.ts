@@ -1,7 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { MockApi } from '../mockApi';
 import { reducer, initialState, type State } from '../reducer';
-import type { Api } from '../../api';
+import type { Api, ApiNowPlaying, ApiTopology } from '../../api';
+import type { RepeatMode } from '../../engine';
+
+// A tiny STATEFUL fake Api — just the methods these tests drive (topology,
+// now-playing, play/pause, volume, shuffle/repeat) with real per-group/per-room
+// state so isolation is observable. Cast to Api: the unused methods are never
+// called here. (The product no longer ships a mock Api; this fake is test-only.)
+function makeFakeApi(): Api {
+  const vol: Record<string, number> = { living: 40, kitchen: 26, bedroom: 30 };
+  const groups = [
+    { id: 'g1', roomIds: ['living', 'kitchen'], isPlaying: true, shuffle: false, repeat: 'none' as RepeatMode },
+    { id: 'g2', roomIds: ['bedroom'], isPlaying: true, shuffle: false, repeat: 'none' as RepeatMode },
+  ];
+  const grp = (id: string) => groups.find((g) => g.id === id)!;
+  const np = (id: string): ApiNowPlaying => {
+    const g = grp(id);
+    return { isPlaying: g.isPlaying, title: '', artist: '', album: '', positionSeconds: 0, durationSeconds: 0, shuffle: g.shuffle, repeat: g.repeat, artUrl: '', queueIndex: 0 };
+  };
+  const fake = {
+    async loadTopology(): Promise<ApiTopology> {
+      return {
+        rooms: [
+          { id: 'living', name: 'Living' },
+          { id: 'kitchen', name: 'Kitchen' },
+          { id: 'bedroom', name: 'Bedroom' },
+        ],
+        groups: groups.map((g) => ({ id: g.id, name: g.roomIds[0], roomIds: [...g.roomIds], coordinatorUuid: `RINCON_${g.id}` })),
+      };
+    },
+    async getNowPlaying(gid: string) { return np(gid); },
+    async play(gid: string) { grp(gid).isPlaying = true; },
+    async pause(gid: string) { grp(gid).isPlaying = false; },
+    async getVolume(roomId: string) { return vol[roomId] ?? 0; },
+    async setVolume(roomId: string, v: number) { vol[roomId] = v; },
+    async setShuffle(gid: string, s: boolean) { grp(gid).shuffle = s; },
+    async setRepeat(gid: string, r: RepeatMode) { grp(gid).repeat = r; },
+  };
+  return fake as unknown as Api;
+}
 
 // The rooms-first desktop drives `groupControls(gid)` — a per-group transport.
 // The store wires those to the per-group Api + optimistic reducer patches. These
@@ -24,7 +61,7 @@ async function topologyState(api: Api): Promise<State> {
 
 describe('group-targeted control isolation', () => {
   it('pausing one group leaves the other group playing (per-group, no singleton)', async () => {
-    const api = new MockApi();
+    const api = makeFakeApi();
     let s = await topologyState(api);
     expect(s.groups).toHaveLength(2);
     const [g1, g2] = s.groups;
@@ -46,7 +83,7 @@ describe('group-targeted control isolation', () => {
   });
 
   it('setting volume on one group only touches that group\'s rooms', async () => {
-    const api = new MockApi();
+    const api = makeFakeApi();
     const s = await topologyState(api);
     const [g1, g2] = s.groups;
     const g2Room = g2.roomIds[0];
@@ -60,7 +97,7 @@ describe('group-targeted control isolation', () => {
   });
 
   it('shuffle/repeat are per-group', async () => {
-    const api = new MockApi();
+    const api = makeFakeApi();
     const s = await topologyState(api);
     const [g1, g2] = s.groups;
     await api.setShuffle(g1.id, true);
@@ -74,7 +111,7 @@ describe('group-targeted control isolation', () => {
   });
 
   it('an optimistic patch for an unknown group is a no-op on real groups', async () => {
-    const api = new MockApi();
+    const api = makeFakeApi();
     let s = await topologyState(api);
     const before = s.groups.map((g) => g.isPlaying);
     // groupControls('') resolves the placeholder group (id ''); its actions early
