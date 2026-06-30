@@ -27,7 +27,7 @@ export default function RoomGroupCard({ group }: { group: Group }) {
   const playingText = nothing
     ? 'Nothing playing'
     : (group.isPlaying ? '' : 'Paused · ') + tr.title + ' · ' + tr.artist;
-  const vol = (group.muted ? 0 : groupVol(group)) / 100;
+  const groupVolume = groupVol(group); // 0–100, or null when no real reading yet
   // Full room list under the name (so the card shows the whole group, not "+N").
   const roomsLine = group.roomIds.map(roomName).join(' · ');
 
@@ -57,17 +57,22 @@ export default function RoomGroupCard({ group }: { group: Group }) {
         <ChevronRight size={20} color={colors.fgSubtle} />
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
-        <VolumeHigh size={16} color={colors.fgMuted} />
-        <TrackBar
-          value={vol}
-          onScrub={(f) => setGroupVol(group.id, f)}
-          trackColor={ink(0.1)}
-          fillColor={colors.fg}
-          height={5}
-          style={{ flex: 1 }}
-        />
-      </View>
+      {/* Volume bar only when backed by a REAL reading from every member speaker.
+          Until then we hide it rather than show a guessed position the user could
+          drag — moving a guessed slider writes an absolute volume and can jump to max. */}
+      {groupVolume !== null && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
+          <VolumeHigh size={16} color={colors.fgMuted} />
+          <TrackBar
+            value={(group.muted ? 0 : groupVolume) / 100}
+            onScrub={(f) => setGroupVol(group.id, f)}
+            trackColor={ink(0.1)}
+            fillColor={colors.fg}
+            height={5}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
     </Pressable>
   );
 }

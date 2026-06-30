@@ -44,12 +44,6 @@ const TOPOLOGY_POLL_MS = 10000;
 const QUEUE_POLL_MS = 5000;
 const TICK_MS = 1000;
 
-// Fallback shown for a room whose real volume isn't known yet — never fetched, or
-// the fetch failed. Volume is always fetched from the speaker first (the poll loop
-// + refreshGroup); this only applies on a miss, so the slider rests near 1/3
-// instead of pinned to silent (0).
-const DEFAULT_ROOM_VOLUME = 33;
-
 /**
  * Group-targeted transport controls. The rooms-first desktop UI controls every
  * group IN PLACE — without changing any global selection — by calling
@@ -78,7 +72,9 @@ export interface Store {
   activeTrack: () => Track;
   roomName: (id: string) => string;
   groupName: (g: Group) => string;
-  groupVol: (g: Group) => number;
+  /** The group's volume (0–100), or null when not backed by a real reading from
+   * every member speaker. null means hide the control — never show a guessed slider. */
+  groupVol: (g: Group) => number | null;
   isLiked: (id: string) => boolean;
   /** The group coordinator's play queue (fetched on focus/refresh); [] if none. */
   queueFor: (gid: string) => QueueItem[];
@@ -410,12 +406,17 @@ export function StoreProvider({
       return names[0] + (names.length > 1 ? ' +' + (names.length - 1) : '');
     };
 
-    const groupVol = (g: Group) => {
-      if (!g.roomIds.length) return 0;
-      // Per-room real volume when known (a genuine 0 stays 0 via ??), else the
-      // DEFAULT_ROOM_VOLUME fallback for a not-yet-fetched / failed room.
+    // The group's volume (0–100), or null when it isn't backed by a real reading
+    // from EVERY member speaker (none fetched yet, or a fetch failed). null means
+    // "hide the control" — we never show a guessed slider the user could drag,
+    // because the write sends an absolute volume from where they tapped relative
+    // to that fake position, which is how an unknown room could jump to max.
+    // A genuine 0 stays 0; only undefined readings make the group null.
+    const groupVol = (g: Group): number | null => {
+      if (!g.roomIds.length) return null;
+      if (g.roomIds.some((r) => state.roomVol[r] === undefined)) return null;
       return Math.round(
-        g.roomIds.reduce((acc, r) => acc + (state.roomVol[r] ?? DEFAULT_ROOM_VOLUME), 0) / g.roomIds.length,
+        g.roomIds.reduce((acc, r) => acc + state.roomVol[r], 0) / g.roomIds.length,
       );
     };
 

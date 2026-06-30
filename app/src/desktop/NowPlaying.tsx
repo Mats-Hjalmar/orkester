@@ -201,7 +201,7 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
   const here = g.roomIds.length ? `${roomName(g.roomIds[0])} ${groupCount(g)}`.trim() : 'this group';
   const ctrl = groupControls(g.id);
   const prog = progressOf(g, tr);
-  const vol = (g.muted ? 0 : store.groupVol(g)) / 100;
+  const groupVolume = store.groupVol(g); // 0–100, or null when no real reading yet
   // "Up next" = the queue AFTER the currently-playing track, so the top of the
   // list is genuinely the next song and skipping advances it off the top. The
   // current track is already shown big above. qStart is the absolute queue index
@@ -301,12 +301,14 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
                     </Text>
                   </View>
                 )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
-                    {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
-                  </Pressable>
-                  <TrackBar value={vol} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} style={{ flex: 1 }} />
-                </View>
+                {groupVolume !== null && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
+                      {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
+                    </Pressable>
+                    <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} style={{ flex: 1 }} />
+                  </View>
+                )}
               </View>
             </>
           )}

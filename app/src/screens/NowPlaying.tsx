@@ -102,7 +102,7 @@ export default function NowPlaying() {
   const bg = dark ? colors.bgDeep : colors.bg;
 
   const prog = progressOf(g, tr);
-  const vol = (g.muted ? 0 : groupVol(g)) / 100;
+  const groupVolume = groupVol(g); // 0–100, or null when no real reading yet
 
   // "Up next" = the queue AFTER the currently-playing track (the current one is
   // shown big above). qStart is the absolute index of the first up-next item, so
@@ -182,12 +182,14 @@ export default function NowPlaying() {
         <TransportRow fg={fg} muted={muted} />
       </View>
 
-      {/* volume */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24 }}>
-        <VolumeLow size={18} color={muted} />
-        <TrackBar value={vol} onScrub={setActiveVol} trackColor={trackBg} fillColor={fg} height={4} disabled={prog.isNothing} style={{ flex: 1 }} />
-        <VolumeHigh size={20} color={muted} />
-      </View>
+      {/* volume — only when backed by a real reading; hidden until then. */}
+      {groupVolume !== null && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24 }}>
+          <VolumeLow size={18} color={muted} />
+          <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={setActiveVol} trackColor={trackBg} fillColor={fg} height={4} style={{ flex: 1 }} />
+          <VolumeHigh size={20} color={muted} />
+        </View>
+      )}
 
       {/* Room-scoped actions: search to play/queue onto THIS group, or manage
           which speakers are grouped with it. */}

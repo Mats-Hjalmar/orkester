@@ -21,7 +21,7 @@ export default function Speakers() {
   const g = activeGroup();
   const groupLabel = g.roomIds.map(roomName).join(' · ') || 'this group';
   const chips = chipsFor(store, g);
-  const vol = (g.muted ? 0 : groupVol(g)) / 100;
+  const groupVolume = groupVol(g); // 0–100, or null when no real reading yet
 
   return (
     <ScrollView
@@ -45,11 +45,14 @@ export default function Speakers() {
       <Text style={type.displayXL}>Speakers</Text>
       <Text style={[type.bodyMuted, { marginTop: -6 }]}>Tap a speaker to add it to this group or move it out.</Text>
 
-      {/* Shared group volume — all member speakers move together. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-        <VolumeHigh size={18} color={colors.fgMuted} />
-        <TrackBar value={vol} onScrub={(f) => setGroupVol(g.id, f)} trackColor={ink(0.12)} fillColor={colors.fg} height={5} style={{ flex: 1 }} />
-      </View>
+      {/* Shared group volume — all member speakers move together. Shown only when
+          backed by a real reading; hidden until then so a guess can't be dragged. */}
+      {groupVolume !== null && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+          <VolumeHigh size={18} color={colors.fgMuted} />
+          <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={(f) => setGroupVol(g.id, f)} trackColor={ink(0.12)} fillColor={colors.fg} height={5} style={{ flex: 1 }} />
+        </View>
+      )}
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 4 }}>
         {chips.map((c) => (
