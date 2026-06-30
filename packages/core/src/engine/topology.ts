@@ -10,6 +10,7 @@
 // Invisible "1"/"0" flag — arrives as a Go-faithful string.
 
 import { makeParser, SOAPCall, extractResponseArg } from './soap';
+import { textOf, asArray } from './xml';
 import { HTTPPort } from './device';
 import type { HttpTransport } from '../sonos';
 
@@ -378,25 +379,6 @@ export async function fetchTopology(
 }
 
 // --- ZoneGroupState XML parsing ---
-
-/** Coerces a parsed text/attribute node to a string; absent/object -> "". */
-function textOf(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (value && typeof value === 'object' && '#text' in value) {
-    return textOf((value as { '#text': unknown })['#text']);
-  }
-  return '';
-}
-
-/**
- * Normalizes a fast-xml-parser child node into an array: single elements come
- * back as a bare object, repeated elements as an array, absent as undefined.
- */
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value : [value];
-}
 
 /**
  * Parses an extracted ZoneGroupState XML string into a Household. THROWS when

@@ -15,6 +15,7 @@
 // browsing / favorites / queue building (AddURIToQueue, PlayItem) stay deferred.
 
 import { makeParser, instanceArg, SOAPCall, extractResponseArg, type Arg } from './soap';
+import { textOf, asArray } from './xml';
 import type { HttpTransport } from '../sonos';
 
 export { instanceArg };
@@ -432,26 +433,6 @@ export interface TrackMetadata {
 }
 
 // --- DIDL-Lite metadata parsing ---
-
-/** Coerces a parsed text node to a string; absent/object values become "". */
-function textOf(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (value && typeof value === 'object' && '#text' in value) {
-    return textOf((value as { '#text': unknown })['#text']);
-  }
-  return '';
-}
-
-/**
- * Normalizes a fast-xml-parser child node into an array: a single element comes
- * back as a bare object, repeated elements as an array, absent as undefined.
- * Mirrors Go taking d.Items[0] off the first <item>.
- */
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value : [value];
-}
 
 /**
  * parseTrackMetadata extracts title/artist/album from an (already

@@ -13,6 +13,7 @@
 // gets its own envelope builder rather than reusing buildEnvelope.
 
 import { makeParser, extractResponseArg, escapeXMLText } from './soap';
+import { textOf, asArray } from './xml';
 import type { EnqueueItem } from './control';
 import type { HttpTransport } from '../sonos';
 
@@ -261,20 +262,6 @@ export interface SMAPIItem {
   /** Absolute album/playlist art URL (Spotify CDN), "" if none. */
   artUrl: string;
   isContainer: boolean;
-}
-
-function textOf(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (value && typeof value === 'object' && '#text' in value) {
-    return textOf((value as { '#text': unknown })['#text']);
-  }
-  return '';
-}
-
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value : [value];
 }
 
 /**

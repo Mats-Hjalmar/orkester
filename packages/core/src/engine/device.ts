@@ -10,6 +10,7 @@
 // Go-faithful string.
 
 import { makeParser } from './soap';
+import { textOf, asArray } from './xml';
 import type { HttpTransport, Service } from '../sonos';
 
 /**
@@ -112,25 +113,6 @@ export function shortServiceName(serviceId: string): string {
 }
 
 // --- description XML parsing ---
-
-/** Coerces a parsed text node to a string; absent/object values become "". */
-function textOf(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (value && typeof value === 'object' && '#text' in value) {
-    return textOf((value as { '#text': unknown })['#text']);
-  }
-  return '';
-}
-
-/**
- * Normalizes a fast-xml-parser child node into an array: single elements come
- * back as a bare object, repeated elements as an array, absent as undefined.
- */
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value : [value];
-}
 
 function collectServices(device: unknown, into: Map<string, Service>): void {
   if (device === null || typeof device !== 'object') return;

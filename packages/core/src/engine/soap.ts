@@ -10,6 +10,7 @@
 // errorCode arrives as the string "714" which parseFault converts to a number.
 
 import { XMLParser, type X2jOptions } from 'fast-xml-parser';
+import { textOf } from './xml';
 import type { HttpTransport } from '../sonos';
 
 /**
@@ -160,16 +161,6 @@ interface FaultShape {
       errorDescription?: unknown;
     };
   };
-}
-
-/** Coerces a text node to a string, treating absent/object values as empty. */
-function textOf(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (value && typeof value === 'object' && '#text' in value) {
-    return textOf((value as { '#text': unknown })['#text']);
-  }
-  return '';
 }
 
 /**

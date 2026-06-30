@@ -10,6 +10,7 @@
 // themselves go to the service's own HTTPS endpoint (see ./smapi), not here.
 
 import { makeParser, SOAPCall, extractResponseArg, type SOAPService } from './soap';
+import { asArray } from './xml';
 import type { HttpTransport } from '../sonos';
 
 export const MUSIC_SERVICES_TYPE = 'urn:schemas-upnp-org:service:MusicServices:1';
@@ -53,11 +54,6 @@ function attrOf(node: unknown, name: string): string {
     if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   }
   return '';
-}
-
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value : [value];
 }
 
 /**
