@@ -12,7 +12,7 @@ export function accentTextOf(accent: string): string {
 // Speaker chips for a group: each room is a member (filled), in another group
 // (muted + "in X" tag), or free (plain). Tapping moves it into this group.
 export function chipsFor(store: Store, g: Group): ChipModel[] {
-  const { state, config, roomName, groupName, toggleRoomInGroup } = store;
+  const { state, config, roomName, groupName, toggleRoomInGroup, groupingPending } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   return store.rooms.map((r) => {
@@ -28,6 +28,7 @@ export function chipsFor(store: Store, g: Group): ChipModel[] {
       bg: member ? accent : 'transparent',
       fg: member ? accentText : other ? colors.fgMuted : colors.fg,
       border: member ? accent : 'rgba(26,24,20,0.18)',
+      busy: groupingPending(r.id) !== null,
       onPress: () => toggleRoomInGroup(g.id, r.id),
     };
   });

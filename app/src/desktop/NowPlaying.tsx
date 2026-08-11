@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import TrackBar from '../components/TrackBar';
 import SpeakerChip from '../components/SpeakerChip';
@@ -133,7 +133,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
 // singleton — every control here is routed through groupControls(group.id), so
 // it drives exactly this group. In the desktop master–detail the list is always
 // present, so onBack is omitted and no back button renders.
-export default function DesktopNowPlaying({ group, onBack }: { group?: Group; onBack?: () => void }) {
+export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?: Group; onBack?: () => void; onSearch?: () => void }) {
   const store = useStore();
   const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue } = store;
   const accent = config.accentColor;
@@ -191,6 +191,14 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
   const fullQueue = queueFor(g.id);
   const qStart = g.queueIndex >= 0 ? g.queueIndex + 1 : 0;
   const upNext = fullQueue.slice(qStart);
+  // A group with a loaded queue is controllable even when it reports no
+  // now-playing metadata — Play resumes the queue.
+  const controllable = !idle || fullQueue.length > 0;
+  const pending = store.transportPending(g.id);
+  const busy = pending !== null;
+  const queueBusy = store.queuePending(g.id);
+  const spinning = (op: typeof pending, size: number) =>
+    pending === op ? <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={colors.fg} /></View> : null;
 
   return (
     <View style={{ flex: 1 }}>
@@ -220,7 +228,11 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
                 <Queue size={16} color={colors.fgSubtle} />
                 <Text style={[type.eyebrow, { flex: 1 }]}>Up next · {upNext.length}</Text>
                 <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+                  {queueBusy ? (
+                    <ActivityIndicator size="small" color={colors.fgMuted} />
+                  ) : (
+                    <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+                  )}
                 </Pressable>
               </View>
               <QueueList
@@ -241,10 +253,19 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
             <Text style={type.eyebrow}>{here}</Text>
           </View>
 
-          {/* Nothing playing → show no title and no transport. The empty cover +
-              the room context already say it; people understand. Controls only
-              appear when there's actually something to control. */}
-          {!idle && (
+          {/* Nothing playing and nothing queued → no title, no transport, just a
+              way to put music on this group. */}
+          {!controllable && onSearch && (
+            <Pressable
+              onPress={onSearch}
+              style={({ pressed }) => ({ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, paddingHorizontal: 18, marginTop: 22, borderRadius: radii.pill, backgroundColor: accent, opacity: pressed ? 0.8 : 1 })}
+            >
+              <Play size={15} fill={accentText} />
+              <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: accentText }}>Play something here</Text>
+            </Pressable>
+          )}
+
+          {controllable && (
             <>
               {/* Title only when the speaker reports one — no fabricated label. */}
               {!!tr.title && (
@@ -262,14 +283,30 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
 
               {/* Inline transport for THIS group. */}
               <View style={{ marginTop: 30, gap: 14, maxWidth: 560 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 26 }}>
-                  <Pressable onPress={() => ctrl.setShuffle(!g.shuffle)} hitSlop={8}><Shuffle size={20} color={g.shuffle ? colors.fg : colors.fgSubtle} /></Pressable>
-                  <Pressable onPress={ctrl.prev} hitSlop={8}><Prev size={24} fill={colors.fg} /></Pressable>
-                  <Pressable onPress={ctrl.togglePlay} style={{ width: 56, height: 56, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', boxShadow: shadow.sm } as any}>
-                    {g.isPlaying ? <Pause size={22} fill={accentText} /> : <Play size={22} fill={accentText} />}
+                {/* One transport request at a time: the control that fired shows a
+                    spinner, the rest dim, and further clicks are dropped by the store. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 26, opacity: busy ? 0.55 : 1 }}>
+                  <Pressable onPress={() => ctrl.setShuffle(!g.shuffle)} hitSlop={8}>
+                    {spinning('shuffle', 20) ?? <Shuffle size={20} color={g.shuffle ? colors.fg : colors.fgSubtle} />}
                   </Pressable>
-                  <Pressable onPress={ctrl.next} hitSlop={8}><Next size={24} fill={colors.fg} /></Pressable>
-                  <Pressable onPress={() => ctrl.setRepeat(!g.repeat)} hitSlop={8}><Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} /></Pressable>
+                  <Pressable onPress={ctrl.prev} hitSlop={8}>
+                    {spinning('prev', 24) ?? <Prev size={24} fill={colors.fg} />}
+                  </Pressable>
+                  <Pressable onPress={ctrl.togglePlay} style={{ width: 56, height: 56, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', boxShadow: shadow.sm } as any}>
+                    {pending === 'play' || pending === 'pause' ? (
+                      <ActivityIndicator size="small" color={accentText} />
+                    ) : g.isPlaying ? (
+                      <Pause size={22} fill={accentText} />
+                    ) : (
+                      <Play size={22} fill={accentText} />
+                    )}
+                  </Pressable>
+                  <Pressable onPress={ctrl.next} hitSlop={8}>
+                    {spinning('next', 24) ?? <Next size={24} fill={colors.fg} />}
+                  </Pressable>
+                  <Pressable onPress={() => ctrl.setRepeat(!g.repeat)} hitSlop={8}>
+                    {spinning('repeat', 20) ?? <Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} />}
+                  </Pressable>
                 </View>
                 {/* Timeline + scrub — ONLY for a real finite track. For live/unknown
                     metadata there's no accurate position, so we show no scrubber
@@ -286,7 +323,7 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
                 {groupVolume !== null && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
-                      {g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
+                      {spinning('mute', 19) ?? (g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />)}
                     </Pressable>
                     <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(g)} style={{ flex: 1 }} />
                   </View>

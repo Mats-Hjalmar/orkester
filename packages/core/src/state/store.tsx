@@ -28,6 +28,7 @@ import {
   placeholderTrack,
   reducer,
 } from './reducer';
+import { createSingleFlight } from './singleFlight';
 import type { Api, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
 import type { RepeatMode } from '../engine';
 
@@ -68,6 +69,23 @@ export interface GroupControls {
   setRepeat: (repeat: boolean) => void;
 }
 
+/**
+ * A user-fired Sonos request the UI has in flight. Reported per single-flight
+ * slot so a control can spin for exactly its own outstanding request.
+ */
+export type PendingOp =
+  | 'play'
+  | 'pause'
+  | 'next'
+  | 'prev'
+  | 'seek'
+  | 'mute'
+  | 'shuffle'
+  | 'repeat'
+  | 'join'
+  | 'leave'
+  | 'queue';
+
 export interface Store {
   state: State;
   config: Config;
@@ -106,6 +124,17 @@ export interface Store {
   playSearchItem: (gid: string, item: ApiSearchItem) => Promise<void>;
   // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
   groupControls: (gid: string) => GroupControls;
+  /**
+   * The transport request in flight for a group, or null. Transport is
+   * single-flight per group: while one is outstanding the UI spins the control
+   * that fired it and a further click is DROPPED, so clicks can never pile up
+   * into a backlog of stale requests against the speaker.
+   */
+  transportPending: (gid: string) => PendingOp | null;
+  /** The grouping request in flight for a room ('join' / 'leave'), or null. */
+  groupingPending: (roomId: string) => PendingOp | null;
+  /** True while a queue edit (clear / reorder) for the group is in flight. */
+  queuePending: (gid: string) => boolean;
   /** Marks a group as "focused" so its now-playing polls at the fast cadence. */
   focusGroup: (gid: string) => void;
   /**
@@ -133,6 +162,13 @@ export interface Store {
 }
 
 const StoreContext = createContext<Store | null>(null);
+
+// Single-flight slot keys. Transport is per GROUP (the speaker runs one transport
+// command at a time), grouping per ROOM (that is the player being moved), queue
+// edits per GROUP (they all rewrite the coordinator's one queue).
+const transportSlot = (gid: string) => `transport:${gid}`;
+const roomSlot = (roomId: string) => `room:${roomId}`;
+const queueSlot = (gid: string) => `queue:${gid}`;
 
 /** The safe placeholder group returned when no groups exist (never throws). */
 function placeholderGroup(): Group {
@@ -170,6 +206,17 @@ export function StoreProvider({
   // UI only. Driven off the volWrite throttle + volInFlight counter below.
   const [volSettling, setVolSettling] = useState<Record<string, boolean>>({});
   const volInFlight = useRef(new Map<string, number>());
+
+  // Single-flight slots for user-fired Sonos requests: slot -> the op in flight.
+  // The UI reads it to spin the control that fired, and a click on a busy slot is
+  // dropped rather than queued. Transient UI only — not in the reducer.
+  const [pendingOps, setPendingOps] = useState<Record<string, PendingOp>>({});
+  const inFlight = useRef(
+    createSingleFlight<PendingOp>(setPendingOps, (slot, op, error) => {
+      // eslint-disable-next-line no-console
+      console.error(`[orkester] ${op} on ${slot} failed:`, error);
+    }),
+  );
 
   // Refs so the long-lived poll/effect closures always see the latest state +
   // dispatch without re-subscribing every render.
@@ -525,38 +572,41 @@ export function StoreProvider({
     // FOCUSES it, so its now-playing snaps to the fast cadence.
     const controlsFor = (g: Group): GroupControls => {
       const touch = () => { focusedGroupId.current = g.id; };
+      const slot = transportSlot(g.id);
       return {
         togglePlay: () => {
           if (g.id === '') return;
           touch();
           const next = !g.isPlaying;
-          void optimistic.current(
-            { type: 'setPlayingOptimistic', groupId: g.id, isPlaying: next },
-            () => (next ? api.play(g.id) : api.pause(g.id)),
-            () => pollNowPlaying.current(g.id),
+          inFlight.current.run(slot, next ? 'play' : 'pause', () =>
+            optimistic.current(
+              { type: 'setPlayingOptimistic', groupId: g.id, isPlaying: next },
+              () => (next ? api.play(g.id) : api.pause(g.id)),
+              () => pollNowPlaying.current(g.id),
+            ),
           );
         },
         next: () => {
           if (g.id === '') return;
           touch();
-          void (async () => {
+          inFlight.current.run(slot, 'next', async () => {
             try {
               await api.next(g.id);
             } finally {
               await pollNowPlaying.current(g.id);
             }
-          })();
+          });
         },
         prev: () => {
           if (g.id === '') return;
           touch();
-          void (async () => {
+          inFlight.current.run(slot, 'prev', async () => {
             try {
               await api.previous(g.id);
             } finally {
               await pollNowPlaying.current(g.id);
             }
-          })();
+          });
         },
         seek: (frac: number) => {
           if (g.id === '') return;
@@ -564,10 +614,12 @@ export function StoreProvider({
           const tr = getTrack(g.trackId);
           if (tr.dur <= 0) return; // no scrubbing a live stream
           const sec = Math.max(0, Math.min(tr.dur, Math.round(frac * tr.dur)));
-          void optimistic.current(
-            { type: 'setProgressOptimistic', groupId: g.id, progress: sec },
-            () => api.seek(g.id, sec),
-            () => pollNowPlaying.current(g.id),
+          inFlight.current.run(slot, 'seek', () =>
+            optimistic.current(
+              { type: 'setProgressOptimistic', groupId: g.id, progress: sec },
+              () => api.seek(g.id, sec),
+              () => pollNowPlaying.current(g.id),
+            ),
           );
         },
         setVolume: (frac: number) => {
@@ -579,34 +631,42 @@ export function StoreProvider({
           if (g.id === '') return;
           touch();
           const next = !g.muted;
-          for (const roomId of g.roomIds) {
-            void optimistic.current(
-              { type: 'setRoomMuteOptimistic', roomId, muted: next },
-              () => api.setMute(roomId, next),
-              async () => {
-                const real = await api.getMute(roomId);
-                dispatchRef.current({ type: 'roomMute', roomId, muted: real });
-              },
+          inFlight.current.run(slot, 'mute', async () => {
+            await Promise.all(
+              g.roomIds.map((roomId) =>
+                optimistic.current(
+                  { type: 'setRoomMuteOptimistic', roomId, muted: next },
+                  () => api.setMute(roomId, next),
+                  async () => {
+                    const real = await api.getMute(roomId);
+                    dispatchRef.current({ type: 'roomMute', roomId, muted: real });
+                  },
+                ),
+              ),
             );
-          }
+          });
         },
         setShuffle: (shuffle: boolean) => {
           if (g.id === '') return;
           touch();
-          void optimistic.current(
-            { type: 'setShuffleOptimistic', groupId: g.id, shuffle },
-            () => api.setShuffle(g.id, shuffle),
-            () => pollNowPlaying.current(g.id),
+          inFlight.current.run(slot, 'shuffle', () =>
+            optimistic.current(
+              { type: 'setShuffleOptimistic', groupId: g.id, shuffle },
+              () => api.setShuffle(g.id, shuffle),
+              () => pollNowPlaying.current(g.id),
+            ),
           );
         },
         setRepeat: (repeat: boolean) => {
           if (g.id === '') return;
           touch();
           const mode: RepeatMode = repeat ? 'all' : 'none';
-          void optimistic.current(
-            { type: 'setRepeatOptimistic', groupId: g.id, repeat },
-            () => api.setRepeat(g.id, mode),
-            () => pollNowPlaying.current(g.id),
+          inFlight.current.run(slot, 'repeat', () =>
+            optimistic.current(
+              { type: 'setRepeatOptimistic', groupId: g.id, repeat },
+              () => api.setRepeat(g.id, mode),
+              () => pollNowPlaying.current(g.id),
+            ),
           );
         },
       };
@@ -631,6 +691,9 @@ export function StoreProvider({
       isLiked: (id: string) => !!state.liked[id],
 
       groupControls,
+      transportPending: (gid: string) => pendingOps[transportSlot(gid)] ?? null,
+      groupingPending: (roomId: string) => pendingOps[roomSlot(roomId)] ?? null,
+      queuePending: (gid: string) => !!pendingOps[queueSlot(gid)],
       // Opening a room ATOMICALLY loads it (now-playing + volumes + mutes in one
       // snapshot) so it never shows half-loaded, then the 1s poll keeps it fresh.
       // Also pull its queue so the detail pane can show what's up next.
@@ -647,23 +710,23 @@ export function StoreProvider({
       // in `finally` so a failure still resyncs the UI to the speaker's real state.
       clearQueue: (gid: string) => {
         if (gid === '') return;
-        void (async () => {
+        inFlight.current.run(queueSlot(gid), 'queue', async () => {
           try {
             await api.clearQueue(gid);
           } finally {
             await fetchQueue.current(gid);
           }
-        })();
+        });
       },
       reorderQueue: (gid: string, fromIndex: number, toIndex: number) => {
         if (gid === '' || fromIndex === toIndex) return;
-        void (async () => {
+        inFlight.current.run(queueSlot(gid), 'queue', async () => {
           try {
             await api.reorderQueue(gid, fromIndex, toIndex);
           } finally {
             await fetchQueue.current(gid);
           }
-        })();
+        });
       },
 
       // Spotify search is imperative request/response (not polled state): the
@@ -735,30 +798,30 @@ export function StoreProvider({
         const g = state.groups.find((x) => x.id === gid);
         if (!g) return;
         const isMember = g.roomIds.includes(roomId);
-        void (async () => {
+        if (isMember && g.roomIds.length <= 1) return; // a group keeps at least one room
+        const coordUuid = state.coordinatorUuid[gid];
+        if (!isMember && !coordUuid) return;
+        inFlight.current.run(roomSlot(roomId), isMember ? 'leave' : 'join', async () => {
           try {
             if (isMember) {
-              if (g.roomIds.length <= 1) return; // a group keeps at least one room
               await api.leaveGroup(roomId);
             } else {
-              const coordUuid = state.coordinatorUuid[gid];
-              if (!coordUuid) return;
               await api.joinGroup(roomId, coordUuid);
             }
           } finally {
             await loadTopology.current('refresh');
           }
-        })();
+        });
       },
 
       startGroup: (roomId: string) => {
-        void (async () => {
+        inFlight.current.run(roomSlot(roomId), 'leave', async () => {
           try {
             await api.startGroup(roomId);
           } finally {
             await loadTopology.current('refresh');
           }
-        })();
+        });
       },
 
       selectGroup: (gid: string) => {
@@ -767,7 +830,7 @@ export function StoreProvider({
         void pollNowPlaying.current(gid);
       },
     };
-  }, [state, config, api, refreshing, volSettling]);
+  }, [state, config, api, refreshing, volSettling, pendingOps]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

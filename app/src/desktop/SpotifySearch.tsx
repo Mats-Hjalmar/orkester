@@ -25,7 +25,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
 
   const groupLabel = group ? group.roomIds.map(roomName).join(' · ') || 'this group' : 'this group';
 
-  const { link, query, setQuery, kind, setKind, results, busy, error, notice, beginLink, runSearch, addToQueue, playNow } =
+  const { link, query, setQuery, kind, setKind, results, busy, error, notice, beginLink, runSearch, addToQueue, playNow, pending } =
     useSpotifySearch({ groupId: group?.id ?? '', roomIdForLink: group?.roomIds[0] ?? '', groupLabel });
 
   // The hook starts the link + returns the URL; the desktop opens it in a browser.
@@ -203,6 +203,8 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   item={r}
                   accent={accent}
                   accentText={accentText}
+                  pendingOp={pending && pending.id === r.id ? pending.op : null}
+                  anyPending={pending !== null}
                   onAddQueue={() => void addToQueue(r)}
                   onPlay={() => void playNow(r)}
                 />
@@ -222,12 +224,16 @@ function ResultRow({
   item,
   accent,
   accentText,
+  pendingOp,
+  anyPending,
   onAddQueue,
   onPlay,
 }: {
   item: ApiSearchItem;
   accent: string;
   accentText: string;
+  pendingOp: 'add' | 'play' | null;
+  anyPending: boolean;
   onAddQueue: () => void;
   onPlay: () => void;
 }) {
@@ -276,19 +282,20 @@ function ResultRow({
           {line}
         </Text>
       </View>
-      {/* Two explicit actions: add to the end of the queue, or play now (replace). */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {/* Two explicit actions: add to the end of the queue, or play now (replace).
+          One catalog request runs at a time; the rest dim while it does. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: anyPending && !pendingOp ? 0.45 : 1 }}>
         <ActionButton
           label="Add to queue"
           onPress={onAddQueue}
-          icon={<Plus size={14} color={colors.fg} />}
+          icon={pendingOp === 'add' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
           bg={colors.bgPaper}
           border
         />
         <ActionButton
           label="Play now"
           onPress={onPlay}
-          icon={<Play size={13} fill={accentText} />}
+          icon={pendingOp === 'play' ? <ActivityIndicator size="small" color={accentText} /> : <Play size={13} fill={accentText} />}
           bg={accent}
         />
       </View>

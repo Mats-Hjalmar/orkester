@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Speaker } from '../icons';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -14,6 +14,8 @@ export interface ChipModel {
   bg: string;
   fg: string;
   border: string;
+  /** True while this speaker's join/leave is in flight on the Sonos system. */
+  busy: boolean;
   onPress: () => void;
 }
 
@@ -31,10 +33,17 @@ export default function SpeakerChip({ chip, showIcon = false }: { chip: ChipMode
         backgroundColor: chip.bg,
         borderWidth: 1,
         borderColor: chip.border,
-        opacity: pressed ? 0.7 : 1,
+        opacity: chip.busy ? 0.6 : pressed ? 0.7 : 1,
       })}
     >
-      {showIcon && <Speaker size={15} color={chip.fg} />}
+      {/* The spinner takes the icon's slot so the chip doesn't resize mid-regroup. */}
+      {chip.busy ? (
+        <View style={{ width: 15, height: 15, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="small" color={chip.fg} />
+        </View>
+      ) : (
+        showIcon && <Speaker size={15} color={chip.fg} />
+      )}
       <Text style={[type.body, { fontSize: 12.5, color: chip.fg }]}>{chip.name}</Text>
       {chip.other && chip.tag ? (
         <View>

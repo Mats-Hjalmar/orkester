@@ -54,6 +54,12 @@ export interface SpotifySearch {
   addToQueue: (item: ApiSearchItem) => Promise<void>;
   /** Plays a hit now (replaces the queue) on the target group. */
   playNow: (item: ApiSearchItem) => Promise<void>;
+  /**
+   * The hit whose add/play is in flight, or null. One catalog request at a time:
+   * the UI spins that hit's button and further clicks are DROPPED, so a slow
+   * Sonos round trip can't collect a backlog of enqueues.
+   */
+  pending: { id: string; op: 'add' | 'play' } | null;
 }
 
 export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: SpotifySearchTarget): SpotifySearch {
@@ -74,6 +80,18 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  // Which hit's add/play is in flight. The ref is the drop-guard (read
+  // synchronously on click); the state drives the spinner.
+  const [pending, setPending] = useState<{ id: string; op: 'add' | 'play' } | null>(null);
+  const pendingRef = useRef<{ id: string; op: 'add' | 'play' } | null>(null);
+  const startPending = (id: string, op: 'add' | 'play') => {
+    pendingRef.current = { id, op };
+    setPending(pendingRef.current);
+  };
+  const endPending = () => {
+    pendingRef.current = null;
+    setPending(null);
+  };
 
   // Initial link check — runs ONCE on mount (see apiRef note above).
   useEffect(() => {
@@ -180,22 +198,30 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   };
 
   const addToQueue = async (item: ApiSearchItem): Promise<void> => {
+    if (pendingRef.current) return;
     setError('');
+    startPending(item.id, 'add');
     try {
       await apiRef.current.enqueueSearchItem(groupId, item);
       setNotice(`Added "${item.title}" to the queue on ${groupLabel}.`);
     } catch (e) {
       setError(messageOf(e));
+    } finally {
+      endPending();
     }
   };
 
   const playNow = async (item: ApiSearchItem): Promise<void> => {
+    if (pendingRef.current) return;
     setError('');
+    startPending(item.id, 'play');
     try {
       await apiRef.current.playSearchItem(groupId, item);
       setNotice(`Playing "${item.title}"${item.artist ? ` — ${item.artist}` : ''} on ${groupLabel}.`);
     } catch (e) {
       setError(messageOf(e));
+    } finally {
+      endPending();
     }
   };
 
@@ -213,6 +239,7 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     runSearch,
     addToQueue,
     playNow,
+    pending,
   };
 }
 

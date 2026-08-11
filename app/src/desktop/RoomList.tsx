@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import { ChevronRight, Pause, Play, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
@@ -82,7 +82,13 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
           hitSlop={8}
           style={{ width: 34, height: 34, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}
         >
-          {group.isPlaying ? <Pause size={15} fill={accentText} /> : <Play size={15} fill={accentText} />}
+          {store.transportPending(group.id) !== null ? (
+            <ActivityIndicator size="small" color={accentText} />
+          ) : group.isPlaying ? (
+            <Pause size={15} fill={accentText} />
+          ) : (
+            <Play size={15} fill={accentText} />
+          )}
         </Pressable>
       )}
     </Pressable>
@@ -127,7 +133,11 @@ export default function RoomList({ selectedId, onSelect }: { selectedId: string 
               hitSlop={8}
               style={({ pressed }) => ({ width: 28, height: 28, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}
             >
-              <Play size={13} fill={accentText} />
+              {store.groupingPending(r.id) !== null ? (
+                <ActivityIndicator size="small" color={accentText} />
+              ) : (
+                <Play size={13} fill={accentText} />
+              )}
             </Pressable>
           </View>
         ))}
