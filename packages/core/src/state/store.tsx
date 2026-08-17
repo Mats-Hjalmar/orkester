@@ -25,6 +25,7 @@ import {
   type State,
   PLACEHOLDER_TRACK_ID,
   initialState,
+  mutedOf,
   placeholderTrack,
   reducer,
 } from './reducer';
@@ -99,6 +100,9 @@ export interface Store {
   /** The group's volume (0–100), or null when not backed by a real reading from
    * every member speaker. null means hide the control — never show a guessed slider. */
   groupVol: (g: Group) => number | null;
+  /** Whether EVERY member speaker is muted, or null when not backed by a real
+   * reading from every one of them. null means hide the control — never guess. */
+  groupMuted: (g: Group) => boolean | null;
   /** True while a volume change for any member speaker is being written/applied
    * (drives the loading spinner on the slider thumb). */
   volumeSettling: (g: Group) => boolean;
@@ -131,6 +135,8 @@ export interface Store {
    * into a backlog of stale requests against the speaker.
    */
   transportPending: (gid: string) => PendingOp | null;
+  /** True while a mute toggle for the group is in flight (its own slot). */
+  mutePending: (gid: string) => boolean;
   /** The grouping request in flight for a room ('join' / 'leave'), or null. */
   groupingPending: (roomId: string) => PendingOp | null;
   /** True while a queue edit (clear / reorder) for the group is in flight. */
@@ -169,6 +175,10 @@ const StoreContext = createContext<Store | null>(null);
 const transportSlot = (gid: string) => `transport:${gid}`;
 const roomSlot = (roomId: string) => `room:${roomId}`;
 const queueSlot = (gid: string) => `queue:${gid}`;
+// Mute gets its OWN per-group slot rather than sharing the transport one: it goes
+// to a different service (RenderingControl, not AVTransport), so a mute click
+// while a play/pause is still in flight must not be dropped.
+const muteSlot = (gid: string) => `mute:${gid}`;
 
 /** The safe placeholder group returned when no groups exist (never throws). */
 function placeholderGroup(): Group {
@@ -180,7 +190,6 @@ function placeholderGroup(): Group {
     progress: 0,
     shuffle: false,
     repeat: false,
-    muted: false,
     queueIds: [],
     queueIndex: -1,
   };
@@ -264,14 +273,17 @@ export function StoreProvider({
       dispatchRef.current(patch);
       try {
         await call();
-      } catch {
-        // Revert by re-reading the truth from the speaker.
+      } catch (err) {
+        // Revert by re-reading the truth from the speaker, then rethrow so the
+        // single-flight `onError` reports the command that actually failed —
+        // otherwise a UPnP fault vanishes and the control just looks inert.
         try {
           await reconcile();
         } catch {
           // If even the reconcile fails the network is down; a topology poll
           // will surface it. Nothing to silently swallow here.
         }
+        throw err;
       }
     },
   );
@@ -495,6 +507,8 @@ export function StoreProvider({
       );
     };
 
+    const groupMuted = (g: Group): boolean | null => mutedOf(state, g);
+
     // A room is "settling" while a write is in flight OR a throttle window is open
     // (more paced writes may follow). Recompute and only setState on a transition so
     // we don't re-render on every paced send.
@@ -630,19 +644,23 @@ export function StoreProvider({
         toggleMute: () => {
           if (g.id === '') return;
           touch();
-          const next = !g.muted;
-          inFlight.current.run(slot, 'mute', async () => {
+          const next = groupMuted(g) !== true;
+          inFlight.current.run(muteSlot(g.id), 'mute', async () => {
             await Promise.all(
-              g.roomIds.map((roomId) =>
-                optimistic.current(
+              g.roomIds.map((roomId) => {
+                // The volume poll reads volume AND mute together and skips a room
+                // inside VOLUME_QUIET_MS of a write, so stamping here keeps a
+                // slightly-stale reading from undoing the toggle mid-flight.
+                lastVolWriteAt.current.set(roomId, Date.now());
+                return optimistic.current(
                   { type: 'setRoomMuteOptimistic', roomId, muted: next },
                   () => api.setMute(roomId, next),
                   async () => {
                     const real = await api.getMute(roomId);
                     dispatchRef.current({ type: 'roomMute', roomId, muted: real });
                   },
-                ),
-              ),
+                );
+              }),
             );
           });
         },
@@ -687,11 +705,13 @@ export function StoreProvider({
       roomName,
       groupName,
       groupVol,
+      groupMuted,
       volumeSettling: (g: Group) => g.roomIds.some((r) => volSettling[r]),
       isLiked: (id: string) => !!state.liked[id],
 
       groupControls,
       transportPending: (gid: string) => pendingOps[transportSlot(gid)] ?? null,
+      mutePending: (gid: string) => pendingOps[muteSlot(gid)] !== undefined,
       groupingPending: (roomId: string) => pendingOps[roomSlot(roomId)] ?? null,
       queuePending: (gid: string) => !!pendingOps[queueSlot(gid)],
       // Opening a room ATOMICALLY loads it (now-playing + volumes + mutes in one

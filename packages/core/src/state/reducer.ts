@@ -154,6 +154,18 @@ function activeOf(s: State): Group | undefined {
   return s.groups.find((g) => g.id === s.activeGroupId) ?? s.groups[0];
 }
 
+/**
+ * Whether every member speaker of `g` is muted, or null when `roomMute` has no
+ * real reading for one of them. Derived rather than stored: `roomMute` is what
+ * both the optimistic patch and the volume/mute poll write, so a toggle shows up
+ * at once and a change made on another controller reconciles in.
+ */
+function mutedOf(s: State, g: Group): boolean | null {
+  if (!g.roomIds.length) return null;
+  if (g.roomIds.some((r) => s.roomMute[r] === undefined)) return null;
+  return g.roomIds.every((r) => s.roomMute[r]);
+}
+
 export function reducer(s: State, a: Action): State {
   switch (a.type) {
     case 'topologyLoading':
@@ -178,7 +190,6 @@ export function reducer(s: State, a: Action): State {
           progress: prior?.progress ?? 0,
           shuffle: prior?.shuffle ?? false,
           repeat: prior?.repeat ?? false,
-          muted: prior?.muted ?? false,
           queueIds: [],
           queueIndex: prior?.queueIndex ?? -1,
         };
@@ -215,19 +226,15 @@ export function reducer(s: State, a: Action): State {
 
     case 'groupSnapshot': {
       // All-or-nothing: now-playing + every member's volume/mute applied in ONE
-      // pass, so the detail pane never paints a half-loaded room. group.muted is
-      // reconciled here (the per-room mute poll never touched it) = all members
-      // muted.
+      // pass, so the detail pane never paints a half-loaded room.
       const id = trackIdFor(a.groupId, a.np);
       const track = trackFromNowPlaying(id, a.np);
-      const allMuted = a.rooms.length > 0 && a.rooms.every((r) => r.muted);
       const groups = patchGroup(s, a.groupId, {
         trackId: id,
         isPlaying: a.np.isPlaying,
         progress: a.np.positionSeconds,
         shuffle: a.np.shuffle,
         repeat: a.np.repeat !== 'none',
-        muted: allMuted,
         queueIndex: a.np.queueIndex,
       });
       const roomVol = { ...s.roomVol };
@@ -303,4 +310,4 @@ export function reducer(s: State, a: Action): State {
   }
 }
 
-export { activeOf };
+export { activeOf, mutedOf };

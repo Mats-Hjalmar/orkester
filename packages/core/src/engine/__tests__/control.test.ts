@@ -288,6 +288,23 @@ describe('service helpers + volume guard', () => {
     expect(control.playRequest().base).toBe('coordinator');
     expect(control.getPositionInfoRequest().base).toBe('coordinator');
     expect(control.getVolumeRequest().base).toBe('player');
+    expect(control.getMuteRequest().base).toBe('player');
+    expect(control.setMuteRequest(true).base).toBe('player');
+  });
+
+  it('mute requests carry the Master channel and a 1/0 DesiredMute', () => {
+    expect(control.getMuteRequest().action).toBe('GetMute');
+    expect(control.getMuteRequest().args).toContainEqual({ name: 'Channel', value: 'Master' });
+
+    const on = control.setMuteRequest(true);
+    expect(on.action).toBe('SetMute');
+    expect(on.service.type).toBe(RENDERING_CONTROL_TYPE);
+    expect(on.args).toContainEqual({ name: 'Channel', value: 'Master' });
+    expect(on.args).toContainEqual({ name: 'DesiredMute', value: '1' });
+
+    // Unmute must send '0' — a boolean serialised as "false" is rejected by the
+    // player, which is how unmute silently fails.
+    expect(control.setMuteRequest(false).args).toContainEqual({ name: 'DesiredMute', value: '0' });
   });
 });
 

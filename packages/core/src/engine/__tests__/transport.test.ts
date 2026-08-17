@@ -180,6 +180,40 @@ describe('control.setVolume', () => {
   });
 });
 
+describe('control.getMute', () => {
+  it('parses CurrentMute 1/0 to true/false (the value is a string, not a number)', async () => {
+    const on = new RecordingTransport([ok(soapResponse('GetMute', '<CurrentMute>1</CurrentMute>'))]);
+    expect(await control.getMute(on, BASE)).toBe(true);
+
+    const off = new RecordingTransport([ok(soapResponse('GetMute', '<CurrentMute>0</CurrentMute>'))]);
+    expect(await control.getMute(off, BASE)).toBe(false);
+  });
+});
+
+describe('control.setMute', () => {
+  it('puts SetMute on the RenderingControl endpoint with DesiredMute 1 then 0', async () => {
+    const t = new RecordingTransport([
+      ok(soapResponse('SetMute', '')),
+      ok(soapResponse('SetMute', '')),
+    ]);
+
+    await control.setMute(t, BASE, true);
+    await control.setMute(t, BASE, false);
+
+    expect(t.requests).toHaveLength(2);
+    for (const req of t.requests) {
+      expect(req.method).toBe('POST');
+      expect(req.url).toBe('http://192.168.1.10:1400/MediaRenderer/RenderingControl/Control');
+      expect(req.headers?.['SOAPACTION']).toBe(
+        '"urn:schemas-upnp-org:service:RenderingControl:1#SetMute"',
+      );
+      expect(req.body).toContain('<Channel>Master</Channel>');
+    }
+    expect(t.requests[0].body).toContain('<DesiredMute>1</DesiredMute>');
+    expect(t.requests[1].body).toContain('<DesiredMute>0</DesiredMute>');
+  });
+});
+
 describe('control.getNowPlaying', () => {
   it('combines GetTransportInfo + GetPositionInfo into a flattened NowPlaying', async () => {
     const didl =

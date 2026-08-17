@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reducer, initialState, type State } from '../reducer';
+import { reducer, initialState, mutedOf, type State } from '../reducer';
 import type { Api, ApiNowPlaying, ApiTopology } from '../../api';
 import type { RepeatMode } from '../../engine';
 
@@ -9,6 +9,7 @@ import type { RepeatMode } from '../../engine';
 // called here. (The product no longer ships a mock Api; this fake is test-only.)
 function makeFakeApi(): Api {
   const vol: Record<string, number> = { living: 40, kitchen: 26, bedroom: 30 };
+  const mute: Record<string, boolean> = { living: false, kitchen: false, bedroom: false };
   const groups = [
     { id: 'g1', roomIds: ['living', 'kitchen'], isPlaying: true, shuffle: false, repeat: 'none' as RepeatMode },
     { id: 'g2', roomIds: ['bedroom'], isPlaying: true, shuffle: false, repeat: 'none' as RepeatMode },
@@ -34,6 +35,8 @@ function makeFakeApi(): Api {
     async pause(gid: string) { grp(gid).isPlaying = false; },
     async getVolume(roomId: string) { return vol[roomId] ?? 0; },
     async setVolume(roomId: string, v: number) { vol[roomId] = v; },
+    async getMute(roomId: string) { return mute[roomId] ?? false; },
+    async setMute(roomId: string, m: boolean) { mute[roomId] = m; },
     async setShuffle(gid: string, s: boolean) { grp(gid).shuffle = s; },
     async setRepeat(gid: string, r: RepeatMode) { grp(gid).repeat = r; },
   };
@@ -108,6 +111,54 @@ describe('group-targeted control isolation', () => {
     // g2 unaffected.
     expect((await api.getNowPlaying(g2.id)).shuffle).toBe(false);
     expect((await api.getNowPlaying(g2.id)).repeat).toBe('none');
+  });
+
+  it('mute toggles both ways: the second click unmutes', async () => {
+    const api = makeFakeApi();
+    let s = await topologyState(api);
+    const g1 = s.groups[0];
+    for (const roomId of g1.roomIds) {
+      s = reducer(s, { type: 'roomMute', roomId, muted: await api.getMute(roomId) });
+    }
+
+    // What controlsFor(g).toggleMute does: derive the target from the SAME
+    // `mutedOf` the UI reads, patch optimistically, then write to every member.
+    const toggleMute = async () => {
+      const g = s.groups.find((x) => x.id === g1.id)!;
+      const next = mutedOf(s, g) !== true;
+      for (const roomId of g.roomIds) {
+        s = reducer(s, { type: 'setRoomMuteOptimistic', roomId, muted: next });
+        await api.setMute(roomId, next);
+      }
+    };
+
+    await toggleMute();
+    expect(mutedOf(s, s.groups[0])).toBe(true);
+    for (const roomId of g1.roomIds) expect(await api.getMute(roomId)).toBe(true);
+
+    // The regression: reading a field the optimistic patch never wrote made this
+    // send SetMute(true) forever, so unmute was unreachable from the UI.
+    await toggleMute();
+    expect(mutedOf(s, s.groups[0])).toBe(false);
+    for (const roomId of g1.roomIds) expect(await api.getMute(roomId)).toBe(false);
+  });
+
+  it('muting one group leaves the other group unmuted', async () => {
+    const api = makeFakeApi();
+    let s = await topologyState(api);
+    const [g1, g2] = s.groups;
+    for (const roomId of [...g1.roomIds, ...g2.roomIds]) {
+      s = reducer(s, { type: 'roomMute', roomId, muted: false });
+    }
+
+    for (const roomId of g1.roomIds) {
+      s = reducer(s, { type: 'setRoomMuteOptimistic', roomId, muted: true });
+      await api.setMute(roomId, true);
+    }
+
+    expect(mutedOf(s, s.groups.find((g) => g.id === g1.id)!)).toBe(true);
+    expect(mutedOf(s, s.groups.find((g) => g.id === g2.id)!)).toBe(false);
+    for (const roomId of g2.roomIds) expect(await api.getMute(roomId)).toBe(false);
   });
 
   it('an optimistic patch for an unknown group is a no-op on real groups', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLACEHOLDER_TRACK_ID, initialState, placeholderTrack, reducer } from '../reducer';
+import { PLACEHOLDER_TRACK_ID, initialState, mutedOf, placeholderTrack, reducer } from '../reducer';
 import type { ApiNowPlaying, ApiTopology } from '../../api';
 
 const TOPO: ApiTopology = {
@@ -146,11 +146,11 @@ describe('reducer atomic groupSnapshot', () => {
     expect(s.roomVol.living).toBe(40);
     expect(s.roomVol.kitchen).toBe(55);
     expect(s.roomMute.living).toBe(false);
-    // group.muted is reconciled here (polls never set it): not all muted -> false
-    expect(g.muted).toBe(false);
+    expect(s.roomMute.kitchen).toBe(false);
+    expect(mutedOf(s, g)).toBe(false);
   });
 
-  it('group.muted is true only when EVERY member is muted', () => {
+  it('a group is muted only when EVERY member is muted', () => {
     let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
     s = reducer(s, {
       type: 'groupSnapshot',
@@ -161,7 +161,42 @@ describe('reducer atomic groupSnapshot', () => {
         { roomId: 'kitchen', volume: 55, muted: true },
       ],
     });
-    expect(s.groups[0].muted).toBe(true);
+    expect(mutedOf(s, s.groups[0])).toBe(true);
+
+    s = reducer(s, { type: 'roomMute', roomId: 'kitchen', muted: false });
+    expect(mutedOf(s, s.groups[0])).toBe(false);
+  });
+});
+
+describe('derived group mute', () => {
+  const g1 = () => reducer(initialState(), { type: 'topologyReady', topology: TOPO }).groups[0];
+
+  it('is null until every member has a real reading', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    // No reading at all, then only one of the two rooms: still a guess -> null.
+    expect(mutedOf(s, s.groups[0])).toBeNull();
+    s = reducer(s, { type: 'roomMute', roomId: 'living', muted: true });
+    expect(mutedOf(s, s.groups[0])).toBeNull();
+    s = reducer(s, { type: 'roomMute', roomId: 'kitchen', muted: true });
+    expect(mutedOf(s, s.groups[0])).toBe(true);
+  });
+
+  it('follows the optimistic patch, so a toggle shows up before the speaker answers', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    for (const roomId of g1().roomIds) s = reducer(s, { type: 'roomMute', roomId, muted: false });
+    expect(mutedOf(s, s.groups[0])).toBe(false);
+
+    for (const roomId of g1().roomIds) {
+      s = reducer(s, { type: 'setRoomMuteOptimistic', roomId, muted: true });
+    }
+    expect(mutedOf(s, s.groups[0])).toBe(true);
+  });
+
+  it('survives a topology refresh (roomMute is not per-group state)', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    for (const roomId of g1().roomIds) s = reducer(s, { type: 'roomMute', roomId, muted: true });
+    s = reducer(s, { type: 'topologyReady', topology: TOPO });
+    expect(mutedOf(s, s.groups[0])).toBe(true);
   });
 });
 

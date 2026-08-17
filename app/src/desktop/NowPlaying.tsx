@@ -184,6 +184,7 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
   const ctrl = groupControls(g.id);
   const prog = progressOf(g, tr);
   const groupVolume = store.groupVol(g); // 0–100, or null when no real reading yet
+  const muted = store.groupMuted(g) === true;
   // "Up next" = the queue AFTER the currently-playing track, so the top of the
   // list is genuinely the next song and skipping advances it off the top. The
   // current track is already shown big above. qStart is the absolute queue index
@@ -197,8 +198,9 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
   const pending = store.transportPending(g.id);
   const busy = pending !== null;
   const queueBusy = store.queuePending(g.id);
-  const spinning = (op: typeof pending, size: number) =>
-    pending === op ? <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={colors.fg} /></View> : null;
+  const spinner = (size: number) =>
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={colors.fg} /></View>;
+  const spinning = (op: typeof pending, size: number) => (pending === op ? spinner(size) : null);
 
   return (
     <View style={{ flex: 1 }}>
@@ -323,9 +325,9 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
                 {groupVolume !== null && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
-                      {spinning('mute', 19) ?? (g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />)}
+                      {store.mutePending(g.id) ? spinner(19) : muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
                     </Pressable>
-                    <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(g)} style={{ flex: 1 }} />
+                    <TrackBar value={(muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(g)} style={{ flex: 1 }} />
                   </View>
                 )}
               </View>
