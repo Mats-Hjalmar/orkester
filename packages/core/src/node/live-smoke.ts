@@ -23,9 +23,10 @@
 //      pnpm --filter @orkester/core smoke:live -- <roomQuery> <waitMs>
 //
 //  It discovers one speaker, loads the household topology, resolves the first
-//  room (or the room you name), then prints now-playing + volume. It is
-//  read-only: it issues GetTransportInfo / GetPositionInfo / GetVolume and does
-//  NOT change playback or volume.
+//  room (or the room you name), prints its now-playing, then prints volume +
+//  mute (with a per-room timing) for EVERY room. It is read-only: it issues
+//  GetTransportInfo / GetPositionInfo / GetVolume / GetMute and does NOT change
+//  playback, volume, or mute.
 // ============================================================================
 
 import { NodeDiscoveryTransport } from './discoveryTransport';
@@ -77,8 +78,27 @@ async function main(): Promise<void> {
   const np = await client.getNowPlaying(room);
   console.log('[live-smoke] now playing:', JSON.stringify(np, null, 2));
 
-  const vol = await client.getVolume(room);
-  console.log(`[live-smoke] volume: ${vol}`);
+  // Read volume + mute for EVERY room, the way the app's 2.5s poll does — one
+  // unreachable or slow player is the difference between "the sliders are stale"
+  // and "the engine can't read them at all".
+  for (const r of allRooms) {
+    const target = client.resolveRoom(household, r.handle);
+    const t0 = Date.now();
+    try {
+      const [vol, muted] = await Promise.all([
+        client.getVolume(target),
+        client.getMute(target),
+      ]);
+      console.log(
+        `[live-smoke] ${r.handle}: volume=${vol} muted=${muted} (${Date.now() - t0}ms)`,
+      );
+    } catch (err) {
+      console.error(
+        `[live-smoke] ${r.handle}: READ FAILED after ${Date.now() - t0}ms:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
 
   if (searchTerm !== undefined) {
     const api = new SonosApi(client, new NodeCredentialStore());

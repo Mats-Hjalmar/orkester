@@ -246,6 +246,9 @@ export function StoreProvider({
   // volumes/mutes in one shot). Kept distinct from inFlightNp so a cheap 1s np
   // poll never blocks the user's manual/focus atomic refresh, or vice-versa.
   const inFlightRefresh = useRef(new Set<string>());
+  // Single-flight for the volume+mute poll. It fans out over every room, so a
+  // pass slower than VOLUME_POLL_MS would otherwise stack overlapping passes.
+  const inFlightVol = useRef(false);
   // Round-robin cursor over non-focused groups for background now-playing polls.
   const rrCursor = useRef(0);
   // Per-room volume-write throttle. Dragging a slider fires many scrub events per
@@ -370,20 +373,48 @@ export function StoreProvider({
   // Polls volume + mute for EVERY room across all groups, so every card's volume
   // slider reflects the real speaker (not just the focused group's rooms).
   const pollVolumes = useRef(async () => {
+    if (inFlightVol.current) return;
     const s = stateRef.current;
     const roomIds = new Set<string>();
     for (const g of s.groups) for (const r of g.roomIds) roomIds.add(r);
-    for (const roomId of roomIds) {
-      // Skip a room we just wrote to: a slightly-stale real reading here would snap
-      // the slider back during or right after a drag. The next poll reconciles it.
-      if (Date.now() - (lastVolWriteAt.current.get(roomId) ?? 0) < VOLUME_QUIET_MS) continue;
-      try {
-        const [volume, muted] = await Promise.all([api.getVolume(roomId), api.getMute(roomId)]);
-        dispatchRef.current({ type: 'roomVolume', roomId, volume });
-        dispatchRef.current({ type: 'roomMute', roomId, muted });
-      } catch {
-        // Bounded by the next volume poll.
-      }
+    inFlightVol.current = true;
+    try {
+      // Every room is read INDEPENDENTLY and concurrently. Sequential awaits let
+      // one slow or unreachable player delay (and, before SOAP calls were given a
+      // timeout, permanently wedge) every room behind it — which looks exactly
+      // like "the sliders never update" while now-playing keeps ticking.
+      await Promise.all(
+        [...roomIds].map(async (roomId) => {
+          // Skip a room we just wrote to: a slightly-stale real reading here would
+          // snap the slider back during or right after a drag. The next poll
+          // reconciles it.
+          if (Date.now() - (lastVolWriteAt.current.get(roomId) ?? 0) < VOLUME_QUIET_MS) return;
+          // Read the two INDEPENDENTLY: pairing them in one Promise.all threw away
+          // a perfectly good volume reading whenever the mute read failed.
+          const [volume, muted] = await Promise.allSettled([
+            api.getVolume(roomId),
+            api.getMute(roomId),
+          ]);
+          if (volume.status === 'fulfilled') {
+            dispatchRef.current({ type: 'roomVolume', roomId, volume: volume.value });
+          }
+          if (muted.status === 'fulfilled') {
+            dispatchRef.current({ type: 'roomMute', roomId, muted: muted.value });
+          }
+          const failed = [volume, muted].filter((r) => r.status === 'rejected');
+          if (failed.length) {
+            // A read that keeps failing is why a slider sits frozen; it must not
+            // be invisible. Bounded by the next poll, but never silent.
+            // eslint-disable-next-line no-console
+            console.error(
+              `[orkester] volume/mute read failed for ${roomId}:`,
+              ...failed.map((r) => (r as PromiseRejectedResult).reason),
+            );
+          }
+        }),
+      );
+    } finally {
+      inFlightVol.current = false;
     }
   });
 

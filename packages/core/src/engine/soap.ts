@@ -212,6 +212,15 @@ function truncate(body: string, n: number): string {
 }
 
 /**
+ * Ceiling on a single SOAP round trip. A player that accepts the TCP connection
+ * but never answers (a stale topology IP, a speaker flickering across subnets)
+ * would otherwise hang the request forever and wedge whichever poll loop is
+ * awaiting it. Generous versus a LAN round trip, short enough that the 2.5s
+ * volume poll recovers on its next tick.
+ */
+const SOAP_TIMEOUT_MS = 4000;
+
+/**
  * Performs a single SOAP action against a service on a device via the injected
  * HttpTransport and returns the raw response body (the SOAP envelope) for the
  * caller to parse. Ported from Go's SOAPCall.
@@ -242,6 +251,7 @@ export async function SOAPCall(
       SOAPACTION: soapAction,
     },
     body,
+    timeoutMs: SOAP_TIMEOUT_MS,
   });
 
   if (resp.status !== 200) {

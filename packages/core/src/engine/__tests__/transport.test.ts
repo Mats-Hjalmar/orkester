@@ -180,6 +180,22 @@ describe('control.setVolume', () => {
   });
 });
 
+describe('SOAPCall timeout', () => {
+  it('bounds every request, so a player that never answers cannot hang a poll', async () => {
+    const t = new RecordingTransport([
+      ok(soapResponse('GetVolume', '<CurrentVolume>25</CurrentVolume>')),
+      ok(soapResponse('GetMute', '<CurrentMute>0</CurrentMute>')),
+    ]);
+
+    await control.getVolume(t, BASE);
+    await control.getMute(t, BASE);
+
+    for (const req of t.requests) {
+      expect(req.timeoutMs).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('control.getMute', () => {
   it('parses CurrentMute 1/0 to true/false (the value is a string, not a number)', async () => {
     const on = new RecordingTransport([ok(soapResponse('GetMute', '<CurrentMute>1</CurrentMute>'))]);
