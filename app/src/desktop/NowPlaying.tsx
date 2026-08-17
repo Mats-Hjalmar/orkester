@@ -327,7 +327,9 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
                     <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
                       {store.mutePending(g.id) ? spinner(19) : muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
                     </Pressable>
-                    <TrackBar value={(muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(g)} style={{ flex: 1 }} />
+                    {/* Muted dims the fill but keeps the thumb at the REAL volume,
+                        so you can see where unmuting will land. */}
+                    <TrackBar value={groupVolume / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={muted ? colors.fgSubtle : colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(g)} style={{ flex: 1 }} />
                   </View>
                 )}
               </View>

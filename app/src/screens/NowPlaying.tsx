@@ -141,7 +141,7 @@ export default function NowPlaying() {
       {groupVolume !== null && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24 }}>
           <VolumeLow size={18} color={muted} />
-          <TrackBar value={(groupMuted(g) === true ? 0 : groupVolume) / 100} onScrub={setActiveVol} trackColor={trackBg} fillColor={fg} height={4} thumb grabThumbOnly loading={volumeSettling(g)} style={{ flex: 1 }} />
+          <TrackBar value={groupVolume / 100} onScrub={setActiveVol} trackColor={trackBg} fillColor={groupMuted(g) === true ? muted : fg} height={4} thumb grabThumbOnly loading={volumeSettling(g)} style={{ flex: 1 }} />
           <VolumeHigh size={20} color={muted} />
         </View>
       )}

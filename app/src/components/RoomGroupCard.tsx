@@ -64,10 +64,10 @@ export default function RoomGroupCard({ group }: { group: Group }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
           <VolumeHigh size={16} color={colors.fgMuted} />
           <TrackBar
-            value={(groupMuted(group) === true ? 0 : groupVolume) / 100}
+            value={groupVolume / 100}
             onScrub={(f) => setGroupVol(group.id, f)}
             trackColor={ink(0.1)}
-            fillColor={colors.fg}
+            fillColor={groupMuted(group) === true ? colors.fgMuted : colors.fg}
             height={5}
             thumb
             grabThumbOnly
