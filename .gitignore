@@ -8,6 +8,10 @@
 node_modules/
 dist/
 
+# bun is the script runner only; installs are pnpm. A bun.lock would drift
+# from pnpm-lock.yaml and nothing reads it.
+bun.lock
+
 # Electron-vite build output
 out/
 

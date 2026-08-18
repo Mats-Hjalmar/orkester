@@ -26,6 +26,10 @@ and `desktop` are clients. Put shared logic in core, not in a client.
   UI (e.g. the topology error state), never swallow them.
 - **Hoisted node-linker.** `node-linker=hoisted` lives in the root `.npmrc` (pnpm 9
   ignores it in `pnpm-workspace.yaml`). Metro needs the flat layout. Don't move it.
+- **pnpm installs, bun runs.** The root scripts shell out to `bun run`, but bun is
+  ONLY the script runner — never run `bun install`. It would rewrite `node_modules`
+  without the hoisted layout above and diverge from `pnpm-lock.yaml`. `bun run`
+  reads only the root `workspaces` field, so no bun lockfile is needed.
 - **Build first, derive paths.** `@orkester/core` is consumed via its built `dist/`
   and `package.json` `exports` map. Build before consuming; tests/configs derive
   dist paths from the exports map — never hardcode `dist/...`.
