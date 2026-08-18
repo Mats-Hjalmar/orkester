@@ -11,6 +11,9 @@ dist/
 # Electron-vite build output
 out/
 
+# electron-builder packaged output
+desktop/release/
+
 # Expo export output
 app/dist/
 

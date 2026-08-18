@@ -1,0 +1,41 @@
+appId: com.orkester.desktop
+productName: Orkester
+copyright: Copyright © 2026 Mats-Hjalmar Murman
+
+directories:
+  output: release
+  buildResources: build
+
+# electron-vite has already inlined @orkester/core into out/main, so the packaged
+# app carries no node_modules at all.
+files:
+  - out/**
+  - package.json
+
+asar: true
+npmRebuild: false
+
+mac:
+  category: public.app-category.music
+  target:
+    - target: dmg
+      arch: [universal]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  identity: Isotop AB (3GN395FUH4)
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  notarize: false
+  extendInfo:
+    # SSDP discovery is UDP multicast on the LAN; macOS 15+ gates that behind the
+    # Local Network privacy prompt and shows this string in it.
+    NSLocalNetworkUsageDescription: Orkester finds and controls your Sonos speakers on this Wi-Fi network.
+    NSBonjourServices:
+      - _sonos._tcp
+    # electron-builder injects placeholder camera/mic purpose strings by default.
+    # Orkester touches neither; null removes the keys.
+    NSCameraUsageDescription: null
+    NSMicrophoneUsageDescription: null
+
+dmg:
+  artifactName: ${productName}-${version}-universal.dmg

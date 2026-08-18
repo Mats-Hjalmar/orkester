@@ -1,10 +1,15 @@
 import { resolve } from 'node:path';
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import { defineConfig } from 'electron-vite';
 import reactNativeWeb from 'vite-plugin-react-native-web';
 
 // electron-vite splits the build into three Vite configs: main + preload run in
-// Node (externalize node_modules so @orkester/core/node keeps its node:* deps),
-// renderer is a browser bundle that reuses the app's react-native-web desktop UI.
+// Node (`electron` and every node:* builtin are externalized automatically, so
+// @orkester/core/node keeps its node:* deps), renderer is a browser bundle that
+// reuses the app's react-native-web desktop UI.
+//
+// `externalizeDeps.exclude` inlines @orkester/core (a workspace package, not
+// something that exists on disk next to a packaged app) into the main bundle, so
+// the shipped app needs no node_modules at all.
 //
 // The renderer MUST NOT contain node:* — it talks to the engine only over the
 // IPC bridge. vite-plugin-react-native-web aliases react-native -> react-native-web
@@ -13,15 +18,14 @@ const appSrc = resolve(__dirname, '../app/src');
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
+      externalizeDeps: { exclude: ['@orkester/core'] },
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/main/index.ts') },
       },
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/preload/index.ts') },

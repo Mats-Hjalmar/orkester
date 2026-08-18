@@ -6,6 +6,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter @orkester/core exec tsc --noEmit && pnpm --filter app exec tsc --noEmit",
     "desktop": "pnpm --filter @orkester/core build && pnpm --filter desktop dev",
+    "desktop:dist": "pnpm --filter @orkester/core build && pnpm --filter desktop dist:mac",
     "android": "pnpm --filter app exec expo run:android",
     "ios": "pnpm --filter app exec expo run:ios"
   },
@@ -13,5 +14,10 @@
     "@orkester/core": "workspace:*",
     "typescript": "~5.9.2",
     "tsup": "^8.5.0"
-  }
+  },
+  "workspaces": [
+    "app",
+    "desktop",
+    "packages/*"
+  ]
 }
