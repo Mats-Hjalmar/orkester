@@ -3,12 +3,12 @@
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "pnpm -r build",
-    "typecheck": "pnpm --filter @orkester/core exec tsc --noEmit && pnpm --filter app exec tsc --noEmit",
-    "desktop": "pnpm --filter @orkester/core build && pnpm --filter desktop dev",
-    "desktop:dist": "pnpm --filter @orkester/core build && pnpm --filter desktop dist:mac",
-    "android": "pnpm --filter app exec expo run:android",
-    "ios": "pnpm --filter app exec expo run:ios"
+    "build": "bun run --cwd packages/core build && bun run --cwd desktop build",
+    "typecheck": "bun run --filter @orkester/core --filter app typecheck",
+    "desktop": "bun run --cwd packages/core build && bun run --cwd desktop dev",
+    "desktop:dist": "bun run --cwd packages/core build && bun run --cwd desktop dist:mac",
+    "android": "bun run --cwd app android",
+    "ios": "bun run --cwd app ios"
   },
   "devDependencies": {
     "@orkester/core": "workspace:*",
