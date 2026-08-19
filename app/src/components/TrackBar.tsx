@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, View, GestureResponderEvent, ViewStyle } from 'react-native';
 import { radii } from '../theme/tokens';
 
@@ -30,13 +30,24 @@ const THUMB_GRAB_RADIUS = 22;
 // duration, or nothing is playing) the bar is inert and dimmed.
 export default function TrackBar({ value, onScrub, trackColor, fillColor, height = 4, hitSlop = 8, thumb = false, loading = false, grabThumbOnly = false, disabled = false, style }: Props) {
   const width = useRef(0);
+  // While dragging, the bar draws where the finger is rather than what the store
+  // says. The write is asynchronous and the speaker is polled meanwhile, so the
+  // prop lags and stutters; the gesture must not.
+  const [drag, setDrag] = useState<number | null>(null);
+  const shown = Math.max(0, Math.min(1, drag ?? value));
+
+  const fracAt = (e: GestureResponderEvent) => {
+    const w = width.current;
+    if (w <= 0) return null;
+    return Math.max(0, Math.min(1, e.nativeEvent.locationX / w));
+  };
 
   const handle = (e: GestureResponderEvent) => {
     if (disabled) return;
-    const w = width.current;
-    if (w <= 0) return;
-    const x = e.nativeEvent.locationX;
-    onScrub(Math.max(0, Math.min(1, x / w)));
+    const f = fracAt(e);
+    if (f === null) return;
+    setDrag(f);
+    onScrub(f);
   };
 
   // Whether a touch should claim the bar. With grabThumbOnly, only when it lands
@@ -46,30 +57,30 @@ export default function TrackBar({ value, onScrub, trackColor, fillColor, height
     if (!grabThumbOnly) return true;
     const w = width.current;
     if (w <= 0) return false;
-    const thumbX = Math.max(0, Math.min(1, value)) * w;
-    return Math.abs(e.nativeEvent.locationX - thumbX) <= THUMB_GRAB_RADIUS;
+    return Math.abs(e.nativeEvent.locationX - shown * w) <= THUMB_GRAB_RADIUS;
   };
 
-  const pct = `${Math.max(0, Math.min(1, value)) * 100}%`;
+  const pct = `${shown * 100}%`;
 
   return (
     <View
       onLayout={(e) => { width.current = e.nativeEvent.layout.width; }}
       onStartShouldSetResponder={shouldGrab}
       onMoveShouldSetResponder={shouldGrab}
+      // A thumb grab is deliberate, so keep it: an enclosing scroll view asking for
+      // the responder mid-gesture would otherwise abort the drag partway. A plain
+      // track (the seek bar) still yields, so a scroll starting on it can scroll.
+      onResponderTerminationRequest={() => !grabThumbOnly}
       onResponderGrant={handle}
       onResponderMove={handle}
+      onResponderRelease={() => setDrag(null)}
+      onResponderTerminate={() => setDrag(null)}
       hitSlop={{ top: hitSlop, bottom: hitSlop }}
       style={[{ justifyContent: 'center', opacity: disabled ? 0.55 : 1 }, style]}
     >
       <View style={{ height, borderRadius: radii.pill, backgroundColor: trackColor, width: '100%' }}>
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: radii.pill, backgroundColor: fillColor, width: pct as any }} />
-        {loading ? (
-          // Spinner at the thumb while the new value is being written to the speaker.
-          <View style={{ position: 'absolute', top: '50%', left: pct as any, transform: [{ translateX: -9 }, { translateY: -9 }] }}>
-            <ActivityIndicator size="small" color={fillColor} />
-          </View>
-        ) : thumb ? (
+        {thumb ? (
           <View
             style={{
               position: 'absolute',
@@ -82,6 +93,13 @@ export default function TrackBar({ value, onScrub, trackColor, fillColor, height
               transform: [{ translateX: -6 }, { translateY: -6 }],
             }}
           />
+        ) : null}
+        {loading && drag === null ? (
+          // Spinner around the thumb while the value is being written to the
+          // speaker. The thumb stays drawn underneath — it is the grab target.
+          <View style={{ position: 'absolute', top: '50%', left: pct as any, transform: [{ translateX: -9 }, { translateY: -9 }] }} pointerEvents="none">
+            <ActivityIndicator size="small" color={fillColor} />
+          </View>
         ) : null}
       </View>
     </View>
