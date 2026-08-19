@@ -9,7 +9,14 @@
 export type { Motif, Track, Room, QueueItem, Group, Config, TopologyStatus } from './types';
 
 // The store provider + hook + helpers (keeps the mock store's useStore surface).
-export { StoreProvider, useStore, fmt, type Store, type PendingOp } from './store';
+export {
+  StoreProvider,
+  useStore,
+  fmt,
+  type Store,
+  type PendingOp,
+  type GroupControls,
+} from './store';
 
 // Shared Spotify catalog-search behavior (link state machine + search/enqueue/
 // play), consumed by the desktop pane and the mobile Search screen.
@@ -19,6 +26,7 @@ export {
   type SpotifySearch,
   type SpotifySearchTarget,
   type LinkState,
+  type PendingSearchOp,
 } from './useSpotifySearch';
 
 // The reducer + state shape (exported for adapter/unit tests).

@@ -31,13 +31,12 @@ describe('reducer topology lifecycle', () => {
     expect(s.groups).toHaveLength(0);
   });
 
-  it('topologyReady installs rooms + groups and picks an active group', () => {
+  it('topologyReady installs rooms + groups', () => {
     let s = initialState();
     s = reducer(s, { type: 'topologyReady', topology: TOPO });
     expect(s.topologyStatus).toBe('ready');
     expect(s.rooms).toHaveLength(2);
     expect(s.groups[0].id).toBe('g1');
-    expect(s.activeGroupId).toBe('g1');
     expect(s.coordinatorUuid.g1).toBe('RINCON_X01400');
     // No now-playing yet -> placeholder track.
     expect(s.groups[0].trackId).toBe(PLACEHOLDER_TRACK_ID);
@@ -230,14 +229,5 @@ describe('reducer optimistic + reconcile', () => {
     expect(s.roomVol.living).toBe(80);
     s = reducer(s, { type: 'roomVolume', roomId: 'living', volume: 33 });
     expect(s.roomVol.living).toBe(33);
-  });
-});
-
-describe('reducer local-only', () => {
-  it('toggleLike flips local liked state', () => {
-    let s = reducer(initialState(), { type: 'toggleLike', id: 't1' });
-    expect(s.liked.t1).toBe(true);
-    s = reducer(s, { type: 'toggleLike', id: 't1' });
-    expect(s.liked.t1).toBe(false);
   });
 });

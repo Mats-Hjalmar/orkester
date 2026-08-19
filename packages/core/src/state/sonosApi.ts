@@ -31,6 +31,7 @@ import {
   type AppLink,
   coordinatorMember,
   groupName as engineGroupName,
+  memberBaseURL,
   parseRelTime,
   rooms as engineRooms,
   serviceSeed,
@@ -74,6 +75,11 @@ export class SonosApi implements Api {
   private readonly client: SonosClient;
   /** The most-recent topology + a responder base for cheap refresh. */
   private household: Household | undefined;
+
+  // Base URL of a speaker known to answer GetZoneGroupState, remembered from the
+  // last successful topology load so the periodic refresh can skip discovery.
+  private responderBase = '';
+
   /** roomId (handle) -> { member, group } for the current household. */
   private roomIndex = new Map<string, ResolvedRoom>();
   /** groupId -> SonosGroup for the current household. */
@@ -106,11 +112,18 @@ export class SonosApi implements Api {
   }
 
   async refreshTopology(): Promise<ApiTopology> {
-    // Re-discovering is the only portable way without caching a base here; the
-    // client's loadHousehold discovers + fetches in one step. (A future optimization
-    // could cache the responder base; correctness first.)
-    const household = await this.client.loadHousehold(DISCOVER_WAIT_MS);
-    return this.index(household);
+    // Ask the speaker we last heard from directly — a full discovery sweep costs
+    // DISCOVER_WAIT_MS of radio time, and on a phone this runs on a timer. If
+    // that speaker has gone away the error is not swallowed: we escalate to a
+    // real discovery, and a failure there propagates to the caller.
+    if (this.responderBase !== '') {
+      try {
+        return this.index(await this.client.fetchHouseholdFrom(this.responderBase));
+      } catch {
+        this.responderBase = '';
+      }
+    }
+    return this.index(await this.client.loadHousehold(DISCOVER_WAIT_MS));
   }
 
   /** Indexes a household into the id maps and projects it to an ApiTopology. */
@@ -118,6 +131,15 @@ export class SonosApi implements Api {
     this.household = household;
     this.roomIndex.clear();
     this.groupIndex.clear();
+
+    // Remember any member with a resolvable address as the next refresh's responder.
+    for (const g of household.groups) {
+      const base = g.members.map(memberBaseURL).find((b) => b !== '');
+      if (base) {
+        this.responderBase = base;
+        break;
+      }
+    }
 
     const refs = engineRooms(household);
     const rooms: ApiRoom[] = refs.map((r) => {
@@ -197,6 +219,10 @@ export class SonosApi implements Api {
     return this.client.reorderQueue(this.groupFor(groupId), fromIndex, toIndex);
   }
 
+  playQueueIndex(groupId: string, index: number): Promise<void> {
+    return this.client.playQueueIndex(this.groupFor(groupId), index);
+  }
+
   play(groupId: string): Promise<void> {
     return this.client.play(this.groupFor(groupId));
   }
@@ -254,11 +280,6 @@ export class SonosApi implements Api {
   }
 
   leaveGroup(roomId: string): Promise<void> {
-    return this.client.leaveGroup(this.roomFor(roomId));
-  }
-
-  startGroup(roomId: string): Promise<void> {
-    // A "start" is just detaching the room into its own standalone group.
     return this.client.leaveGroup(this.roomFor(roomId));
   }
 
@@ -386,8 +407,12 @@ export class SonosApi implements Api {
     return out;
   }
 
-  enqueueSearchItem(groupId: string, item: ApiSearchItem): Promise<void> {
-    return this.client.enqueue(this.groupFor(groupId), { uri: item.uri, metadata: item.metadata });
+  enqueueSearchItem(groupId: string, item: ApiSearchItem, asNext = false): Promise<void> {
+    return this.client.enqueue(
+      this.groupFor(groupId),
+      { uri: item.uri, metadata: item.metadata },
+      asNext,
+    );
   }
 
   playSearchItem(groupId: string, item: ApiSearchItem): Promise<void> {

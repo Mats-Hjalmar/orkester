@@ -1,9 +1,9 @@
 // Remembers which speakers the desktop was last opened on, across restarts.
 //
-// A Sonos GROUP id is not stable — it carries a counter that changes whenever the
-// group's membership does — so the selection is stored as the group's ROOM ids
-// and matched back by overlap on the next launch. Stored newline-joined rather
-// than as JSON so a stale/garbled value can't throw on read.
+// Stored newline-joined rather than as JSON so a stale/garbled value can't throw
+// on read. The room-ids-not-group-id rationale, and the matcher itself, live in
+// ../state/selectors (groupForRooms) — the phone client remembers the same thing
+// against a different storage backend.
 
 const KEY = 'orkester.desktop.lastSelection';
 
@@ -14,27 +14,4 @@ export function readLastSelection(): string[] {
 
 export function writeLastSelection(roomIds: string[]): void {
   localStorage.setItem(KEY, roomIds.join('\n'));
-}
-
-/**
- * The group that best matches the remembered speakers — the one sharing the most
- * rooms with them. undefined when nothing is remembered or those speakers are
- * gone, so the caller decides its own default.
- */
-export function groupForRooms<T extends { id: string; roomIds: string[] }>(
-  groups: T[],
-  roomIds: string[],
-): T | undefined {
-  if (roomIds.length === 0) return undefined;
-  const remembered = new Set(roomIds);
-  let best: T | undefined;
-  let bestOverlap = 0;
-  for (const g of groups) {
-    const overlap = g.roomIds.filter((r) => remembered.has(r)).length;
-    if (overlap > bestOverlap) {
-      best = g;
-      bestOverlap = overlap;
-    }
-  }
-  return best;
 }

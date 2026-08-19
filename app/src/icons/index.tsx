@@ -100,14 +100,6 @@ export function Repeat({ size = 22, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Heart({ size = 24, color = '#1A1814', fill = 'none' }: IconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M12 20.5S4 15.5 4 9.8A4.3 4.3 0 0112 7a4.3 4.3 0 018 2.8c0 5.7-8 10.7-8 10.7z" />
-    </Svg>
-  );
-}
-
 export function Speaker({ size = 18, color = '#1A1814' }: IconProps) {
   return (
     <Svg {...stroke(size, color, 1.6)}>
@@ -123,15 +115,6 @@ export function Search({ size = 22, color = '#1A1814' }: IconProps) {
     <Svg {...stroke(size, color)}>
       <Circle cx={11} cy={11} r={7} />
       <Path d="M21 21l-4-4" />
-    </Svg>
-  );
-}
-
-export function Home({ size = 22, color = '#1A1814' }: IconProps) {
-  return (
-    <Svg {...stroke(size, color)}>
-      <Path d="M3 11l9-8 9 8" />
-      <Path d="M5 10v10h14V10" />
     </Svg>
   );
 }

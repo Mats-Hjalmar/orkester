@@ -4,7 +4,7 @@ import CoverArt from '../components/CoverArt';
 import TrackBar from '../components/TrackBar';
 import SpeakerChip from '../components/SpeakerChip';
 import QueueRow from '../components/QueueRow';
-import { ChevronRight, Dots, Grip, Next, Pause, Play, Plus, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
+import { ChevronRight, Grip, Next, Pause, Play, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -14,14 +14,6 @@ import { progressOf } from '../components/trackProgress';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
-
-function CircleButton({ children, onPress }: { children: React.ReactNode; onPress?: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.14), alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
-      {children}
-    </Pressable>
-  );
-}
 
 // Centered guidance shown when there is nothing to control yet: still discovering,
 // couldn't reach any speakers (connect instructions), or connected-but-idle
@@ -56,12 +48,13 @@ const QUEUE_ROW_H = 52;
 // neighbouring rows to preview the drop; on release we ask the SPEAKER to reorder
 // (the store re-reads from Sonos — no optimistic local splice). The fixed row
 // height makes dy → row-offset exact.
-function QueueList({ items, motif, accent, isCurrent, onReorder }: {
+function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay }: {
   items: QueueItem[];
   motif: Motif;
   accent: string;
   isCurrent: (q: QueueItem) => boolean;
   onReorder: (from: number, to: number) => void;
+  onPlay: (index: number) => void;
 }) {
   const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
   const dragRef = useRef(drag);
@@ -120,7 +113,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
             key={`${index}:${item.title}:${item.artist}`}
             style={{ height: QUEUE_ROW_H, justifyContent: 'center', transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1 }}
           >
-            <QueueRow item={item} motif={motif} fg={colors.fg} muted={colors.fgMuted} accent={accent} current={isCurrent(item)} trailing={handle} />
+            <QueueRow item={item} motif={motif} fg={colors.fg} muted={colors.fgMuted} accent={accent} current={isCurrent(item)} onPress={() => onPlay(index)} trailing={handle} />
           </View>
         );
       })}
@@ -135,7 +128,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder }: {
 // present, so onBack is omitted and no back button renders.
 export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?: Group; onBack?: () => void; onSearch?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue } = store;
+  const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue, playQueueIndex } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const status = state.topologyStatus;
@@ -207,12 +200,6 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
         {/* cover */}
         <View style={{ width: 374 }}>
           <CoverArt size={374} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg} artUrl={idle ? undefined : tr.artUrl}>
-            {!idle && (
-              <>
-                <Text style={{ position: 'absolute', left: 18, top: 16, fontFamily: font.mono, fontSize: 11, color: 'rgba(26,24,20,0.5)' }}>{tr.cat}</Text>
-                <Text style={{ position: 'absolute', left: 18, bottom: 16, fontFamily: font.mono, fontSize: 11, color: 'rgba(26,24,20,0.5)' }}>{tr.year}</Text>
-              </>
-            )}
             {idle && (
               <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
                 <Speaker size={64} color="rgba(26,24,20,0.35)" />
@@ -241,6 +228,7 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
                 accent={accent}
                 isCurrent={() => false}
                 onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
+                onPlay={(index) => playQueueIndex(g.id, qStart + index)}
               />
             </>
           )}
@@ -275,12 +263,6 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
               {!!tr.album && (
                 <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 18 }}>{tr.album}</Text>
               )}
-              {/* Add-to-queue / more actions are deferred — visible but inert. */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22, opacity: 0.4 }}>
-                <CircleButton><Plus size={19} color={colors.fg} /></CircleButton>
-                <CircleButton><Dots size={19} color={colors.fg} /></CircleButton>
-              </View>
-
               {/* Inline transport for THIS group. */}
               <View style={{ marginTop: 30, gap: 14, maxWidth: 560 }}>
                 {/* One transport request at a time: the control that fired shows a

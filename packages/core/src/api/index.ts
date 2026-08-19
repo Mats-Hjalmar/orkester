@@ -152,6 +152,11 @@ export interface Api {
   clearQueue(groupId: string): Promise<void>;
   /** Moves the track at fromIndex to toIndex (0-based) within the group's queue. */
   reorderQueue(groupId: string, fromIndex: number, toIndex: number): Promise<void>;
+  /**
+   * Plays the group's queue entry at `index` (0-based). Also switches the group
+   * onto its own queue, so it works when a stream is playing instead.
+   */
+  playQueueIndex(groupId: string, index: number): Promise<void>;
   play(groupId: string): Promise<void>;
   pause(groupId: string): Promise<void>;
   next(groupId: string): Promise<void>;
@@ -172,8 +177,6 @@ export interface Api {
   joinGroup(roomId: string, coordinatorUuid: string): Promise<void>;
   /** Detaches `roomId` into its own standalone group. */
   leaveGroup(roomId: string): Promise<void>;
-  /** Detaches `roomId` into a fresh standalone group (alias of leaveGroup). */
-  startGroup(roomId: string): Promise<void>;
 
   // --- Spotify catalog search ---
   /** True once a Spotify token has been minted + persisted (device-linked). */
@@ -195,10 +198,11 @@ export interface Api {
    */
   searchSpotify(query: string, kind: SpotifySearchKind): Promise<ApiSearchItem[]>;
   /**
-   * Appends a search hit to the END of the group's queue WITHOUT changing what
-   * is currently playing ("add to queue").
+   * Queues a search hit WITHOUT changing what is currently playing: at the END
+   * of the queue by default ("add to queue"), or directly after the current
+   * track when `asNext` is set ("play next").
    */
-  enqueueSearchItem(groupId: string, item: ApiSearchItem): Promise<void>;
+  enqueueSearchItem(groupId: string, item: ApiSearchItem, asNext?: boolean): Promise<void>;
   /**
    * Plays a search hit NOW, REPLACING the group's queue ("play now"). Destructive
    * to the existing queue by design; use enqueueSearchItem to append instead.

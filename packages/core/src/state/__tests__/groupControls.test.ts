@@ -121,3 +121,52 @@ describe('group-targeted control isolation', () => {
     expect(s.groups.map((g) => g.isPlaying)).toEqual(before);
   });
 });
+
+// Per-SPEAKER volume and mute. A group slider writes one absolute value to every
+// member, which flattens the balance between rooms (findings/volume-control.md); the
+// per-room controls are the only way to set that balance. Same reducer-driven style
+// as above: what matters is that one speaker's change touches nothing else.
+describe('per-room volume + mute isolation', () => {
+  it('setting ONE member\'s volume leaves its group-mates alone', async () => {
+    const api = makeFakeApi();
+    const s = await topologyState(api);
+    const g1 = s.groups[0];
+    const [first, second] = g1.roomIds;
+    expect(second).toBeDefined();
+    const otherBefore = await api.getVolume(second);
+
+    // What setRoomVolume(first, 0.75) writes: setVolForRooms([first], ...).
+    await api.setVolume(first, 75);
+
+    expect(await api.getVolume(first)).toBe(75);
+    expect(await api.getVolume(second)).toBe(otherBefore);
+  });
+
+  it('a per-room mute patch marks only that room', async () => {
+    const api = makeFakeApi();
+    let s = await topologyState(api);
+    const g1 = s.groups[0];
+    const [first, second] = g1.roomIds;
+
+    s = reducer(s, { type: 'setRoomMuteOptimistic', roomId: first, muted: true });
+
+    expect(s.roomMute[first]).toBe(true);
+    expect(s.roomMute[second]).toBeUndefined();
+    // The GROUP is only muted when every member is (groupSnapshot derives it), so
+    // one muted member must not read as a muted group.
+    expect(s.groups.find((g) => g.id === g1.id)!.muted).toBe(false);
+  });
+
+  it('reverting a failed mute restores the real value from the speaker', async () => {
+    const api = makeFakeApi();
+    let s = await topologyState(api);
+    const room = s.groups[0].roomIds[0];
+
+    // Optimistic mute, then the reconcile path a rejection triggers: re-read and
+    // dispatch the truth. The fake speaker never muted, so it comes back false.
+    s = reducer(s, { type: 'setRoomMuteOptimistic', roomId: room, muted: true });
+    expect(s.roomMute[room]).toBe(true);
+    s = reducer(s, { type: 'roomMute', roomId: room, muted: false });
+    expect(s.roomMute[room]).toBe(false);
+  });
+});

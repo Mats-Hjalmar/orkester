@@ -4,10 +4,12 @@ The orkester **mobile** client (Expo / React Native, iOS + Android) — plus the
 shared desktop UI that the Electron app renders. There is **no web target**: a
 browser can't discover or control speakers.
 
-- **The phone app (`App.tsx`).** A rooms-first React Navigation stack (Rooms →
-  Room → Search / Speakers) — full-frame screens, no tab bar or global mini-player
-  (in a multi-room manager nothing is globally "now playing"). Source under
-  `src/screens/` + `src/components/`.
+- **The phone app (`App.tsx`).** A rooms-first React Navigation stack: Rooms → Room,
+  with **Speakers as a native sheet and Search as a modal over the room** (both act on
+  it, so it stays in context). Every group-scoped route carries its `groupId`. No tab
+  bar or global mini-player — in a multi-room manager nothing is globally "now
+  playing". Source under `src/screens/` + `src/components/` (phone-only pieces in
+  `src/components/phone/`).
 - **The desktop UI (`src/desktop/`).** A full-window master–detail layout (top bar,
   a Rooms rail, a focused Now-Playing / Search pane). It is **not** rendered here —
   the Electron `desktop/` app imports it via an `@app` alias and renders it with
@@ -42,7 +44,8 @@ src/
   theme/                # Noira palette + fonts; tokens.ts re-exports @orkester/core/theme
   state/                # re-export facades over @orkester/core/state + app-only selectors
   icons/                # inline react-native-svg icons
-  components/           # shared + phone components (CoverArt, TrackBar, QueueRow, …)
+  components/           # shared with desktop (CoverArt, TrackBar, QueueRow, …)
+    phone/              # phone-only (Screen safe-area wrapper, QueueList, haptics)
   screens/              # phone screens (Rooms, NowPlaying, Search, Speakers)
   desktop/              # desktop UI, rendered by the Electron app (TopBar, RoomList, NowPlaying, SpotifySearch)
   native/               # in-process engine transports for iOS/Android

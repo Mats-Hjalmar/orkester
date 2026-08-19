@@ -1,25 +1,30 @@
 import React from 'react';
-import { Image, View, ViewStyle } from 'react-native';
+import { View, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { Motif } from '../state/types';
 import { radii } from '../theme/tokens';
 
+// The DEVICE implementation of CoverArt. Metro resolves this over CoverArt.tsx,
+// which the Electron renderer keeps (it uses a plain RN Image — expo-image is not
+// in that bundle).
+//
+// Album art is served by the speaker over the LAN and re-requested on every poll
+// that changes the track id. expo-image gives it a memory+disk cache and a
+// cross-fade, so a re-render doesn't flash an empty square. `recyclingKey` resets
+// the view when the URL changes so a recycled row can't show the previous cover.
+
 interface Props {
-  size: number; // square side, px
+  size: number;
   coverBg: string;
   coverShape: string;
   motif: Motif;
   radius?: number;
-  shadow?: string; // optional boxShadow, applied to an OUTER wrapper (never on the clip)
-  ring?: string; // optional accent ring color (now-playing track highlight)
-  artUrl?: string; // real album art from the speaker; when set it replaces the drawn motif
-  children?: React.ReactNode; // optional overlay, positioned by the caller
+  shadow?: string;
+  ring?: string;
+  artUrl?: string;
+  children?: React.ReactNode;
 }
 
-// A cover: the speaker's real album art when we have a URL, otherwise a drawn
-// pastel field with one oversized circle "motif" clipped by the rounded square
-// (`sun` = a disc high-centred; `arc` = a big disc rising from the bottom edge).
-// Shadow and overflow:'hidden' must never share a node, so the shadow lives on
-// the outer wrapper and the clip on the inner view.
 export default function CoverArt({ size, coverBg, coverShape, motif, radius = radii.lg, shadow, ring, artUrl, children }: Props) {
   const shape: ViewStyle =
     motif === 'arc'
@@ -38,7 +43,14 @@ export default function CoverArt({ size, coverBg, coverShape, motif, radius = ra
     <View style={outer}>
       <View style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', backgroundColor: coverBg }}>
         {artUrl ? (
-          <Image source={{ uri: artUrl }} style={{ width: size, height: size }} resizeMode="cover" />
+          <Image
+            source={{ uri: artUrl }}
+            style={{ width: size, height: size }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={180}
+            recyclingKey={artUrl}
+          />
         ) : (
           <View style={[{ position: 'absolute', borderRadius: 999, backgroundColor: coverShape }, shape]} />
         )}

@@ -6,16 +6,17 @@ import DesktopNowPlaying from './NowPlaying';
 import SpotifySearch from './SpotifySearch';
 import { colors } from '../theme/tokens';
 import { useStore } from '../state/store';
-import { groupForRooms, readLastSelection, writeLastSelection } from './lastSelection';
+import { readLastSelection, writeLastSelection } from './lastSelection';
+import { groupForRooms } from '../state/selectors';
 
 // Rooms-first controller, master–DETAIL. The left rail is a STABLE list of the
 // household (groups then idle rooms); selecting a row sticks and the right pane
 // shows that group's full Now Playing. The list never jumps under the cursor
 // (RoomList sorts by name), so a poll update can't move what you just clicked.
 //
-// Selection is LOCAL desktop state (a selected groupId), decoupled from the
-// shared mView/activeGroupId the mobile UI uses. `focusGroup(gid)` tells the
-// store to ATOMICALLY load that group and then poll it at the fast cadence.
+// Selection is LOCAL desktop state (a selected groupId). `focusGroup(gid)` tells
+// the store to ATOMICALLY load that group and then poll it at the fast cadence;
+// the phone addresses groups the same way, by id, through a route param.
 export default function DesktopApp() {
   const { state, focusGroup } = useStore();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);

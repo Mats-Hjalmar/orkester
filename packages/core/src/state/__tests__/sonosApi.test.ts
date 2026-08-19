@@ -311,3 +311,87 @@ describe('SonosApi.searchSpotify token refresh', () => {
     expect(saved).toEqual([expect.objectContaining({ authToken: 'NEW-TOKEN', privateKey: 'NEW-KEY' })]);
   });
 });
+
+// A discovery transport that counts sweeps, so we can prove refreshTopology does
+// not run one when a previously-seen speaker still answers. A discovery sweep costs
+// DISCOVER_WAIT_MS of radio time and the store runs it on a timer, so on a phone
+// this is the difference between an idle app and one that never lets the Wi-Fi sleep.
+class CountingDiscovery extends MockDiscovery {
+  sweeps = 0;
+  override async discover(opts: DiscoverOptions): Promise<void> {
+    this.sweeps += 1;
+    await super.discover(opts);
+  }
+}
+
+function makeCountingApi(transport: ScriptedTransport): { api: SonosApi; discovery: CountingDiscovery } {
+  const discovery = new CountingDiscovery();
+  return { api: new SonosApi(new SonosClient({ http: transport, discovery })), discovery };
+}
+
+describe('SonosApi.refreshTopology', () => {
+  it('reuses the last known speaker instead of re-discovering', async () => {
+    const t = new ScriptedTransport();
+    const { api, discovery } = makeCountingApi(t);
+
+    await api.loadTopology();
+    expect(discovery.sweeps).toBe(1);
+
+    await api.refreshTopology();
+    await api.refreshTopology();
+
+    // Still one sweep: both refreshes went straight to the remembered speaker.
+    expect(discovery.sweeps).toBe(1);
+    const zgs = t.requests.filter((r) => (r.headers?.SOAPACTION ?? '').includes('GetZoneGroupState'));
+    expect(zgs).toHaveLength(3);
+    expect(zgs[2].url).toBe('http://192.168.1.10:1400/ZoneGroupTopology/Control');
+  });
+
+  it('still returns a correct topology from the cached speaker', async () => {
+    const { api } = makeCountingApi(new ScriptedTransport());
+    await api.loadTopology();
+    const topo = await api.refreshTopology();
+    expect(topo.rooms.map((r) => r.id).sort()).toEqual(['bedroom', 'kitchen', 'living-room']);
+    expect(topo.groups.find((g) => g.id === 'g1')!.coordinatorUuid).toBe('RINCON_AAAA01400');
+  });
+
+  it('escalates to a real discovery when the cached speaker stops answering', async () => {
+    const t = new ScriptedTransport();
+    const { api, discovery } = makeCountingApi(t);
+    await api.loadTopology();
+    expect(discovery.sweeps).toBe(1);
+
+    // The remembered speaker is gone: its GetZoneGroupState now faults.
+    t.failAction = 'GetZoneGroupState';
+    await expect(api.refreshTopology()).rejects.toThrow();
+    // It did not silently give up — it re-discovered before failing.
+    expect(discovery.sweeps).toBe(2);
+
+    // Once a speaker answers again the refresh succeeds and re-arms the cache.
+    t.failAction = null;
+    await expect(api.refreshTopology()).resolves.toBeTruthy();
+    expect(discovery.sweeps).toBe(3);
+    await api.refreshTopology();
+    expect(discovery.sweeps).toBe(3);
+  });
+});
+
+describe('SonosApi topology room/group coverage', () => {
+  // Both UIs used to carry a "Not playing" section fed by "rooms in no group".
+  // That list can never populate: engine `rooms()` derives every RoomRef by walking
+  // household.groups, and index() collects each group's roomIds from those same
+  // refs, so every room handle always belongs to a group — a standalone speaker is
+  // a one-member group. This pins the invariant that made those sections dead code.
+  it('puts every room in exactly one group (no room is groupless)', async () => {
+    const api = makeApi(new ScriptedTransport());
+    const topo = await api.loadTopology();
+
+    const grouped = topo.groups.flatMap((g) => g.roomIds);
+    expect([...grouped].sort()).toEqual(topo.rooms.map((r) => r.id).sort());
+    for (const room of topo.rooms) {
+      expect(topo.groups.filter((g) => g.roomIds.includes(room.id))).toHaveLength(1);
+    }
+    // Bedroom is alone on .12 and still arrives as its own group, not as a loose room.
+    expect(topo.groups.find((g) => g.roomIds.join() === 'bedroom')).toBeDefined();
+  });
+});

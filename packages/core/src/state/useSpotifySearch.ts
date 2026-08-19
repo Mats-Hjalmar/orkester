@@ -23,6 +23,9 @@ export type LinkState =
   | { status: 'linked' };
 
 /** Targeting + label the caller resolves from its own selection model. */
+/** Which per-result action is in flight, so the UI spins exactly that button. */
+export type PendingSearchOp = 'add' | 'next' | 'play';
+
 export interface SpotifySearchTarget {
   /** Group id to enqueue/play onto (desktop: selected group; mobile: active group). "" when none. */
   groupId: string;
@@ -51,7 +54,7 @@ export interface SpotifySearch {
   /** Runs the search; pass a kind to re-search the current query in a new category. */
   runSearch: (searchKind?: SpotifySearchKind) => Promise<void>;
   /** Appends a hit to the target group's queue. */
-  addToQueue: (item: ApiSearchItem) => Promise<void>;
+  addToQueue: (item: ApiSearchItem, asNext?: boolean) => Promise<void>;
   /** Plays a hit now (replaces the queue) on the target group. */
   playNow: (item: ApiSearchItem) => Promise<void>;
   /**
@@ -59,7 +62,7 @@ export interface SpotifySearch {
    * the UI spins that hit's button and further clicks are DROPPED, so a slow
    * Sonos round trip can't collect a backlog of enqueues.
    */
-  pending: { id: string; op: 'add' | 'play' } | null;
+  pending: { id: string; op: PendingSearchOp } | null;
 }
 
 export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: SpotifySearchTarget): SpotifySearch {
@@ -82,9 +85,9 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   const [notice, setNotice] = useState('');
   // Which hit's add/play is in flight. The ref is the drop-guard (read
   // synchronously on click); the state drives the spinner.
-  const [pending, setPending] = useState<{ id: string; op: 'add' | 'play' } | null>(null);
-  const pendingRef = useRef<{ id: string; op: 'add' | 'play' } | null>(null);
-  const startPending = (id: string, op: 'add' | 'play') => {
+  const [pending, setPending] = useState<{ id: string; op: PendingSearchOp } | null>(null);
+  const pendingRef = useRef<{ id: string; op: PendingSearchOp } | null>(null);
+  const startPending = (id: string, op: PendingSearchOp) => {
     pendingRef.current = { id, op };
     setPending(pendingRef.current);
   };
@@ -197,13 +200,17 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     }
   };
 
-  const addToQueue = async (item: ApiSearchItem): Promise<void> => {
+  const addToQueue = async (item: ApiSearchItem, asNext = false): Promise<void> => {
     if (pendingRef.current) return;
     setError('');
-    startPending(item.id, 'add');
+    startPending(item.id, asNext ? 'next' : 'add');
     try {
-      await apiRef.current.enqueueSearchItem(groupId, item);
-      setNotice(`Added "${item.title}" to the queue on ${groupLabel}.`);
+      await apiRef.current.enqueueSearchItem(groupId, item, asNext);
+      setNotice(
+        asNext
+          ? `"${item.title}" plays next on ${groupLabel}.`
+          : `Added "${item.title}" to the queue on ${groupLabel}.`,
+      );
     } catch (e) {
       setError(messageOf(e));
     } finally {

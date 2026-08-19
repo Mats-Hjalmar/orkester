@@ -168,6 +168,17 @@ export class SonosClient {
   }
 
   /**
+   * Fetches the whole household topology from an ALREADY-KNOWN speaker base URL,
+   * skipping discovery. Any single speaker reports the entire household (see
+   * findings/sonos-topology.md), so a periodic refresh need not re-run a
+   * discovery sweep. Throws when that speaker no longer answers — the caller
+   * decides whether to escalate to a full discovery.
+   */
+  fetchHouseholdFrom(base: string): Promise<Household> {
+    return fetchTopology(this.http, base);
+  }
+
+  /**
    * Maps a fuzzy room query to a single resolved room. Delegates to
    * topology.resolve, which THROWS on an unknown query (listing the rooms) or an
    * ambiguous one (AmbiguousError with the candidates) — no silent fallback.
@@ -226,6 +237,20 @@ export class SonosClient {
   /** Moves the track at fromIndex to toIndex (0-based) in the coordinator's queue. */
   reorderQueue(room: ResolvedRoom, fromIndex: number, toIndex: number): Promise<void> {
     return controlReorderQueue(this.http, this.coordinatorBase(room), fromIndex, toIndex);
+  }
+
+  /**
+   * Plays the queue entry at `index` (0-based). Routed through playFromQueue
+   * rather than a bare TRACK_NR seek because the group may currently be on a
+   * stream rather than its own queue, which a seek alone would not switch.
+   */
+  playQueueIndex(room: ResolvedRoom, index: number): Promise<void> {
+    return controlPlayFromQueue(
+      this.http,
+      this.coordinatorBase(room),
+      room.group.coordinator,
+      index + 1,
+    );
   }
 
   /** Seeks to an absolute position (seconds) in the current track (coordinator). */
@@ -340,12 +365,12 @@ export class SonosClient {
   }
 
   /**
-   * Adds an item to the END of the group's queue WITHOUT changing what is
-   * currently playing (the "add to queue" action). The item's tracks are
-   * appended; for a container URI Sonos expands it into the queue.
+   * Adds an item to the group's queue WITHOUT changing what is currently
+   * playing: at the END by default, or directly AFTER the current track when
+   * `asNext` is set. For a container URI Sonos expands it into the queue.
    */
-  async enqueue(room: ResolvedRoom, item: EnqueueItem): Promise<void> {
-    await controlAddURIToQueue(this.http, this.coordinatorBase(room), item.uri, item.metadata, false);
+  async enqueue(room: ResolvedRoom, item: EnqueueItem, asNext = false): Promise<void> {
+    await controlAddURIToQueue(this.http, this.coordinatorBase(room), item.uri, item.metadata, asNext);
   }
 
   /**

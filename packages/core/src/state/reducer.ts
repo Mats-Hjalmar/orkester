@@ -1,21 +1,19 @@
 // The engine-backed store reducer — pure, no I/O, no react.
 //
 // Holds an engine-shaped projection of the household: rooms + groups (UI shape),
-// per-track synthesized metadata keyed by a stable id, per-room volume/mute, the
-// local `liked` set, and the topology lifecycle. The provider (./store) owns the
+// per-track synthesized metadata keyed by a stable id, per-room volume/mute, and
+// the topology lifecycle. The provider (./store) owns the
 // side effects: it calls the Api, dispatches OPTIMISTIC patches immediately, and
 // dispatches RECONCILE actions from the polling loop (and on error-revert).
 //
 // No silent fallbacks: a missing track id throws (it is a real wiring bug), and
 // the provider surfaces Api rejections by reverting + recording topologyError.
 
-import type { Config, Group, QueueItem, Room, Track, TopologyStatus } from './types';
+import type { Group, QueueItem, Room, Track, TopologyStatus } from './types';
 import type { ApiNowPlaying, ApiTopology } from '../api';
 import { synthesizeArt } from './art';
 
 export interface State {
-  /** Local-only UI state — the engine has no "liked" concept. */
-  liked: Record<string, boolean>;
   /** roomId -> 0..100. */
   roomVol: Record<string, number>;
   /** roomId -> muted. */
@@ -28,7 +26,6 @@ export interface State {
   queues: Record<string, QueueItem[]>;
   /** Per group, the coordinator UUID a join targets. */
   coordinatorUuid: Record<string, string>;
-  activeGroupId: string;
   topologyStatus: TopologyStatus;
   topologyError: string;
 }
@@ -42,8 +39,6 @@ export function placeholderTrack(): Track {
     title: 'Nothing playing',
     artist: '',
     album: '',
-    year: '',
-    cat: '',
     dur: 0,
     ...synthesizeArt('Nothing playing', ''),
   };
@@ -51,7 +46,6 @@ export function placeholderTrack(): Track {
 
 export function initialState(): State {
   return {
-    liked: {},
     roomVol: {},
     roomMute: {},
     rooms: [],
@@ -59,7 +53,6 @@ export function initialState(): State {
     tracks: { [PLACEHOLDER_TRACK_ID]: placeholderTrack() },
     queues: {},
     coordinatorUuid: {},
-    activeGroupId: '',
     topologyStatus: 'idle',
     topologyError: '',
   };
@@ -105,8 +98,6 @@ function trackFromNowPlaying(id: string, np: ApiNowPlaying): Track {
     title,
     artist: np.artist,
     album: np.album,
-    year: '',
-    cat: '',
     dur: np.durationSeconds,
     ...synthesizeArt(title, np.artist),
     // Real album art when the speaker reports it; "" falls back to the drawn cover.
@@ -141,18 +132,12 @@ export type Action =
   | { type: 'setShuffleOptimistic'; groupId: string; shuffle: boolean }
   | { type: 'setRepeatOptimistic'; groupId: string; repeat: boolean }
   | { type: 'setRoomVolOptimistic'; roomId: string; volume: number }
-  | { type: 'setRoomMuteOptimistic'; roomId: string; muted: boolean }
-  // local-only
-  | { type: 'toggleLike'; id: string }
-  | { type: 'selectGroup'; gid: string };
+  | { type: 'setRoomMuteOptimistic'; roomId: string; muted: boolean };
 
 function patchGroup(s: State, gid: string, patch: Partial<Group>): Group[] {
   return s.groups.map((g) => (g.id === gid ? { ...g, ...patch } : g));
 }
 
-function activeOf(s: State): Group | undefined {
-  return s.groups.find((g) => g.id === s.activeGroupId) ?? s.groups[0];
-}
 
 export function reducer(s: State, a: Action): State {
   switch (a.type) {
@@ -179,21 +164,14 @@ export function reducer(s: State, a: Action): State {
           shuffle: prior?.shuffle ?? false,
           repeat: prior?.repeat ?? false,
           muted: prior?.muted ?? false,
-          queueIds: [],
           queueIndex: prior?.queueIndex ?? -1,
         };
       });
-      // Keep the active group if it still exists, else fall back to the first.
-      let activeGroupId = s.activeGroupId;
-      if (!groups.find((g) => g.id === activeGroupId)) {
-        activeGroupId = groups[0]?.id ?? '';
-      }
       return {
         ...s,
         rooms,
         groups,
         coordinatorUuid,
-        activeGroupId,
         topologyStatus: 'ready',
         topologyError: '',
       };
@@ -292,15 +270,8 @@ export function reducer(s: State, a: Action): State {
     case 'setRoomMuteOptimistic':
       return { ...s, roomMute: { ...s.roomMute, [a.roomId]: a.muted } };
 
-    case 'toggleLike':
-      return { ...s, liked: { ...s.liked, [a.id]: !s.liked[a.id] } };
-
-    case 'selectGroup':
-      return { ...s, activeGroupId: a.gid };
 
     default:
       return s;
   }
 }
-
-export { activeOf };

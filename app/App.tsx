@@ -1,13 +1,14 @@
 import React from 'react';
-import { Platform, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { fontMap } from './src/theme/fonts';
-import { colors } from './src/theme/tokens';
-import { StoreProvider } from './src/state/store';
+import { colors, radii } from './src/theme/tokens';
+import { StoreProvider, useStore } from './src/state/store';
 import type { MobileStackParamList } from './src/navigation';
 import NowPlaying from './src/screens/NowPlaying';
 import Rooms from './src/screens/Rooms';
@@ -19,11 +20,15 @@ import Speakers from './src/screens/Speakers';
 // IPC-backed engine — it does not go through this entry. The browser can't discover
 // or control speakers, so there is no web target here.
 
-// Phone composition — rooms-first drill-down owned by React Navigation. The stack
-// (Rooms root → Room detail → Search / Speakers) handles the back button, Android
-// hardware back, and iOS swipe-back automatically. There is no global tab bar or
-// mini-player: in a multi-room manager nothing is globally "now playing", so each
-// screen is full-frame and the stack navigates rooms → room → action.
+// Phone composition — a rooms-first drill-down owned by React Navigation, which
+// handles the back stack, the Android hardware back button, and iOS swipe-back.
+// There is no global tab bar or mini-player: in a multi-room manager nothing is
+// globally "now playing".
+//
+// Speakers and Search are presented OVER the room rather than pushed past it,
+// because both act ON that room — Speakers as a native sheet sized to its content,
+// Search as a full-height modal (it owns a keyboard and an unbounded result list, so
+// a detented sheet fights it).
 const Stack = createNativeStackNavigator<MobileStackParamList>();
 
 function MobileNav() {
@@ -34,20 +39,49 @@ function MobileNav() {
     >
       <Stack.Screen name="Rooms" component={Rooms} />
       <Stack.Screen name="Room" component={NowPlaying} />
-      <Stack.Screen name="Search" component={Search} />
-      <Stack.Screen name="Speakers" component={Speakers} />
+      <Stack.Screen
+        name="Speakers"
+        component={Speakers}
+        options={{
+          presentation: 'formSheet',
+          // Explicit detents rather than 'fitToContents': the content height varies a
+          // lot (one speaker vs eight with their own sliders), and a flexing
+          // ScrollView has no intrinsic height to fit to.
+          sheetAllowedDetents: [0.6, 0.95],
+          sheetInitialDetentIndex: 0,
+          sheetGrabberVisible: true,
+          sheetCornerRadius: radii.xl,
+        }}
+      />
+      <Stack.Screen name="Search" component={Search} options={{ presentation: 'modal' }} />
     </Stack.Navigator>
   );
+}
+
+// Polling is the ONLY freshness mechanism (the engine has no UPnP eventing), so it
+// keeps hitting the speakers from a screen nobody is looking at — and every topology
+// tick can escalate to a discovery sweep. Suspend it while the app is away and let
+// the store run one atomic refresh on the way back.
+function PollingGate() {
+  const { setPollingEnabled } = useStore();
+  React.useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      setPollingEnabled(next === 'active');
+    });
+    return () => sub.remove();
+  }, [setPollingEnabled]);
+  return null;
 }
 
 function MobileApp() {
   return (
     <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
+        <PollingGate />
         <NavigationContainer>
           <MobileNav />
         </NavigationContainer>
-      </View>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
@@ -91,6 +125,7 @@ export default function App() {
   return (
     <StoreProvider api={api}>
       <MobileApp />
+      {/* Every surface is the light Noira paper, so the bars stay dark-on-light. */}
       <StatusBar style="dark" />
     </StoreProvider>
   );

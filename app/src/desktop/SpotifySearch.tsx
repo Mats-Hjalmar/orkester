@@ -1,11 +1,11 @@
 import React from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { ChevronRight, Play, Plus, Search, Speaker } from '../icons';
+import { ChevronRight, Play, Plus, Queue, Search, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { useSpotifySearch, SPOTIFY_SEARCH_KINDS } from '@orkester/core/state';
+import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type PendingSearchOp } from '@orkester/core/state';
 import { accentTextOf } from '../state/selectors';
 import type { Group } from '../state/types';
 import type { ApiSearchItem } from '@orkester/core';
@@ -206,6 +206,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   pendingOp={pending && pending.id === r.id ? pending.op : null}
                   anyPending={pending !== null}
                   onAddQueue={() => void addToQueue(r)}
+                  onPlayNext={() => void addToQueue(r, true)}
                   onPlay={() => void playNow(r)}
                 />
               ))}
@@ -227,14 +228,16 @@ function ResultRow({
   pendingOp,
   anyPending,
   onAddQueue,
+  onPlayNext,
   onPlay,
 }: {
   item: ApiSearchItem;
   accent: string;
   accentText: string;
-  pendingOp: 'add' | 'play' | null;
+  pendingOp: PendingSearchOp | null;
   anyPending: boolean;
   onAddQueue: () => void;
+  onPlayNext: () => void;
   onPlay: () => void;
 }) {
   // Secondary line: the artist/curator. Fall back to the kind only when there is
@@ -282,13 +285,21 @@ function ResultRow({
           {line}
         </Text>
       </View>
-      {/* Two explicit actions: add to the end of the queue, or play now (replace).
-          One catalog request runs at a time; the rest dim while it does. */}
+      {/* Three explicit actions: append to the queue, insert after the current
+          track, or play now (which REPLACES the queue). One catalog request runs at
+          a time; the rest dim while it does. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: anyPending && !pendingOp ? 0.45 : 1 }}>
         <ActionButton
           label="Add to queue"
           onPress={onAddQueue}
           icon={pendingOp === 'add' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
+          bg={colors.bgPaper}
+          border
+        />
+        <ActionButton
+          label="Play next"
+          onPress={onPlayNext}
+          icon={pendingOp === 'next' ? <ActivityIndicator size="small" color={colors.fg} /> : <Queue size={15} color={colors.fg} />}
           bg={colors.bgPaper}
           border
         />

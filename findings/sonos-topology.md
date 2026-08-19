@@ -18,3 +18,19 @@
   standard `/MediaRenderer/AVTransport/Control` and
   `/MediaRenderer/RenderingControl/Control`; hardcoding them (no per-call device
   fetch) works across all models tested.
+- 2026-08-19: **Every visible room is always in a group**, so a "rooms in no group"
+  list can never populate. `parseZoneGroupState` reports a standalone speaker as its
+  own one-member `ZoneGroup`; engine `rooms()` derives every `RoomRef` by walking
+  `household.groups`; and `SonosApi.index()` builds each group's `roomIds` from those
+  same refs. So every room handle lands in exactly one group — a code proof, not a
+  hardware observation. Both clients carried a dead "Not playing / Play here" section
+  fed by that empty list (and with it the only caller of `Api.startGroup`, itself a
+  pure alias of `leaveGroup`); all three are removed. The invariant is now pinned by
+  `sonosApi.test.ts` ("puts every room in exactly one group"). An idle group is an
+  ordinary row whose detail offers "Play something here".
+- 2026-08-19: `refreshTopology()` no longer re-discovers. It remembers a member base
+  URL from the last successful load and calls `fetchTopology` against it directly,
+  escalating to a full discovery only when that speaker stops answering. Any single
+  speaker returns the whole household, so the sweep was pure cost — and the store
+  polls topology every 10s, which on a phone meant a 3-second mDNS scan every 10
+  seconds, forever.

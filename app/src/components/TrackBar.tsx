@@ -16,6 +16,12 @@ interface Props {
   // scrubbing — e.g. jerking the volume to max. Implies a thumb to aim for.
   grabThumbOnly?: boolean;
   disabled?: boolean; // inert: no drag/tap, dimmed (live stream / nothing playing)
+  /** Screen-reader name for the bar, e.g. "Volume". Required for the a11y actions. */
+  label?: string;
+  /** Fired when the value is committed by a gesture end, not on every move. */
+  onCommit?: (frac: number) => void;
+  /** How far one accessibility increment/decrement moves the value (0..1). */
+  step?: number;
   style?: ViewStyle;
 }
 
@@ -28,7 +34,7 @@ const THUMB_GRAB_RADIUS = 22;
 // `grabThumbOnly` the bar only responds near the thumb, so a scroll or stray click
 // on the rest of the track is ignored. When `disabled` (a live stream has no finite
 // duration, or nothing is playing) the bar is inert and dimmed.
-export default function TrackBar({ value, onScrub, trackColor, fillColor, height = 4, hitSlop = 8, thumb = false, loading = false, grabThumbOnly = false, disabled = false, style }: Props) {
+export default function TrackBar({ value, onScrub, trackColor, fillColor, height = 4, hitSlop = 8, thumb = false, loading = false, grabThumbOnly = false, disabled = false, label, onCommit, step = 0.05, style }: Props) {
   const width = useRef(0);
   // While dragging, the bar draws where the finger is rather than what the store
   // says. The write is asynchronous and the speaker is polled meanwhile, so the
@@ -60,6 +66,13 @@ export default function TrackBar({ value, onScrub, trackColor, fillColor, height
     return Math.abs(e.nativeEvent.locationX - shown * w) <= THUMB_GRAB_RADIUS;
   };
 
+  // The drag position is cleared on release so the bar goes back to following the
+  // store; onCommit fires with the final value so callers can e.g. buzz once.
+  const release = () => {
+    if (drag !== null) onCommit?.(drag);
+    setDrag(null);
+  };
+
   const pct = `${shown * 100}%`;
 
   return (
@@ -73,9 +86,25 @@ export default function TrackBar({ value, onScrub, trackColor, fillColor, height
       onResponderTerminationRequest={() => !grabThumbOnly}
       onResponderGrant={handle}
       onResponderMove={handle}
-      onResponderRelease={() => setDrag(null)}
-      onResponderTerminate={() => setDrag(null)}
+      onResponderRelease={release}
+      onResponderTerminate={release}
       hitSlop={{ top: hitSlop, bottom: hitSlop }}
+      // An "adjustable" role with increment/decrement is the ONLY way a screen
+      // reader can move a custom slider — without it VoiceOver/TalkBack can read
+      // the value but never change it.
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(shown * 100) }}
+      accessibilityActions={disabled ? undefined : [{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(e) => {
+        if (disabled) return;
+        const delta = e.nativeEvent.actionName === 'increment' ? step : -step;
+        const next = Math.max(0, Math.min(1, shown + delta));
+        onScrub(next);
+        onCommit?.(next);
+      }}
       style={[{ justifyContent: 'center', opacity: disabled ? 0.55 : 1 }, style]}
     >
       <View style={{ height, borderRadius: radii.pill, backgroundColor: trackColor, width: '100%' }}>

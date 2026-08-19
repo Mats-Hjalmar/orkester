@@ -41,7 +41,7 @@ and `desktop` are clients. Put shared logic in core, not in a client.
 ## findings/
 
 `findings/*.md` are durable, dated investigation notes (mDNS discovery, the engine
-port, the pnpm/Expo monorepo gotchas, SMAPI, topology). They explain *why* the
+port, the pnpm/Expo monorepo gotchas, SMAPI, topology, volume, mobile UI). They explain *why* the
 non-obvious decisions are the way they are. Read the relevant one before changing
 protocol, discovery, or build-boundary code; append a dated entry when an
 investigation yields a durable conclusion.

@@ -238,3 +238,72 @@ describe('SonosClient base routing (recorded URLs)', () => {
     expect(volReq!.url).toBe('http://192.168.1.11:1400/MediaRenderer/RenderingControl/Control');
   });
 });
+
+describe('SonosClient.playQueueIndex', () => {
+  it('switches the group onto its own queue, seeks the 1-based track, and plays', async () => {
+    const http = new KeyedTransport({
+      ...fullResponseTable(),
+      [soapAction('SetAVTransportURI')]: ok(soapResponse('SetAVTransportURI', '')),
+      [soapAction('Seek')]: ok(soapResponse('Seek', '')),
+    });
+    const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
+    const household = await client.loadHousehold(3000);
+    // Bedroom is a non-coordinator member, so a wrong route would be visible.
+    const room = client.resolveRoom(household, 'bedroom');
+
+    await client.playQueueIndex(room, 3);
+
+    const coordinator = 'http://192.168.1.10:1400/MediaRenderer/AVTransport/Control';
+
+    // 1. Point the coordinator at its OWN queue — this is what makes the jump work
+    //    when a stream is playing instead of the queue.
+    const setUri = http.requests.find(
+      (r) => r.headers?.['SOAPACTION'] === soapAction('SetAVTransportURI'),
+    );
+    expect(setUri).toBeDefined();
+    expect(setUri!.url).toBe(coordinator);
+    expect(setUri!.body).toContain('x-rincon-queue:RINCON_AAAAAAAAAAAA01400#0');
+
+    // 2. TRACK_NR seek to index+1 (Sonos track numbers are 1-based).
+    const seek = http.requests.find((r) => r.headers?.['SOAPACTION'] === soapAction('Seek'));
+    expect(seek).toBeDefined();
+    expect(seek!.url).toBe(coordinator);
+    expect(seek!.body).toContain('<Unit>TRACK_NR</Unit>');
+    expect(seek!.body).toContain('<Target>4</Target>');
+
+    // 3. Play.
+    expect(
+      http.requests.some((r) => r.headers?.['SOAPACTION'] === soapAction('Play')),
+    ).toBe(true);
+  });
+});
+
+describe('SonosClient.enqueue asNext', () => {
+  const table = () => ({
+    ...fullResponseTable(),
+    [soapAction('AddURIToQueue')]: ok(
+      soapResponse('AddURIToQueue', '<FirstTrackNumberEnqueued>7</FirstTrackNumberEnqueued>'),
+    ),
+  });
+
+  const enqueueBody = async (asNext?: boolean) => {
+    const http = new KeyedTransport(table());
+    const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
+    const household = await client.loadHousehold(3000);
+    const room = client.resolveRoom(household, 'living');
+    const item = { uri: 'x-sonos-spotify:track', metadata: '<DIDL/>' };
+    if (asNext === undefined) await client.enqueue(room, item);
+    else await client.enqueue(room, item, asNext);
+    return http.requests.find(
+      (r) => r.headers?.['SOAPACTION'] === soapAction('AddURIToQueue'),
+    )!.body;
+  };
+
+  it('appends to the END by default', async () => {
+    expect(await enqueueBody()).toContain('<EnqueueAsNext>0</EnqueueAsNext>');
+  });
+
+  it('inserts after the current track when asNext is set', async () => {
+    expect(await enqueueBody(true)).toContain('<EnqueueAsNext>1</EnqueueAsNext>');
+  });
+});

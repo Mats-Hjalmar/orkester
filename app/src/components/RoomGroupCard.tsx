@@ -1,44 +1,52 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import CoverArt from './CoverArt';
 import TrackBar from './TrackBar';
-import { ChevronRight, VolumeHigh } from '../icons';
+import { tapCommit, tapSelection } from './phone/haptics';
+import { ChevronRight, Pause, Play, VolumeHigh } from '../icons';
 import { Group } from '../state/types';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { useStore } from '../state/store';
 import { useNav } from '../navigation';
+import { accentTextOf } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 
-// A group row on the rooms-first list: cover, name, what it's playing, and a
-// quick group-volume bar. Tapping it drills into the room's DETAIL (NowPlaying),
-// where transport/queue/search/speaker-grouping live. The volume bar stays here
-// for at-a-glance adjustment without drilling in; its press is isolated so it
-// doesn't trigger the row's navigation.
+// A group row on the rooms-first list: cover, name, what it's playing, an inline
+// play/pause, and a group-volume bar. Tapping the row drills into the room's
+// DETAIL, where transport/queue/search/speaker-grouping live. Play/pause and volume
+// stay here so the common action — pause the kitchen — is one tap, as it is on the
+// desktop rail; both stop propagation so they don't also navigate.
 export default function RoomGroupCard({ group }: { group: Group }) {
   const store = useStore();
   const nav = useNav();
-  const { config, getTrack, groupName, roomName, groupVol, volumeSettling, selectGroup, setGroupVol } = store;
+  const { config, getTrack, groupName, roomName, groupVol, volumeSettling, focusGroup, setGroupVol, groupControls, transportPending, queueFor } = store;
   const tr = getTrack(group.trackId);
   const accent = config.accentColor;
+  const accentText = accentTextOf(accent);
   const nothing = tr.id === PLACEHOLDER_TRACK_ID;
-  // A real group may be idle (nothing queued yet) — read "Nothing playing"
-  // rather than "Paused · Nothing playing · ".
+  // A group with a queue is controllable even when it reports no now-playing
+  // metadata — Play resumes the queue. One with neither has nothing to start.
+  const controllable = !nothing || queueFor(group.id).length > 0;
   const playingText = nothing
     ? 'Nothing playing'
     : (group.isPlaying ? '' : 'Paused · ') + tr.title + ' · ' + tr.artist;
   const groupVolume = groupVol(group); // 0–100, or null when no real reading yet
-  // Full room list under the name (so the card shows the whole group, not "+N").
   const roomsLine = group.roomIds.map(roomName).join(' · ');
+  const pending = transportPending(group.id);
+
+  const open = () => {
+    // Focus loads the group ATOMICALLY (now-playing + every member's volume/mute in
+    // one snapshot) and pulls its queue, so the detail paints complete rather than
+    // filling in over the next few seconds of polling.
+    focusGroup(group.id);
+    nav.navigate('Room', { groupId: group.id });
+  };
 
   return (
     <Pressable
-      onPress={() => {
-        // Select the group (sets the active group the detail/search/speakers
-        // screens read) then push its detail — the stack owns the back nav.
-        selectGroup(group.id);
-        nav.navigate('Room');
-      }}
+      onPress={open}
+      accessibilityRole="button"
       accessibilityLabel={`Open ${groupName(group)}`}
       style={({ pressed }) => ({ backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), borderRadius: 20, padding: 16, opacity: pressed ? 0.85 : 1 })}
     >
@@ -54,7 +62,29 @@ export default function RoomGroupCard({ group }: { group: Group }) {
             <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.fgFaint }]}>{roomsLine}</Text>
           )}
         </View>
-        <ChevronRight size={20} color={colors.fgSubtle} />
+        {controllable ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              groupControls(group.id).togglePlay();
+              tapCommit();
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`${group.isPlaying ? 'Pause' : 'Play'} ${groupName(group)}`}
+            style={{ width: 44, height: 44, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}
+          >
+            {pending === 'play' || pending === 'pause' ? (
+              <ActivityIndicator size="small" color={accentText} />
+            ) : group.isPlaying ? (
+              <Pause size={16} fill={accentText} />
+            ) : (
+              <Play size={16} fill={accentText} />
+            )}
+          </Pressable>
+        ) : (
+          <ChevronRight size={20} color={colors.fgSubtle} />
+        )}
       </View>
 
       {/* Volume bar only when backed by a REAL reading from every member speaker.
@@ -66,6 +96,8 @@ export default function RoomGroupCard({ group }: { group: Group }) {
           <TrackBar
             value={(group.muted ? 0 : groupVolume) / 100}
             onScrub={(f) => setGroupVol(group.id, f)}
+            onCommit={tapSelection}
+            label={`${groupName(group)} volume`}
             trackColor={ink(0.1)}
             fillColor={colors.fg}
             height={5}

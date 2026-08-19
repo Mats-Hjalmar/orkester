@@ -22,6 +22,18 @@ writing any Expo/RN code. Don't rely on memory of older Expo APIs.
   (e.g. `makeNativeApi.native.ts` vs the `.ts` stub, which now just throws since
   there's no web build). Keep the lazy `require` behind `Platform.OS !== 'web'` so a
   stray web build never pulls in device-only native modules.
+- **Phone-only deps stay out of shared components.** `expo-image`, `expo-haptics`,
+  `react-native-gesture-handler`, `react-native-reanimated`,
+  `react-native-safe-area-context` and `async-storage` are NOT in the Electron
+  renderer bundle. Import them only from `src/screens/**`, `src/components/phone/**`,
+  or a `*.native.tsx` split (`CoverArt.native.tsx` is the pattern — Metro takes it,
+  Vite/RNW takes the base file). `pnpm --filter desktop build &&
+  pnpm --filter desktop check:renderer-no-node` is the check.
+- **Group by id, never by a global selection.** Every group-scoped screen takes a
+  `groupId` route param and resolves it fresh via `groupById`, rendering a
+  "this group is gone" state when it vanishes. The old store-level active-group
+  fallback silently retargeted open screens at other rooms — see
+  `findings/mobile-ui.md`.
 - **Re-export facades.** `src/theme/tokens.ts` and `src/state/{store,types}.ts` are
   thin re-exports of `@orkester/core`; the source of truth is core. `src/state/
   selectors.ts` is the app-only exception (UI helpers with no core equivalent).

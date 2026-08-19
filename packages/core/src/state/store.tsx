@@ -33,7 +33,7 @@ import { createVolumeWriter } from './volumeWrite';
 import type { Api, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
 import type { RepeatMode } from '../engine';
 
-const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun', mobileNowDark: false };
+const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun' };
 
 // Poll cadences (ms). The FOCUSED/just-acted group's now-playing is fastest so
 // its transport changes reconcile within ~1s. Every OTHER group is polled
@@ -90,8 +90,8 @@ export interface Store {
   rooms: State['rooms'];
   // derived helpers (stable shapes)
   getTrack: (id: string) => Track;
-  activeGroup: () => Group;
-  activeTrack: () => Track;
+  /** The group with this id, or undefined when it is gone from topology. */
+  groupById: (gid: string) => Group | undefined;
   roomName: (id: string) => string;
   groupName: (g: Group) => string;
   /** The group's volume (0–100), or null when not backed by a real reading from
@@ -100,13 +100,21 @@ export interface Store {
   /** True while a volume change for any member speaker is being written/applied
    * (drives the loading spinner on the slider thumb). */
   volumeSettling: (g: Group) => boolean;
-  isLiked: (id: string) => boolean;
+  /** ONE speaker's volume (0–100), or null with no real reading yet. Same
+   * hide-rather-than-guess rule as groupVol. */
+  roomVolume: (roomId: string) => number | null;
+  /** Whether ONE speaker is muted. */
+  roomMuted: (roomId: string) => boolean;
+  /** True while THIS speaker's volume write is in flight/settling. */
+  volumeSettlingRoom: (roomId: string) => boolean;
   /** The group coordinator's play queue (fetched on focus/refresh); [] if none. */
   queueFor: (gid: string) => QueueItem[];
   /** Clears the group's queue on the speaker, then re-reads it (Sonos is truth). */
   clearQueue: (gid: string) => void;
   /** Moves a queue track on the speaker (0-based), then re-reads it (Sonos is truth). */
   reorderQueue: (gid: string, fromIndex: number, toIndex: number) => void;
+  /** Plays the group's queue entry at `index` (0-based), then re-reads state. */
+  playQueueIndex: (gid: string, index: number) => void;
   // --- Spotify catalog search (imperative; the search panel owns its results) ---
   /** True once a Spotify token is saved (device-linked). */
   isSpotifyLinked: () => Promise<boolean>;
@@ -116,8 +124,9 @@ export interface Store {
   pollSpotifyLink: () => Promise<boolean>;
   /** Searches the Spotify catalog (THROWS NotLinkedError when not yet linked). */
   searchSpotify: (query: string, kind: SpotifySearchKind) => Promise<ApiSearchItem[]>;
-  /** Appends a hit to the group's queue (no playback change), then re-reads the queue. */
-  enqueueSearchItem: (gid: string, item: ApiSearchItem) => Promise<void>;
+  /** Queues a hit without changing playback — at the end, or next when `asNext`
+   * is set — then re-reads the queue. */
+  enqueueSearchItem: (gid: string, item: ApiSearchItem, asNext?: boolean) => Promise<void>;
   /** Plays a hit now, REPLACING the queue, then refreshes now-playing + queue. */
   playSearchItem: (gid: string, item: ApiSearchItem) => Promise<void>;
   // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
@@ -131,6 +140,8 @@ export interface Store {
   transportPending: (gid: string) => PendingOp | null;
   /** The grouping request in flight for a room ('join' / 'leave'), or null. */
   groupingPending: (roomId: string) => PendingOp | null;
+  /** True while THIS speaker's own mute toggle is in flight. */
+  roomMutePending: (roomId: string) => boolean;
   /** True while a queue edit (clear / reorder) for the group is in flight. */
   queuePending: (gid: string) => boolean;
   /** Marks a group as "focused" so its now-playing polls at the fast cadence. */
@@ -142,30 +153,32 @@ export interface Store {
    */
   refresh: () => void;
   refreshing: boolean;
-  // legacy active-group actions (stable names/signatures; back-compat for mobile)
-  togglePlay: () => void;
-  next: () => void;
-  prev: () => void;
-  toggleShuffle: () => void;
-  toggleRepeat: () => void;
-  toggleMute: () => void;
-  toggleLike: (id: string) => void;
-  selectTrack: (id: string) => void; // no-op (deferred)
-  seek: (frac: number) => void;
-  setActiveVol: (frac: number) => void;
+  /**
+   * Suspends / resumes every polling loop. A phone client turns this off when the
+   * app leaves the foreground — the loops are the only freshness mechanism (there
+   * is no UPnP eventing), so they otherwise keep hitting the network from a
+   * screen nobody is looking at. Resuming re-runs one atomic refresh.
+   */
+  setPollingEnabled: (on: boolean) => void;
+  /** Sets ONE speaker's volume (0..1), independent of its group. */
+  setRoomVolume: (roomId: string, frac: number) => void;
+  /** Mutes / unmutes ONE speaker, independent of its group. */
+  toggleRoomMute: (roomId: string) => void;
+  /** Sets EVERY member of the group to the same absolute volume (0..1). */
   setGroupVol: (gid: string, frac: number) => void;
   toggleRoomInGroup: (gid: string, roomId: string) => void;
-  startGroup: (roomId: string) => void;
-  selectGroup: (gid: string) => void;
 }
 
 const StoreContext = createContext<Store | null>(null);
 
 // Single-flight slot keys. Transport is per GROUP (the speaker runs one transport
 // command at a time), grouping per ROOM (that is the player being moved), queue
-// edits per GROUP (they all rewrite the coordinator's one queue).
+// edits per GROUP (they all rewrite the coordinator's one queue). Per-room mute gets
+// its OWN slot: it is a different service from grouping, so sharing roomSlot would
+// make a mute in flight silently drop a join/leave tap on that speaker.
 const transportSlot = (gid: string) => `transport:${gid}`;
 const roomSlot = (roomId: string) => `room:${roomId}`;
+const roomMuteSlot = (roomId: string) => `roomMute:${roomId}`;
 const queueSlot = (gid: string) => `queue:${gid}`;
 
 /** The safe placeholder group returned when no groups exist (never throws). */
@@ -179,7 +192,6 @@ function placeholderGroup(): Group {
     shuffle: false,
     repeat: false,
     muted: false,
-    queueIds: [],
     queueIndex: -1,
   };
 }
@@ -198,6 +210,13 @@ export function StoreProvider({
   // True while a manual refresh (re-discover + atomic re-fetch) is in flight, so
   // the refresh button can show a spinner. Transient UI only — not in the reducer.
   const [refreshing, setRefreshing] = useState(false);
+
+  // Whether the polling loops run at all. A phone turns this off when the app
+  // leaves the foreground: polling is the only freshness mechanism (the engine has
+  // no UPnP eventing), so it would otherwise keep hitting the speakers — and every
+  // TOPOLOGY_POLL_MS tick can escalate to a discovery sweep. Resuming re-runs one
+  // atomic refresh so the UI isn't stale for a whole cadence.
+  const [pollingEnabled, setPollingEnabled] = useState(true);
 
   // roomId -> true while a volume write for that room is in flight or queued, so the
   // slider thumb can show a loading spinner until the change is applied. Transient
@@ -222,10 +241,10 @@ export function StoreProvider({
   const dispatchRef = useRef(dispatch);
   dispatchRef.current = dispatch;
 
-  // The "focused" group (the rooms-first desktop view the user is looking at, or
-  // the group they just acted on). Its now-playing polls at the fast cadence;
-  // every other group is polled round-robin in the background. Decoupled from
-  // activeGroupId so the desktop never needs a global active-group singleton.
+  // The "focused" group (the view the user is looking at, or the group they just
+  // acted on). Its now-playing polls at the fast cadence; every other group is
+  // polled round-robin in the background. Both clients address groups by id, so
+  // there is no global active-group singleton.
   const focusedGroupId = useRef('');
   // Single-flight per group: a groupId is in this set while its now-playing
   // request is outstanding, so overlapping ticks never double-fire one group.
@@ -236,6 +255,9 @@ export function StoreProvider({
   const inFlightRefresh = useRef(new Set<string>());
   // Round-robin cursor over non-focused groups for background now-playing polls.
   const rrCursor = useRef(0);
+  // False until the polling effect has run once, so the first run doesn't duplicate
+  // the bootstrap load as a "resume" refresh.
+  const resumedOnce = useRef(false);
   // Coalescing, serialized per-room volume writes (see volumeWrite.ts). Also tells
   // the polls which rooms to leave alone, so a reading that raced a write can't snap
   // the slider back under the user's finger.
@@ -417,11 +439,33 @@ export function StoreProvider({
 
   // --- bootstrap + polling loops ------------------------------------------
 
+  // Bootstrap once, independent of the polling gate: re-running loadTopology('load')
+  // on every resume would flip topologyStatus back to 'loading' and blank the UI.
   useEffect(() => {
+    void loadTopology.current('load');
+    // api is stable for the provider's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!pollingEnabled) return;
     let cancelled = false;
-    void (async () => {
-      await loadTopology.current('load');
-    })();
+
+    // Coming back to the foreground, the state is as stale as however long we were
+    // away, so reconcile immediately rather than waiting out the cadences. Skipped
+    // on the first run, where the bootstrap load above is already doing it.
+    if (resumedOnce.current) {
+      // Same rule as the topology timer: refresh silently when ready, but retry a
+      // FULL load when the last discovery failed, so a permission granted while we
+      // were away self-heals instead of staying stuck on the error state.
+      void loadTopology.current(stateRef.current.topologyStatus === 'error' ? 'load' : 'refresh');
+      const focused = focusedGroupId.current || stateRef.current.groups[0]?.id || '';
+      if (focused) {
+        void refreshGroup.current(focused);
+        void fetchQueue.current(focused);
+      }
+    }
+    resumedOnce.current = true;
 
     // Fast: the focused group (falls back to the first group until something is
     // focused, so a single-group household still updates at 1s).
@@ -478,7 +522,7 @@ export function StoreProvider({
     };
     // api is stable for the provider's lifetime; do not re-subscribe on it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pollingEnabled]);
 
   // --- derived helpers + actions ------------------------------------------
 
@@ -487,10 +531,8 @@ export function StoreProvider({
 
     const getTrack = (id: string): Track => state.tracks[id] ?? placeholderTrack();
 
-    const activeGroup = (): Group =>
-      state.groups.find((g) => g.id === state.activeGroupId) ?? state.groups[0] ?? placeholderGroup();
-
-    const activeTrack = (): Track => getTrack(activeGroup().trackId);
+    const groupById = (gid: string): Group | undefined =>
+      state.groups.find((g) => g.id === gid);
 
     const roomName = (id: string) => state.rooms.find((r) => r.id === id)?.name ?? id;
 
@@ -642,17 +684,19 @@ export function StoreProvider({
       config: cfg,
       rooms: state.rooms,
       getTrack,
-      activeGroup,
-      activeTrack,
+      groupById,
       roomName,
       groupName,
       groupVol,
       volumeSettling: (g: Group) => g.roomIds.some((r) => volSettling[r]),
-      isLiked: (id: string) => !!state.liked[id],
+      roomVolume: (roomId: string) => state.roomVol[roomId] ?? null,
+      roomMuted: (roomId: string) => !!state.roomMute[roomId],
+      volumeSettlingRoom: (roomId: string) => !!volSettling[roomId],
 
       groupControls,
       transportPending: (gid: string) => pendingOps[transportSlot(gid)] ?? null,
       groupingPending: (roomId: string) => pendingOps[roomSlot(roomId)] ?? null,
+      roomMutePending: (roomId: string) => pendingOps[roomMuteSlot(roomId)] !== undefined,
       queuePending: (gid: string) => !!pendingOps[queueSlot(gid)],
       // Opening a room ATOMICALLY loads it (now-playing + volumes + mutes in one
       // snapshot) so it never shows half-loaded, then the 1s poll keeps it fresh.
@@ -689,6 +733,21 @@ export function StoreProvider({
         });
       },
 
+      // Jumping the queue changes the current track, so reconcile now-playing as
+      // well as the queue. Shares the queue slot: it rewrites the same transport.
+      playQueueIndex: (gid: string, index: number) => {
+        if (gid === '' || index < 0) return;
+        inFlight.current.run(queueSlot(gid), 'queue', async () => {
+          try {
+            await api.playQueueIndex(gid, index);
+          } finally {
+            focusedGroupId.current = gid;
+            await refreshGroup.current(gid);
+            await fetchQueue.current(gid);
+          }
+        });
+      },
+
       // Spotify search is imperative request/response (not polled state): the
       // panel calls these and holds its own result list. Errors PROPAGATE so the
       // panel can show "not linked" / failures (no silent swallow).
@@ -696,9 +755,9 @@ export function StoreProvider({
       startSpotifyLink: (roomId: string) => api.startSpotifyLink(roomId),
       pollSpotifyLink: () => api.pollSpotifyLink(),
       searchSpotify: (query: string, kind: SpotifySearchKind) => api.searchSpotify(query, kind),
-      enqueueSearchItem: async (gid: string, item: ApiSearchItem) => {
+      enqueueSearchItem: async (gid: string, item: ApiSearchItem, asNext = false) => {
         if (gid === '') throw new Error('no group selected to add to');
-        await api.enqueueSearchItem(gid, item);
+        await api.enqueueSearchItem(gid, item, asNext);
         // Add-to-queue does not change playback — only re-read the queue.
         await fetchQueue.current(gid);
       },
@@ -730,23 +789,25 @@ export function StoreProvider({
       },
       refreshing,
 
-      // Legacy active-group actions — delegate to the same factory, acting on the
-      // active group resolved at call time (back-compat for the mobile UI).
-      togglePlay: () => controlsFor(activeGroup()).togglePlay(),
-      next: () => controlsFor(activeGroup()).next(),
-      prev: () => controlsFor(activeGroup()).prev(),
-      toggleShuffle: () => { const g = activeGroup(); controlsFor(g).setShuffle(!g.shuffle); },
-      toggleRepeat: () => { const g = activeGroup(); controlsFor(g).setRepeat(!g.repeat); },
-      toggleMute: () => controlsFor(activeGroup()).toggleMute(),
+      setPollingEnabled,
 
-      toggleLike: (id: string) => dispatchRef.current({ type: 'toggleLike', id }),
+      setRoomVolume: (roomId: string, frac: number) => setVolForRooms([roomId], frac),
 
-      // Picking arbitrary tracks is deferred — keep the signature, do nothing.
-      selectTrack: (_id: string) => {},
-
-      seek: (frac: number) => controlsFor(activeGroup()).seek(frac),
-
-      setActiveVol: (frac: number) => setVolForRooms(activeGroup().roomIds, frac),
+      // Per-speaker mute, independent of the group's derived `muted`. Optimistic
+      // like the group toggle, reverting off a real read.
+      toggleRoomMute: (roomId: string) => {
+        const muted = !state.roomMute[roomId];
+        inFlight.current.run(roomMuteSlot(roomId), 'mute', () =>
+          optimistic.current(
+            { type: 'setRoomMuteOptimistic', roomId, muted },
+            () => api.setMute(roomId, muted),
+            async () => {
+              const real = await api.getMute(roomId);
+              dispatchRef.current({ type: 'roomMute', roomId, muted: real });
+            },
+          ),
+        );
+      },
 
       setGroupVol: (gid: string, frac: number) => {
         const g = state.groups.find((x) => x.id === gid);
@@ -774,21 +835,7 @@ export function StoreProvider({
         });
       },
 
-      startGroup: (roomId: string) => {
-        inFlight.current.run(roomSlot(roomId), 'leave', async () => {
-          try {
-            await api.startGroup(roomId);
-          } finally {
-            await loadTopology.current('refresh');
-          }
-        });
-      },
 
-      selectGroup: (gid: string) => {
-        focusedGroupId.current = gid;
-        dispatchRef.current({ type: 'selectGroup', gid });
-        void pollNowPlaying.current(gid);
-      },
     };
   }, [state, config, api, refreshing, volSettling, pendingOps]);
 

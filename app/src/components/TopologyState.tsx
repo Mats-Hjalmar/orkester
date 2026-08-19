@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { font } from '../theme/fonts';
@@ -39,15 +39,24 @@ export function TopologyNotice({
 
   let title: string;
   let body: string;
+  // On a phone the overwhelmingly likeliest cause of "no speakers" is a denied
+  // Local Network permission, which returns ZERO responders — indistinguishable
+  // from an empty network. So name it explicitly, with the platform's own path,
+  // rather than the generic "check the network" that used to be here.
+  const permissionHint =
+    Platform.OS === 'ios'
+      ? 'If you denied the Local Network prompt, re-enable it in Settings → Orkester → Local Network.'
+      : 'Check that this phone is on the same Wi-Fi as your Sonos, with no guest-network isolation.';
+
   if (phase === 'loading') {
     title = 'Finding your speakers';
     body = 'Listening for Sonos on this network…';
   } else if (phase === 'empty') {
     title = 'No speakers found';
-    body = 'Make sure your Sonos system is powered on and on the same Wi-Fi.';
+    body = `Make sure your Sonos system is powered on and on the same Wi-Fi. ${permissionHint}`;
   } else {
     title = 'Couldn’t reach your speakers';
-    body = error && error.trim() ? error : 'Discovery failed. Check the network and try again.';
+    body = permissionHint;
   }
 
   return (
@@ -74,6 +83,17 @@ export function TopologyNotice({
       <Text style={{ fontFamily: font.body, fontSize: 12.5, lineHeight: 17, color: colors.fgMuted, textAlign: 'center' }}>
         {body}
       </Text>
+      {/* The engine's own message, kept verbatim and never in place of the guidance. */}
+      {phase === 'error' && !!error && error.trim() !== '' && (
+        <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.danger, textAlign: 'center' }}>
+          {error.trim()}
+        </Text>
+      )}
+      {phase === 'error' && (
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, textAlign: 'center' }}>
+          Retrying automatically…
+        </Text>
+      )}
     </View>
   );
 }

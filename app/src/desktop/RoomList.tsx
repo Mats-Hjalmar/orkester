@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
-import { ChevronRight, Pause, Play, Speaker } from '../icons';
+import { ChevronRight, Pause, Play } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { accentTextOf, groupCount, idleRooms } from '../state/selectors';
+import { accentTextOf, sortedGroups } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group } from '../state/types';
 
@@ -95,23 +95,17 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
   );
 }
 
-// A STABLE, single-column list of the household — groups (sorted by name so poll
-// updates never reorder it) then idle rooms. Selecting a row sticks; the detail
-// pane shows that group's full controls.
+// A STABLE, single-column list of the household's groups, sorted by name so a
+// topology poll never reorders it under the cursor. Selecting a row sticks; the
+// detail pane shows that group's full controls.
+//
+// There is no separate "not playing" section: Sonos reports a standalone speaker as
+// its own one-member group, so every room is always in a group (pinned by
+// sonosApi.test.ts). An idle group is a row here like any other, and its detail
+// pane offers "Play something here".
 export default function RoomList({ selectedId, onSelect }: { selectedId: string | null; onSelect: (gid: string) => void }) {
   const store = useStore();
-  const { state, config, groupName, startGroup } = store;
-  const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
-
-  // Stable order: sort by display name (then group id as tiebreaker). The engine
-  // can return groups in a different order across topology polls; sorting keeps
-  // the list from jumping under the cursor.
-  const groups = [...state.groups].sort((a, b) => {
-    const n = groupName(a).localeCompare(groupName(b));
-    return n !== 0 ? n : a.id.localeCompare(b.id);
-  });
-  const idle = idleRooms(store).slice().sort((a, b) => a.name.localeCompare(b.name));
+  const groups = sortedGroups(store);
 
   return (
     <View style={{ width: 320, flex: 'none' as any, borderRightWidth: 1, borderRightColor: ink(0.07), backgroundColor: colors.bg }}>
@@ -121,26 +115,6 @@ export default function RoomList({ selectedId, onSelect }: { selectedId: string 
           <GroupRow key={g.id} group={g} selected={g.id === selectedId} onSelect={() => onSelect(g.id)} />
         ))}
 
-        {idle.length > 0 && <Text style={[type.eyebrow, { paddingHorizontal: 10, paddingTop: 16, paddingBottom: 8 }]}>Not playing</Text>}
-        {idle.map((r) => (
-          <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10 }}>
-            <Speaker size={20} color={colors.fgSubtle} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 14, color: colors.fg }}>{r.name}</Text>
-            </View>
-            <Pressable
-              onPress={() => startGroup(r.id)}
-              hitSlop={8}
-              style={({ pressed }) => ({ width: 28, height: 28, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}
-            >
-              {store.groupingPending(r.id) !== null ? (
-                <ActivityIndicator size="small" color={accentText} />
-              ) : (
-                <Play size={13} fill={accentText} />
-              )}
-            </Pressable>
-          </View>
-        ))}
       </ScrollView>
     </View>
   );

@@ -15,8 +15,6 @@ export interface Track {
   title: string;
   artist: string;
   album: string;
-  year: string;
-  cat: string; // catalogue number, e.g. NOI-114 (synthesized/empty with engine)
   dur: number; // seconds (0 for live streams)
   coverBg: string;
   coverShape: string;
@@ -41,7 +39,7 @@ export interface QueueItem {
 /**
  * A playback group as the UI consumes it. `progress` is SECONDS into the current
  * track (locally interpolated between polls). `trackId` points at a Track the
- * store holds. `queueIds` is empty with the engine (queue browsing is deferred).
+ * store holds; the group's queue lives in `State.queues`.
  */
 export interface Group {
   id: string;
@@ -52,7 +50,6 @@ export interface Group {
   shuffle: boolean;
   repeat: boolean;
   muted: boolean;
-  queueIds: string[];
   /** 0-based index of the current track within the queue, or -1 if not a queue. */
   queueIndex: number;
 }
@@ -60,7 +57,6 @@ export interface Group {
 export interface Config {
   accentColor: string;
   coverMotif: Motif;
-  mobileNowDark: boolean;
 }
 
 /** Topology load lifecycle, surfaced to the UI for empty/loading/error states. */
