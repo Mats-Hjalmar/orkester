@@ -27,7 +27,7 @@ is **no mock/demo Api**:
 
 ## Run
 
-Run from the repo root (this is a pnpm workspace — not `npm`):
+Run from the repo root (this is a bun workspace — not `npm`):
 
 ```sh
 bun run build       # build @orkester/core once first (the app imports its dist/)

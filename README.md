@@ -35,15 +35,15 @@ findings/        Per-subject investigation notes (durable conclusions, dated).
 
 **Prerequisites**
 
-- Node 18+ and **pnpm 9.15** (`corepack enable` picks up the pinned version).
-- This is a pnpm workspace using the **hoisted** node-linker (required by Expo's
-  Metro) — configured in the root `.npmrc` (`node-linker=hoisted`). Nothing to do;
-  just don't switch package managers.
+- **bun 1.3+** (`packageManager` pins the version used here). Bun is the only build
+  tool in the repo: it installs (`bun install`, `bun.lock`) and runs every script.
+- Workspaces come from the root `package.json` `workspaces` field. Don't mix in
+  npm/pnpm/yarn — a second lockfile would drift from `bun.lock`.
 
 **Install & run**
 
 ```sh
-pnpm install
+bun install
 bun run build        # build @orkester/core once (the apps import its dist/)
 bun run desktop      # Electron desktop app  (builds core first, then launches)
 bun run ios          # phone app in the iOS simulator

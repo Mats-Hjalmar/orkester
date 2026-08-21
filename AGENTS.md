@@ -7,7 +7,7 @@ files cover package-specific rules; this file covers the whole workspace.
 
 ## Shape
 
-pnpm workspace (`app`, `desktop`, `packages/*`). One shared package,
+bun workspace (`app`, `desktop`, `packages/*`). One shared package,
 `@orkester/core`, holds the Sonos engine, the app store, and theme tokens; `app`
 and `desktop` are clients. Put shared logic in core, not in a client.
 
@@ -24,8 +24,12 @@ and `desktop` are clients. Put shared logic in core, not in a client.
 - **No silent fallbacks.** The engine throws on no-speaker / unresolvable / ambiguous
   rather than returning empty or a default. Keep it that way; surface errors in the
   UI (e.g. the topology error state), never swallow them.
-- **Hoisted node-linker.** `node-linker=hoisted` lives in the root `.npmrc` (pnpm 9
-  ignores it in `pnpm-workspace.yaml`). Metro needs the flat layout. Don't move it.
+- **bun is the only build tool.** `bun install` for deps, `bun run <script>` for
+  everything else; workspaces come from the root `package.json` `workspaces` field.
+  Never introduce a second package manager — `pnpm-lock.yaml`/`.npmrc` were removed
+  deliberately, and a competing lockfile drifts from `bun.lock`. Note `bun test` and
+  `bun build` are bun's own subcommands, so always write `bun run test` / `bun run
+  build` when you mean the package scripts.
 - **Build first, derive paths.** `@orkester/core` is consumed via its built `dist/`
   and `package.json` `exports` map. Build before consuming; tests/configs derive
   dist paths from the exports map — never hardcode `dist/...`.
@@ -41,7 +45,7 @@ and `desktop` are clients. Put shared logic in core, not in a client.
 ## findings/
 
 `findings/*.md` are durable, dated investigation notes (mDNS discovery, the engine
-port, the pnpm/Expo monorepo gotchas, SMAPI, topology, volume, mobile UI). They explain *why* the
+port, the bun/Expo monorepo gotchas, SMAPI, topology, volume, mobile UI). They explain *why* the
 non-obvious decisions are the way they are. Read the relevant one before changing
 protocol, discovery, or build-boundary code; append a dated entry when an
 investigation yields a durable conclusion.
