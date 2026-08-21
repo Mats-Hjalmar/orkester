@@ -112,6 +112,7 @@ export {
   setPlayMode,
   addURIToQueueRequest,
   addURIToQueue,
+  getQueueTrackNumber,
   playFromQueue,
   playItem,
   DIRECT_STREAM_SCHEMES,

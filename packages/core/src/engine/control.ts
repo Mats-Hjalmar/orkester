@@ -635,6 +635,20 @@ export async function getNowPlaying(
   return { state, title, artist, album, position, duration, albumArtUrl, queueIndex };
 }
 
+/**
+ * getQueueTrackNumber returns the coordinator's current 1-based queue position,
+ * or 0 when it is not playing from its queue (a stream, or nothing loaded).
+ */
+export async function getQueueTrackNumber(
+  transport: HttpTransport,
+  coordinatorBase: string,
+): Promise<number> {
+  const req = getPositionInfoRequest();
+  const resp = await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
+  const n = parseInt(extractResponseArg(resp, 'Track').trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 /** One track in the coordinator's play queue, with art resolved to absolute. */
 export interface QueueTrack {
   title: string;
@@ -857,11 +871,17 @@ export async function setPlayMode(
 // --- enqueue / play-an-item (ported from queue.go) -------------------------
 
 /**
- * AddURIToQueue appends (asNext=false) or inserts after the current track
- * (asNext=true) a URI + its DIDL metadata onto the coordinator's queue. Ported
- * from queue.go. Routes to the coordinator base.
+ * AddURIToQueue puts a URI + its DIDL metadata onto the coordinator's queue at
+ * `desiredFirstTrack` — a 1-based queue slot, 0 meaning "append to the end".
+ * EnqueueAsNext only reorders the shuffle order, so an insert position must
+ * always be passed explicitly. Ported from queue.go. Routes to the coordinator.
  */
-export function addURIToQueueRequest(uri: string, metadata: string, asNext: boolean): ControlRequest {
+export function addURIToQueueRequest(
+  uri: string,
+  metadata: string,
+  asNext: boolean,
+  desiredFirstTrack = 0,
+): ControlRequest {
   return {
     service: avTransport(),
     action: 'AddURIToQueue',
@@ -869,7 +889,7 @@ export function addURIToQueueRequest(uri: string, metadata: string, asNext: bool
       instanceArg(),
       { name: 'EnqueuedURI', value: uri },
       { name: 'EnqueuedURIMetaData', value: metadata },
-      { name: 'DesiredFirstTrackNumberEnqueued', value: '0' },
+      { name: 'DesiredFirstTrackNumberEnqueued', value: String(desiredFirstTrack) },
       { name: 'EnqueueAsNext', value: asNext ? '1' : '0' },
     ],
     base: 'coordinator',
@@ -887,8 +907,9 @@ export async function addURIToQueue(
   uri: string,
   metadata: string,
   asNext: boolean,
+  desiredFirstTrack = 0,
 ): Promise<number> {
-  const req = addURIToQueueRequest(uri, metadata, asNext);
+  const req = addURIToQueueRequest(uri, metadata, asNext, desiredFirstTrack);
   const resp = await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
   const s = extractResponseArg(resp, 'FirstTrackNumberEnqueued').trim();
   const n = parseInt(s, 10);

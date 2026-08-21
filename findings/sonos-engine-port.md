@@ -114,3 +114,13 @@
   keeps its coverage via a tiny in-file stateful fake Api cast to `Api` — test-only,
   not shipped. A browser can't discover/control speakers, so there is intentionally
   no web build; the desktop is the Electron app.
+- 2026-08-21: "Play next" was a no-op — AddURIToQueue's `EnqueueAsNext` flag does
+  NOT insert after the current track; per SoCo/svrooij it only reorders the
+  SHUFFLE order. The insert slot is `DesiredFirstTrackNumberEnqueued`: a 1-based
+  queue position where 0 means "append to the end". Sending EnqueueAsNext=1 with
+  DesiredFirstTrackNumberEnqueued=0 (what the port did) appends, so "play next"
+  and "add to queue" behaved identically. Fix: `client.enqueue(…, asNext)` reads
+  GetPositionInfo's `Track` (`getQueueTrackNumber`) and inserts at `Track + 1`;
+  `Track` is 0/NOT_IMPLEMENTED when the coordinator isn't on its queue, which
+  resolves to slot 1 (front of queue). The old test only asserted the
+  EnqueueAsNext byte, so it stayed green over the bug — assert the position too.
