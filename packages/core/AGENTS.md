@@ -37,7 +37,7 @@ group **coordinator** base URL. RenderingControl (get/setVolume, get/setMute) â†
 musicservices, client) + the shared XML helpers in `xml.ts`. `src/state` = the
 store, reducer, and the engine-backed `Api` impl (`SonosApi`). `src/node` = the
 only Node adapters. Tests are co-located in `__tests__/` beside the code they cover
-(`pnpm --filter @orkester/core test`).
+(`bun run --cwd packages/core test`).
 
 ## live-smoke â€” USER-RUN ONLY
 

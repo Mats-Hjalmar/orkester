@@ -9,8 +9,8 @@ It ships as **two apps over one shared engine**:
 
 | Surface | What it is | Run it |
 | --- | --- | --- |
-| **Desktop** | Electron app. The Sonos engine runs in the main process; the UI is `react-native-web`. | `pnpm desktop` |
-| **Mobile** | Expo app (iOS / Android). Phone-shaped, rooms-first UI; engine in-process. | `pnpm ios` · `pnpm android` |
+| **Desktop** | Electron app. The Sonos engine runs in the main process; the UI is `react-native-web`. | `bun run desktop` · install it: `bun run desktop:install` |
+| **Mobile** | Expo app (iOS / Android). Phone-shaped, rooms-first UI; engine in-process. | `bun run ios` · `bun run android` |
 | **`@orkester/core`** | The shared, React-Native-safe TypeScript Sonos engine + app state. Not run directly. | — |
 
 Both apps share `@orkester/core`, so the protocol logic, the app store, and the
@@ -44,15 +44,28 @@ findings/        Per-subject investigation notes (durable conclusions, dated).
 
 ```sh
 pnpm install
-pnpm build        # build @orkester/core once (the apps import its dist/)
-pnpm desktop      # Electron desktop app  (builds core first, then launches)
-pnpm ios          # phone app in the iOS simulator
-pnpm android      # phone app on Android
+bun run build        # build @orkester/core once (the apps import its dist/)
+bun run desktop      # Electron desktop app  (builds core first, then launches)
+bun run ios          # phone app in the iOS simulator
+bun run android      # phone app on Android
 ```
 
-> `pnpm ios` and `pnpm android` do **not** rebuild `@orkester/core` first (only
-> `pnpm desktop` does). After a fresh clone or a change to `packages/core`, run
-> `pnpm build` once before them.
+**Install the desktop app into /Applications (macOS)**
+
+```sh
+bun run desktop:install                        # build it and copy it to /Applications
+APPS_DIR=~/Applications bun run desktop:install # per-user instead
+bun run desktop:uninstall                      # remove it again
+bun run desktop:dist                           # signed universal DMG to hand to someone else
+```
+
+After that Orkester is a normal app — Launchpad, Spotlight, `open -a Orkester`. See
+[desktop/README.md](./desktop/README.md#installing-it-locally) for what the packaged
+build depends on.
+
+> `bun run ios` and `bun run android` do **not** rebuild `@orkester/core` first (only
+> `bun run desktop` does). After a fresh clone or a change to `packages/core`, run
+> `bun run build` once before them.
 
 Both clients talk to **real speakers** — there is no mock/demo mode. With no Sonos
 on the LAN the UI shows an empty/error state, never fake data. The mobile app's
@@ -64,7 +77,7 @@ macOS 15+ blocks multicast / local-network access until you grant it. Until then
 discovery finds **0 speakers** even when they're online.
 
 - System Settings → Privacy & Security → **Local Network** → enable the app
-  launching the process (the Electron app for `pnpm desktop`; the terminal/simulator
+  launching the process (the Electron app for `bun run desktop`; the terminal/simulator
   for the mobile build), then re-run.
 - Ensure the machine is on the **same LAN/subnet** as the speakers (a separate
   VLAN breaks discovery).
@@ -72,8 +85,8 @@ discovery finds **0 speakers** even when they're online.
 ## Test
 
 ```sh
-pnpm typecheck                          # tsc --noEmit across core + app
-pnpm --filter @orkester/core test       # the engine + store suite (offline, mocked)
+bun run typecheck                          # tsc --noEmit across core + app
+bun run --cwd packages/core test       # the engine + store suite (offline, mocked)
 ```
 
 All automated tests are **offline** — the engine is driven against recorded Sonos

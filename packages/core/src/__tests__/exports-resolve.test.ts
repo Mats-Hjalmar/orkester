@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 // never hardcoded — this is the guard the findings notebook calls for (build
 // first, then point the map at the real filenames; tests derive, never hardcode).
 //
-// This test reads the dist tree, so it requires `pnpm --filter @orkester/core
+// This test reads the dist tree, so it requires `bun run --cwd packages/core
 // build` to have run first (the integration step + CI run build before test).
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -57,9 +57,9 @@ whole `SonosClient` facade against mock `HttpTransport`/`DiscoveryTransport`
 plus loopback only.
 
 ```sh
-pnpm --filter @orkester/core test       # vitest (fixtures + mock transports)
-pnpm --filter @orkester/core build      # tsup
-pnpm --filter @orkester/core typecheck  # tsc --noEmit
+bun run --cwd packages/core test       # vitest (fixtures + mock transports)
+bun run --cwd packages/core build      # tsup
+bun run --cwd packages/core typecheck  # tsc --noEmit
 ```
 
 ## Live smoke — you run it, nothing automated does
@@ -70,9 +70,9 @@ typecheck and CI — the `smoke:live` package script is its only entry point and
 that script is wired into no automated step.
 
 ```sh
-pnpm --filter @orkester/core smoke:live
+bun run --cwd packages/core smoke:live
 # optionally name a room and/or a discovery wait (ms):
-pnpm --filter @orkester/core smoke:live -- living 4000
+bun run --cwd packages/core smoke:live -- living 4000
 ```
 
 It discovers one speaker, loads the household topology, resolves a room (the one

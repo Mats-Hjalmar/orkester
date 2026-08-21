@@ -28,19 +28,65 @@ ipcMain.handle('orkester:<m>')   ◀──  ipcRenderer.invoke      ◀──   
 ## Offline checks (no speakers)
 
 ```bash
-pnpm --filter @orkester/core build        # the desktop consumes core's dist
-pnpm --filter desktop build               # builds main + preload + renderer
-pnpm --filter desktop check:renderer-no-node   # asserts the renderer bundle has no node:* imports
+bun run --cwd packages/core build        # the desktop consumes core's dist
+bun run --cwd desktop build               # builds main + preload + renderer
+bun run --cwd desktop check:renderer-no-node   # asserts the renderer bundle has no node:* imports
 ```
+
+## Installing it locally
+
+```bash
+bun run desktop:install   # from the repo root; APPS_DIR=~/Applications for a per-user install
+```
+
+That is `app:mac` (`electron-builder --mac dir` — host arch, no DMG) into
+`release/mac-<arch>/Orkester.app`, then `scripts/install-macos.mjs` copies it to
+`/Applications` with `ditto`, quitting a running instance first.
+`bun run desktop:uninstall` removes it.
+
+A locally built app carries no `com.apple.quarantine` xattr, so Gatekeeper does not
+block it — the "Open Anyway" dance below applies only to a DMG someone downloaded.
+
+## Packaging a signed macOS build
+
+```bash
+bun run desktop:dist
+```
+
+Output: `desktop/release/Orkester-<version>-universal.dmg` — a universal (x86_64 +
+arm64) bundle, Developer ID signed with hardened runtime, **not notarized**.
+Config lives in `desktop/electron-builder.yml`; entitlements and the icon in
+`desktop/build/`.
+
+Two things this build depends on:
+
+- `electron.vite.config.ts` sets `main.build.externalizeDeps.exclude:
+  ['@orkester/core']`, so core is inlined into `out/main/index.js` and the shipped
+  app carries **no `node_modules`** — a workspace `file:`/`workspace:` dep cannot be
+  resolved next to a packaged app.
+- `electron` must be pinned to an exact version in `package.json`;
+  electron-builder refuses a semver range because it downloads per-arch binaries.
+
+Because it is unnotarized, Gatekeeper blocks first launch on another Mac
+(`spctl --assess` reports `rejected  source=Unnotarized Developer ID`). On macOS 15+
+the recipient's **only** route is System Settings → Privacy & Security →
+**Open Anyway** + login password — Apple removed the Control-click → Open override
+in Sequoia. Recipient instructions live in `release/FIRST-RUN.txt`; notarizing
+(`mac.notarize` + notarytool credentials) removes the prompt entirely.
+
+`build/entitlements.mac.plist` grants **only** `com.apple.security.cs.allow-jit`.
+That is deliberately narrower than electron-builder's default template — see
+[findings/desktop-packaging-macos.md](../findings/desktop-packaging-macos.md)
+before adding anything to it.
 
 ## Live check (USER runs this — needs a Sonos speaker on the LAN)
 
 > The engine talks to real speakers. Run this only on a network with Sonos.
 
 ```bash
-pnpm desktop   # from the repo root: builds @orkester/core, then launches Electron
+bun run desktop   # from the repo root: builds @orkester/core, then launches Electron
 # equivalently:
-pnpm --filter @orkester/core build && pnpm --filter desktop dev
+bun run --cwd packages/core build && bun run --cwd desktop dev
 ```
 
 Then in the window that opens:

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The only entitlement Electron 12+ needs under hardened runtime. Deliberately
+	     narrower than electron-builder's default template, which also grants
+	     allow-unsigned-executable-memory, allow-dyld-environment-variables and
+	     disable-library-validation — all three widen the attack surface and none is
+	     required once every nested Mach-O is re-signed with the same Team ID. -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+</dict>
+</plist>

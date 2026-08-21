@@ -48,6 +48,6 @@ investigation yields a durable conclusion.
 
 ## Verifying a change
 
-`pnpm typecheck`, `pnpm --filter @orkester/core test`, and for the desktop
-`pnpm --filter desktop build && pnpm --filter desktop check:renderer-no-node`.
+`bun run typecheck`, `bun run --cwd packages/core test`, and for the desktop
+`bun run --cwd desktop build && bun run --cwd desktop check:renderer-no-node`.
 Real-hardware checks are user-run only.

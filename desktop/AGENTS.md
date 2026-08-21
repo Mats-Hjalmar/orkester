@@ -19,7 +19,7 @@ the renderer reuses `app/src/desktop` via the `@app` alias.
 - **Never edit `app/src` from here.** The renderer imports the desktop UI via the
   `@app` alias (`electron.vite.config.ts`). UI changes belong in `app/src/desktop`
   (which exists in the `app` package but is rendered only by this Electron app).
-- **Renderer must stay node-free.** `pnpm --filter desktop build && pnpm --filter
+- **Renderer must stay node-free.** `bun run --cwd desktop build && bun run --cwd
   desktop check:renderer-no-node` after any renderer change. Note the guard matches
   import/require **specifiers**, not the bare substring `node:` — minified object
   keys like `node: null` legitimately appear in the bundle and are not violations.

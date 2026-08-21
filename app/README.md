@@ -30,10 +30,10 @@ is **no mock/demo Api**:
 Run from the repo root (this is a pnpm workspace — not `npm`):
 
 ```sh
-pnpm build       # build @orkester/core once first (the app imports its dist/)
-pnpm ios         # phone app in the iOS simulator
-pnpm android     # phone app on Android
-# or, directly: pnpm --filter app exec expo start  (press i / a)
+bun run build       # build @orkester/core once first (the app imports its dist/)
+bun run ios         # phone app in the iOS simulator
+bun run android     # phone app on Android
+# or, directly: bun run --cwd app start  (press i / a)
 ```
 
 ## Layout

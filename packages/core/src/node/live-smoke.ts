@@ -18,9 +18,9 @@
 //  Do NOT call this from coder, tests, or CI. Run it yourself when you want to
 //  verify against real hardware:
 //
-//      pnpm --filter @orkester/core smoke:live
+//      bun run --cwd packages/core smoke:live
 //      # or, with optional args:
-//      pnpm --filter @orkester/core smoke:live -- <roomQuery> <waitMs>
+//      bun run --cwd packages/core smoke:live -- <roomQuery> <waitMs>
 //
 //  It discovers one speaker, loads the household topology, resolves the first
 //  room (or the room you name), then prints now-playing + volume. It is

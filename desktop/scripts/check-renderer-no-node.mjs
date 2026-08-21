@@ -14,7 +14,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const rendererDir = join(here, '..', 'out', 'renderer', 'assets');
 
 if (!existsSync(rendererDir)) {
-  console.error(`renderer assets not found at ${rendererDir} — run \`pnpm build\` first`);
+  console.error(`renderer assets not found at ${rendererDir} — run \`bun run build\` first`);
   process.exit(1);
 }
 
