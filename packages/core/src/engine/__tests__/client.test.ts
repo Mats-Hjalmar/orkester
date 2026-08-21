@@ -7,7 +7,7 @@ import type {
   HttpTransport,
   SSDPResult,
 } from '../../sonos';
-import { AV_TRANSPORT_TYPE } from '../control';
+import { AV_TRANSPORT_TYPE, type QueuePosition } from '../control';
 import { SonosClient } from '../client';
 
 // Exercises the WHOLE SonosClient facade OFFLINE against hand-rolled MOCK
@@ -278,7 +278,7 @@ describe('SonosClient.playQueueIndex', () => {
   });
 });
 
-describe('SonosClient.enqueue asNext', () => {
+describe('SonosClient.enqueue queue position', () => {
   const table = () => ({
     ...fullResponseTable(),
     [soapAction('AddURIToQueue')]: ok(
@@ -286,14 +286,14 @@ describe('SonosClient.enqueue asNext', () => {
     ),
   });
 
-  const enqueueBody = async (asNext?: boolean) => {
+  const enqueueBody = async (where?: QueuePosition) => {
     const http = new KeyedTransport(table());
     const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
     const household = await client.loadHousehold(3000);
     const room = client.resolveRoom(household, 'living');
     const item = { uri: 'x-sonos-spotify:track', metadata: '<DIDL/>' };
-    if (asNext === undefined) await client.enqueue(room, item);
-    else await client.enqueue(room, item, asNext);
+    if (where === undefined) await client.enqueue(room, item);
+    else await client.enqueue(room, item, where);
     return http.requests.find(
       (r) => r.headers?.['SOAPACTION'] === soapAction('AddURIToQueue'),
     )!.body;
@@ -307,16 +307,34 @@ describe('SonosClient.enqueue asNext', () => {
     );
   });
 
-  it('inserts at the slot after the current track when asNext is set', async () => {
+  it("inserts at the slot after the current track for 'next'", async () => {
     // positionInfoResponse reports <Track>1</Track>, so "next" is slot 2.
-    const body = await enqueueBody(true);
+    const body = await enqueueBody('next');
     expect(body).toContain('<EnqueueAsNext>1</EnqueueAsNext>');
     expect(body).toContain(
       '<DesiredFirstTrackNumberEnqueued>2</DesiredFirstTrackNumberEnqueued>',
     );
   });
 
-  it('inserts at the front when the coordinator is not on its queue', async () => {
+  it("inserts at the top for 'first', without reading the current position", async () => {
+    const http = new KeyedTransport(table());
+    const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
+    const household = await client.loadHousehold(3000);
+    const room = client.resolveRoom(household, 'living');
+    await client.enqueue(room, { uri: 'x-sonos-spotify:track', metadata: '<DIDL/>' }, 'first');
+    const body = http.requests.find(
+      (r) => r.headers?.['SOAPACTION'] === soapAction('AddURIToQueue'),
+    )!.body;
+    expect(body).toContain('<EnqueueAsNext>0</EnqueueAsNext>');
+    expect(body).toContain(
+      '<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>',
+    );
+    expect(
+      http.requests.some((r) => r.headers?.['SOAPACTION'] === soapAction('GetPositionInfo')),
+    ).toBe(false);
+  });
+
+  it("falls to the top for 'next' when the coordinator is not on its queue", async () => {
     const http = new KeyedTransport({
       ...table(),
       [soapAction('GetPositionInfo')]: ok(
@@ -326,7 +344,7 @@ describe('SonosClient.enqueue asNext', () => {
     const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
     const household = await client.loadHousehold(3000);
     const room = client.resolveRoom(household, 'living');
-    await client.enqueue(room, { uri: 'x-sonos-spotify:track', metadata: '<DIDL/>' }, true);
+    await client.enqueue(room, { uri: 'x-sonos-spotify:track', metadata: '<DIDL/>' }, 'next');
     const body = http.requests.find(
       (r) => r.headers?.['SOAPACTION'] === soapAction('AddURIToQueue'),
     )!.body;

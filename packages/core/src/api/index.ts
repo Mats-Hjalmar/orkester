@@ -8,7 +8,7 @@
 // The Api is the ONLY per-runtime difference: the StoreProvider drives the same
 // reducer regardless of which Api it was handed.
 
-import type { RepeatMode } from '../engine';
+import type { QueuePosition, RepeatMode } from '../engine';
 
 /**
  * A room the network exposes. `id` is the engine RoomRef.handle — a stable,
@@ -198,11 +198,10 @@ export interface Api {
    */
   searchSpotify(query: string, kind: SpotifySearchKind): Promise<ApiSearchItem[]>;
   /**
-   * Queues a search hit WITHOUT changing what is currently playing: at the END
-   * of the queue by default ("add to queue"), or directly after the current
-   * track when `asNext` is set ("play next").
+   * Queues a search hit WITHOUT changing what is currently playing, at the
+   * slot named by `where` (default 'end').
    */
-  enqueueSearchItem(groupId: string, item: ApiSearchItem, asNext?: boolean): Promise<void>;
+  enqueueSearchItem(groupId: string, item: ApiSearchItem, where?: QueuePosition): Promise<void>;
   /**
    * Plays a search hit NOW, REPLACING the group's queue ("play now"). Destructive
    * to the existing queue by design; use enqueueSearchItem to append instead.

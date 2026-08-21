@@ -35,5 +35,5 @@ export {
   type ResolvedRoom,
 } from './engine';
 export type { Device, Member, Group as SonosGroup, Household, RoomRef } from './engine';
-export type { NowPlaying } from './engine';
+export type { NowPlaying, QueuePosition } from './engine';
 export { SonosFault } from './engine';

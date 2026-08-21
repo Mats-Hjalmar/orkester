@@ -32,6 +32,7 @@ import {
   type NowPlaying,
   type PlaySettings,
   type QueueTrack,
+  type QueuePosition,
   getNowPlaying as controlGetNowPlaying,
   getQueue as controlGetQueue,
   clearQueue as controlClearQueue,
@@ -367,19 +368,28 @@ export class SonosClient {
 
   /**
    * Adds an item to the group's queue WITHOUT changing what is currently
-   * playing: at the END by default, or directly AFTER the current track when
-   * `asNext` is set. For a container URI Sonos expands it into the queue.
-   * AddURIToQueue's EnqueueAsNext flag alone only affects the shuffle order, so
-   * the insert slot is resolved from the coordinator's current queue position;
-   * when it is not on its queue at all the item goes to the front.
+   * playing, at the slot named by `where`. For a container URI Sonos expands it
+   * into the queue from that slot. AddURIToQueue's EnqueueAsNext flag alone only
+   * affects the shuffle order, so 'next' resolves the slot from the
+   * coordinator's current queue position; when it is not on its queue at all
+   * (a stream) that position is 0 and 'next' means the top, same as 'first'.
    */
-  async enqueue(room: ResolvedRoom, item: EnqueueItem, asNext = false): Promise<void> {
+  async enqueue(room: ResolvedRoom, item: EnqueueItem, where: QueuePosition = 'end'): Promise<void> {
     const base = this.coordinatorBase(room);
     let desiredFirstTrack = 0;
-    if (asNext) {
+    if (where === 'first') {
+      desiredFirstTrack = 1;
+    } else if (where === 'next') {
       desiredFirstTrack = (await controlGetQueueTrackNumber(this.http, base)) + 1;
     }
-    await controlAddURIToQueue(this.http, base, item.uri, item.metadata, asNext, desiredFirstTrack);
+    await controlAddURIToQueue(
+      this.http,
+      base,
+      item.uri,
+      item.metadata,
+      where === 'next',
+      desiredFirstTrack,
+    );
   }
 
   /**

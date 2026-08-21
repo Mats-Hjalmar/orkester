@@ -157,6 +157,15 @@ export function Queue({ size = 20, color = '#1A1814' }: IconProps) {
   );
 }
 
+export function QueueTop({ size = 20, color = '#1A1814' }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Path d="M4 6h16M4 12h9M4 18h9" />
+      <Path d="M17 20V9M14.2 11.8 17 9l2.8 2.8" />
+    </Svg>
+  );
+}
+
 export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>

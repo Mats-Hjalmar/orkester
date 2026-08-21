@@ -321,6 +321,12 @@ export type PlayMode =
 /** The orthogonal repeat mode the UI/Api speaks. */
 export type RepeatMode = 'none' | 'all' | 'one';
 
+/**
+ * Where an enqueue lands in the coordinator's queue: 'end' appends, 'first' puts
+ * it at the top, 'next' inserts directly after the track playing now.
+ */
+export type QueuePosition = 'end' | 'first' | 'next';
+
 /** Decoded transport play settings. */
 export interface PlaySettings {
   shuffle: boolean;

@@ -21,7 +21,7 @@ import type {
   CredentialStore,
   SpotifySearchKind,
 } from '../api';
-import type { RepeatMode } from '../engine';
+import type { QueuePosition, RepeatMode } from '../engine';
 import {
   type Household,
   type Member,
@@ -407,11 +407,11 @@ export class SonosApi implements Api {
     return out;
   }
 
-  enqueueSearchItem(groupId: string, item: ApiSearchItem, asNext = false): Promise<void> {
+  enqueueSearchItem(groupId: string, item: ApiSearchItem, where: QueuePosition = 'end'): Promise<void> {
     return this.client.enqueue(
       this.groupFor(groupId),
       { uri: item.uri, metadata: item.metadata },
-      asNext,
+      where,
     );
   }
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { ChevronRight, Play, Plus, Queue, Search, Speaker } from '../icons';
+import { ChevronRight, Play, Plus, Queue, QueueTop, Search, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -8,7 +8,7 @@ import { useStore } from '../state/store';
 import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type PendingSearchOp } from '@orkester/core/state';
 import { accentTextOf } from '../state/selectors';
 import type { Group } from '../state/types';
-import type { ApiSearchItem } from '@orkester/core';
+import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 
 // Spotify catalog search, desktop pane. All domain logic lives in the shared
 // useSpotifySearch hook (@orkester/core/state) — the same one the mobile Search
@@ -205,8 +205,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   accentText={accentText}
                   pendingOp={pending && pending.id === r.id ? pending.op : null}
                   anyPending={pending !== null}
-                  onAddQueue={() => void addToQueue(r)}
-                  onPlayNext={() => void addToQueue(r, true)}
+                  onEnqueue={(where) => void addToQueue(r, where)}
                   onPlay={() => void playNow(r)}
                 />
               ))}
@@ -227,8 +226,7 @@ function ResultRow({
   accentText,
   pendingOp,
   anyPending,
-  onAddQueue,
-  onPlayNext,
+  onEnqueue,
   onPlay,
 }: {
   item: ApiSearchItem;
@@ -236,8 +234,7 @@ function ResultRow({
   accentText: string;
   pendingOp: PendingSearchOp | null;
   anyPending: boolean;
-  onAddQueue: () => void;
-  onPlayNext: () => void;
+  onEnqueue: (where: QueuePosition) => void;
   onPlay: () => void;
 }) {
   // Secondary line: the artist/curator. Fall back to the kind only when there is
@@ -285,20 +282,27 @@ function ResultRow({
           {line}
         </Text>
       </View>
-      {/* Three explicit actions: append to the queue, insert after the current
-          track, or play now (which REPLACES the queue). One catalog request runs at
-          a time; the rest dim while it does. */}
+      {/* Four explicit actions: append to the queue, put it at the top, insert
+          after the current track, or play now (which REPLACES the queue). One
+          catalog request runs at a time; the rest dim while it does. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: anyPending && !pendingOp ? 0.45 : 1 }}>
         <ActionButton
           label="Add to queue"
-          onPress={onAddQueue}
-          icon={pendingOp === 'add' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
+          onPress={() => onEnqueue('end')}
+          icon={pendingOp === 'end' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
+          bg={colors.bgPaper}
+          border
+        />
+        <ActionButton
+          label="Add first in queue"
+          onPress={() => onEnqueue('first')}
+          icon={pendingOp === 'first' ? <ActivityIndicator size="small" color={colors.fg} /> : <QueueTop size={15} color={colors.fg} />}
           bg={colors.bgPaper}
           border
         />
         <ActionButton
           label="Play next"
-          onPress={onPlayNext}
+          onPress={() => onEnqueue('next')}
           icon={pendingOp === 'next' ? <ActivityIndicator size="small" color={colors.fg} /> : <Queue size={15} color={colors.fg} />}
           bg={colors.bgPaper}
           border

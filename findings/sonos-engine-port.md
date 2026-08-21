@@ -40,7 +40,7 @@
   tsup entries point `./engine` at `dist/engine/index.{js,cjs,d.ts}`; the
   `exports-resolve.test.ts` guard derives every target from the map post-build
   and asserts the file exists, per the build-first/derive-paths rule from
-  `findings/pnpm-workspace.md` (never hardcode `dist/...`).
+  `findings/workspace-package-manager.md` (never hardcode `dist/...`).
 
 - 2026-06-25 (whole-feature integration pass, chunks 0-9 all committed): full
   OFFLINE smoke is green end-to-end — `pnpm --filter @orkester/core test` = 93
@@ -124,3 +124,11 @@
   `Track` is 0/NOT_IMPLEMENTED when the coordinator isn't on its queue, which
   resolves to slot 1 (front of queue). The old test only asserted the
   EnqueueAsNext byte, so it stayed green over the bug — assert the position too.
+- 2026-08-21: Enqueue position is now a three-way `QueuePosition`
+  ('end' | 'first' | 'next') defined in engine/control.ts beside RepeatMode and
+  threaded through Api.enqueueSearchItem -> store -> useSpotifySearch, replacing
+  the old `asNext` boolean. 'first' hardcodes slot 1 and does NOT read
+  GetPositionInfo (one SOAP call instead of two); only 'next' pays for the
+  position read. QueuePosition lives in the ENGINE, not the api barrel — the api
+  barrel already imports RepeatMode from the engine, so defining it there instead
+  would make the api<->engine type import circular.

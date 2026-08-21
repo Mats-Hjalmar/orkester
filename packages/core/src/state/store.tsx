@@ -31,7 +31,7 @@ import {
 import { createSingleFlight } from './singleFlight';
 import { createVolumeWriter } from './volumeWrite';
 import type { Api, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
-import type { RepeatMode } from '../engine';
+import type { QueuePosition, RepeatMode } from '../engine';
 
 const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun' };
 
@@ -124,9 +124,9 @@ export interface Store {
   pollSpotifyLink: () => Promise<boolean>;
   /** Searches the Spotify catalog (THROWS NotLinkedError when not yet linked). */
   searchSpotify: (query: string, kind: SpotifySearchKind) => Promise<ApiSearchItem[]>;
-  /** Queues a hit without changing playback — at the end, or next when `asNext`
-   * is set — then re-reads the queue. */
-  enqueueSearchItem: (gid: string, item: ApiSearchItem, asNext?: boolean) => Promise<void>;
+  /** Queues a hit without changing playback, at `where` (default the end), then
+   * re-reads the queue. */
+  enqueueSearchItem: (gid: string, item: ApiSearchItem, where?: QueuePosition) => Promise<void>;
   /** Plays a hit now, REPLACING the queue, then refreshes now-playing + queue. */
   playSearchItem: (gid: string, item: ApiSearchItem) => Promise<void>;
   // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
@@ -755,9 +755,9 @@ export function StoreProvider({
       startSpotifyLink: (roomId: string) => api.startSpotifyLink(roomId),
       pollSpotifyLink: () => api.pollSpotifyLink(),
       searchSpotify: (query: string, kind: SpotifySearchKind) => api.searchSpotify(query, kind),
-      enqueueSearchItem: async (gid: string, item: ApiSearchItem, asNext = false) => {
+      enqueueSearchItem: async (gid: string, item: ApiSearchItem, where: QueuePosition = 'end') => {
         if (gid === '') throw new Error('no group selected to add to');
-        await api.enqueueSearchItem(gid, item, asNext);
+        await api.enqueueSearchItem(gid, item, where);
         // Add-to-queue does not change playback — only re-read the queue.
         await fetchQueue.current(gid);
       },

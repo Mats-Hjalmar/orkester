@@ -123,6 +123,7 @@ export {
   type TrackMetadata,
   type PlayMode,
   type RepeatMode,
+  type QueuePosition,
   type PlaySettings,
   type EnqueueItem,
 } from './control';

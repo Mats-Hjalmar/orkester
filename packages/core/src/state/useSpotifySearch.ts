@@ -11,10 +11,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
+import type { QueuePosition } from '../engine';
 import { useStore } from './store';
 
 export const SPOTIFY_SEARCH_KINDS: SpotifySearchKind[] = ['tracks', 'albums', 'artists', 'playlists'];
 const POLL_MS = 2500;
+
+const ENQUEUE_NOTICE: Record<QueuePosition, (title: string, group: string) => string> = {
+  end: (title, group) => `Added "${title}" to the queue on ${group}.`,
+  first: (title, group) => `"${title}" is first in the queue on ${group}.`,
+  next: (title, group) => `"${title}" plays next on ${group}.`,
+};
 
 export type LinkState =
   | { status: 'checking' }
@@ -24,7 +31,7 @@ export type LinkState =
 
 /** Targeting + label the caller resolves from its own selection model. */
 /** Which per-result action is in flight, so the UI spins exactly that button. */
-export type PendingSearchOp = 'add' | 'next' | 'play';
+export type PendingSearchOp = QueuePosition | 'play';
 
 export interface SpotifySearchTarget {
   /** Group id to enqueue/play onto (desktop: selected group; mobile: active group). "" when none. */
@@ -53,8 +60,8 @@ export interface SpotifySearch {
   beginLink: () => Promise<ApiSpotifyLink | null>;
   /** Runs the search; pass a kind to re-search the current query in a new category. */
   runSearch: (searchKind?: SpotifySearchKind) => Promise<void>;
-  /** Appends a hit to the target group's queue. */
-  addToQueue: (item: ApiSearchItem, asNext?: boolean) => Promise<void>;
+  /** Queues a hit on the target group at `where` (default the end). */
+  addToQueue: (item: ApiSearchItem, where?: QueuePosition) => Promise<void>;
   /** Plays a hit now (replaces the queue) on the target group. */
   playNow: (item: ApiSearchItem) => Promise<void>;
   /**
@@ -200,17 +207,13 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     }
   };
 
-  const addToQueue = async (item: ApiSearchItem, asNext = false): Promise<void> => {
+  const addToQueue = async (item: ApiSearchItem, where: QueuePosition = 'end'): Promise<void> => {
     if (pendingRef.current) return;
     setError('');
-    startPending(item.id, asNext ? 'next' : 'add');
+    startPending(item.id, where);
     try {
-      await apiRef.current.enqueueSearchItem(groupId, item, asNext);
-      setNotice(
-        asNext
-          ? `"${item.title}" plays next on ${groupLabel}.`
-          : `Added "${item.title}" to the queue on ${groupLabel}.`,
-      );
+      await apiRef.current.enqueueSearchItem(groupId, item, where);
+      setNotice(ENQUEUE_NOTICE[where](item.title, groupLabel));
     } catch (e) {
       setError(messageOf(e));
     } finally {

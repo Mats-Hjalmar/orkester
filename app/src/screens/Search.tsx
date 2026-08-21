@@ -19,9 +19,9 @@ import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { useGroupRoute, useNav } from '../navigation';
-import { useSpotifySearch, SPOTIFY_SEARCH_KINDS } from '@orkester/core/state';
+import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type PendingSearchOp } from '@orkester/core/state';
 import { accentTextOf } from '../state/selectors';
-import type { ApiSearchItem } from '@orkester/core';
+import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 
 // Mobile Spotify catalog search — the touch counterpart of the desktop
 // SpotifySearch pane. Behaviour (link state machine + search/enqueue/play) is the
@@ -250,8 +250,7 @@ export default function Search() {
             anyPending={pending !== null}
             expanded={expanded === item.id}
             onToggleExpand={() => setExpanded((cur) => (cur === item.id ? null : item.id))}
-            onAddQueue={() => void addToQueue(item)}
-            onPlayNext={() => void addToQueue(item, true)}
+            onEnqueue={(where) => void addToQueue(item, where)}
             onPlay={() => void playNow(item)}
           />
         )}
@@ -348,20 +347,18 @@ function ResultRow({
   anyPending,
   expanded,
   onToggleExpand,
-  onAddQueue,
-  onPlayNext,
+  onEnqueue,
   onPlay,
 }: {
   item: ApiSearchItem;
   accent: string;
   accentText: string;
   enabled: boolean;
-  pending: 'add' | 'next' | 'play' | null;
+  pending: PendingSearchOp | null;
   anyPending: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
-  onAddQueue: () => void;
-  onPlayNext: () => void;
+  onEnqueue: (where: QueuePosition) => void;
   onPlay: () => void;
 }) {
   // Secondary line: the artist/curator. Fall back to the kind only when there is
@@ -411,7 +408,7 @@ function ResultRow({
         <RoundButton
           label={expanded ? 'Hide more actions' : 'More actions'}
           enabled={enabled}
-          spinning={pending === 'add' || pending === 'next'}
+          spinning={pending !== null && pending !== 'play'}
           bg={colors.bgPaper}
           border
           icon={<Dots size={16} color={colors.fg} />}
@@ -421,9 +418,10 @@ function ResultRow({
       </View>
 
       {expanded && (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginLeft: 60 }}>
-          <TextAction label="Play next" enabled={enabled && !anyPending} onPress={onPlayNext} />
-          <TextAction label="Add to queue" enabled={enabled && !anyPending} icon onPress={onAddQueue} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, marginLeft: 60 }}>
+          <TextAction label="Play next" enabled={enabled && !anyPending} onPress={() => onEnqueue('next')} />
+          <TextAction label="Add first" enabled={enabled && !anyPending} onPress={() => onEnqueue('first')} />
+          <TextAction label="Add to queue" enabled={enabled && !anyPending} icon onPress={() => onEnqueue('end')} />
         </View>
       )}
     </View>
