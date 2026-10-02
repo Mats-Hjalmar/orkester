@@ -1,12 +1,13 @@
 {
   "name": "desktop",
+  "productName": "Orkester",
   "version": "0.1.0",
   "private": true,
   "description": "Orkester Electron desktop controller — runs the Sonos engine in the main process and renders the react-native-web desktop UI against an IPC-backed Api.",
   "author": "Mats-Hjalmar Murman <mats-hjalmar.murman@alster.se>",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "node scripts/dev.mjs",
     "build": "electron-vite build",
     "check:renderer-no-node": "node scripts/check-renderer-no-node.mjs",
     "dist:mac": "electron-vite build && node scripts/check-renderer-no-node.mjs && electron-builder --mac --universal",

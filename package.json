@@ -11,7 +11,8 @@
     "desktop:uninstall": "bun run --cwd desktop uninstall:mac",
     "desktop:dist": "bun run --cwd packages/core build && bun run --cwd desktop dist:mac",
     "android": "bun run --cwd app android",
-    "ios": "bun run --cwd app ios"
+    "ios": "bun run --cwd app ios",
+    "icons": "bun branding/generate-icons.ts"
   },
   "devDependencies": {
     "@orkester/core": "workspace:*",
