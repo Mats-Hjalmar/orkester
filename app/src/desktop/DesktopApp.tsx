@@ -4,6 +4,7 @@ import TopBar from './TopBar';
 import RoomList from './RoomList';
 import DesktopNowPlaying from './NowPlaying';
 import SpotifySearch from './SpotifySearch';
+import ErrorToast from './ErrorToast';
 import { colors } from '../theme/tokens';
 import { useStore } from '../state/store';
 import { readLastSelection, writeLastSelection } from './lastSelection';
@@ -63,6 +64,7 @@ export default function DesktopApp() {
           )}
         </View>
       </View>
+      <ErrorToast />
     </View>
   );
 }

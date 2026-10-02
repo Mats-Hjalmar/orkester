@@ -35,7 +35,7 @@ export function createVolumeWriter({
    * reconcile the room from the speaker. Required: `set` returns nothing, so this
    * is the only way a failed write stays visible instead of being swallowed.
    */
-  onFailed: (roomId: string) => void;
+  onFailed: (roomId: string, error: unknown) => void;
   /** Mirrors the rooms with a write in flight or queued out (for the spinners). */
   onChange: (settling: Record<string, boolean>) => void;
   quietMs: number;
@@ -63,17 +63,17 @@ export function createVolumeWriter({
     writing.add(roomId);
     publish();
     void (async () => {
-      let failed = false;
+      let failure: { error: unknown } | null = null;
       try {
         await write(roomId, volume);
-      } catch {
-        failed = true;
+      } catch (error) {
+        failure = { error };
       } finally {
         lastWriteAt.set(roomId, Date.now());
         writing.delete(roomId);
         publish();
       }
-      if (failed && !queued.has(roomId)) onFailed(roomId);
+      if (failure && !queued.has(roomId)) onFailed(roomId, failure.error);
       pump(roomId);
     })();
   };
