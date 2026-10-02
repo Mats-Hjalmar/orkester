@@ -174,6 +174,14 @@ export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
+export function Check({ size = 18, color = '#1A1814' }: IconProps) {
+  return (
+    <Svg {...stroke(size, color, 2.25)}>
+      <Path d="M5 12.5l4.5 4.5L19 7.5" />
+    </Svg>
+  );
+}
+
 // Drag handle — six dots (2×3). Grab to reorder a queue row.
 export function Grip({ size = 18, color = '#1A1814' }: IconProps) {
   return (
