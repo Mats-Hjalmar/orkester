@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import RoomGroupCard from '../components/RoomGroupCard';
 import { ScreenScroll } from '../components/phone/Screen';
-import { Refresh, Wave } from '../icons';
+import { OrkesterMark, Refresh } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { useStore } from '../state/store';
@@ -31,7 +31,7 @@ export default function Rooms() {
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-            <Wave size={22} color={colors.fg} />
+            <OrkesterMark size={30} />
             <Text maxFontSizeMultiplier={1.6} style={[type.wordmark, { fontSize: 30 }]}>orkester</Text>
           </View>
           <Text numberOfLines={1} style={[type.small, { marginTop: 4, color: colors.fgSubtle }]}>

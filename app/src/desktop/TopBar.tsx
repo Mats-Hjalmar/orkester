@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { Refresh, Search, Wave } from '../icons';
+import { OrkesterMark, Refresh, Search } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { type } from '../theme/type';
@@ -18,7 +18,7 @@ export default function TopBar({
   return (
     <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: ink(0.07) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Wave size={22} color={colors.fg} />
+        <OrkesterMark size={26} />
         <Text style={[type.wordmark, { fontSize: 24 }]}>orkester</Text>
         <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgSubtle, paddingBottom: 1 }}>multi-room sound</Text>
       </View>
