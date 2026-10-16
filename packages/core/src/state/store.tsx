@@ -84,6 +84,13 @@ export type PendingOp =
   | 'leave'
   | 'queue';
 
+/** A failed user action, for the client to show. `id` changes per failure, so a
+ * repeat of the same message still reads as new. */
+export interface ActionError {
+  id: number;
+  message: string;
+}
+
 export interface Store {
   state: State;
   config: Config;
@@ -167,6 +174,12 @@ export interface Store {
   /** Sets EVERY member of the group to the same absolute volume (0..1). */
   setGroupVol: (gid: string, frac: number) => void;
   toggleRoomInGroup: (gid: string, roomId: string) => void;
+  /** The latest failed user action, or null once dismissed. Background poll misses
+   * never land here — they are bounded by the next poll. */
+  actionError: ActionError | null;
+  /** Surfaces a failure the client caught itself (e.g. a Spotify search). */
+  reportError: (error: unknown) => void;
+  dismissError: () => void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -227,10 +240,20 @@ export function StoreProvider({
   // The UI reads it to spin the control that fired, and a click on a busy slot is
   // dropped rather than queued. Transient UI only — not in the reducer.
   const [pendingOps, setPendingOps] = useState<Record<string, PendingOp>>({});
+
+  const [actionError, setActionError] = useState<ActionError | null>(null);
+  const errorSeq = useRef(0);
+  const reportError = useRef((error: unknown) => {
+    errorSeq.current += 1;
+    setActionError({ id: errorSeq.current, message: error instanceof Error ? error.message : String(error) });
+  }).current;
+  const dismissError = useRef(() => setActionError(null)).current;
+
   const inFlight = useRef(
     createSingleFlight<PendingOp>(setPendingOps, (slot, op, error) => {
       // eslint-disable-next-line no-console
       console.error(`[orkester] ${op} on ${slot} failed:`, error);
+      reportError(error);
     }),
   );
 
@@ -264,7 +287,8 @@ export function StoreProvider({
   const volWriter = useRef(
     createVolumeWriter({
       write: (roomId, volume) => api.setVolume(roomId, volume),
-      onFailed: (roomId) => {
+      onFailed: (roomId, error) => {
+        reportError(error);
         void (async () => {
           try {
             const real = await api.getVolume(roomId);
@@ -283,8 +307,7 @@ export function StoreProvider({
   // --- side-effect helpers ------------------------------------------------
 
   // Runs an optimistic patch, fires the Api call, and reverts on rejection by
-  // re-reconciling from the speaker (no silent swallow — the revert IS the
-  // surfaced error path; topology stays ready, the real value re-polls in).
+  // re-reconciling from the speaker; the failure itself goes to actionError.
   const optimistic = useRef(
     async (
       patch: Action,
@@ -294,7 +317,8 @@ export function StoreProvider({
       dispatchRef.current(patch);
       try {
         await call();
-      } catch {
+      } catch (error) {
+        reportError(error);
         // Revert by re-reading the truth from the speaker.
         try {
           await reconcile();
@@ -835,9 +859,11 @@ export function StoreProvider({
         });
       },
 
-
+      actionError,
+      reportError,
+      dismissError,
     };
-  }, [state, config, api, refreshing, volSettling, pendingOps]);
+  }, [state, config, api, refreshing, volSettling, pendingOps, actionError]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

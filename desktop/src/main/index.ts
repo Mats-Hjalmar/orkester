@@ -86,6 +86,11 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(() => {
+  // A dev run is the stock Electron.app, so the dock shows Electron's icon; the
+  // packaged build gets build/icon.png from its bundle instead.
+  if (process.env.ELECTRON_RENDERER_URL && process.platform === 'darwin') {
+    app.dock?.setIcon(join(__dirname, '../../build/icon.png'));
+  }
   registerApiHandlers();
   createWindow();
 

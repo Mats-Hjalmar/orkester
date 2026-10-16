@@ -6,6 +6,7 @@ import DesktopNowPlaying from './NowPlaying';
 import SpotifySearch from './SpotifySearch';
 import MiniPlayer from './MiniPlayer';
 import GroupPanel from './GroupPanel';
+import ErrorToast from './ErrorToast';
 import { colors } from '../theme/tokens';
 import { useStore } from '../state/store';
 import { readLastSelection, writeLastSelection } from './lastSelection';
@@ -71,6 +72,7 @@ export default function DesktopApp() {
         <MiniPlayer group={selectedGroup} groupsOpen={groupsOpen} onToggleGroups={() => setGroupsOpen((v) => !v)} />
       )}
       {selectedGroup && groupsOpen && <GroupPanel group={selectedGroup} onClose={closeGroups} />}
+      <ErrorToast />
     </View>
   );
 }

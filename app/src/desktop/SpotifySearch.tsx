@@ -19,7 +19,7 @@ import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 const KINDS = SPOTIFY_SEARCH_KINDS;
 
 export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
-  const { roomName, config } = useStore();
+  const { roomName, config, reportError } = useStore();
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
 
@@ -27,6 +27,11 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
 
   const { link, query, setQuery, kind, setKind, results, busy, error, notice, beginLink, runSearch, addToQueue, playNow, pending } =
     useSpotifySearch({ groupId: group?.id ?? '', roomIdForLink: group?.roomIds[0] ?? '', groupLabel });
+
+  // Errors go to the window-level toast instead of the bottom of the results.
+  React.useEffect(() => {
+    if (error !== '') reportError(error);
+  }, [error, reportError]);
 
   // The hook starts the link + returns the URL; the desktop opens it in a browser.
   const onBeginLink = async () => {
@@ -214,7 +219,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
         )}
 
         {notice !== '' && <Text style={[type.small, { color: colors.fgMuted }]}>{notice}</Text>}
-        {error !== '' && <Text style={[type.small, { color: colors.danger }]}>{error}</Text>}
       </ScrollView>
     </View>
   );

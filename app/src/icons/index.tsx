@@ -1,5 +1,7 @@
 import React from 'react';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
+import { colors } from '../theme/tokens';
+import { ICON_MARK_WIDTH, MARK_SHAPES, markTransform, type MarkTone } from './orkesterMark';
 
 export interface IconProps {
   size?: number;
@@ -18,12 +20,27 @@ const stroke = (size: number, color: string, sw = 1.75) => ({
   strokeLinejoin: 'round' as const,
 });
 
-// orkester wordmark glyph — concentric "broadcast" arcs around a dot.
-export function Wave({ size = 24, color = '#1A1814' }: IconProps) {
+// The app icon, drawn live: the orkester mark on its dark rounded tile.
+export function OrkesterMark({ size = 24 }: { size?: number }) {
+  const tone = (t: MarkTone) => (t === 'fg' ? colors.bgPaper : colors.accent);
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round">
-      <Circle cx={12} cy={12} r={2.4} fill={color} stroke="none" />
-      <Path d="M7.2 8.4a6 6 0 000 7.2M16.8 8.4a6 6 0 010 7.2M4.4 5.4a10 10 0 000 13.2M19.6 5.4a10 10 0 010 13.2" />
+    <Svg width={size} height={size} viewBox="0 0 1024 1024">
+      <Rect width={1024} height={1024} rx={225} fill={colors.bgDeep} />
+      <G transform={markTransform(1024, ICON_MARK_WIDTH)}>
+        {MARK_SHAPES.map((s, i) => {
+          switch (s.kind) {
+            case 'rect':
+              return <Rect key={i} x={s.x} y={s.y} width={s.width} height={s.height} rx={s.rx} fill={tone(s.tone)} />;
+            case 'circle':
+              return <Circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={tone(s.tone)} />;
+            case 'path':
+              return (
+                <Path key={i} d={s.d} fill="none" stroke={tone(s.tone)} strokeWidth={s.strokeWidth}
+                  strokeLinecap="round" strokeLinejoin="round" opacity={s.opacity} />
+              );
+          }
+        })}
+      </G>
     </Svg>
   );
 }
