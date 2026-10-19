@@ -1,16 +1,15 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
-import TrackBar from '../components/TrackBar';
 import SpeakerChip from '../components/SpeakerChip';
 import QueueRow from '../components/QueueRow';
-import { ChevronRight, Grip, Next, Pause, Play, Prev, Queue, Repeat, Shuffle, Speaker, VolumeHigh, VolumeLow } from '../icons';
+import { ProgressRow, VolumeRow } from './controls';
+import { ChevronRight, Grip, Next, Pause, Play, Prev, Queue, Repeat, Shuffle, Speaker } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
-import { fmt, useStore } from '../state/store';
+import { useStore } from '../state/store';
 import { accentTextOf, chipsFor, groupCount } from '../state/selectors';
-import { progressOf } from '../components/trackProgress';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
@@ -175,8 +174,6 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
   const idle = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const here = g.roomIds.length ? `${roomName(g.roomIds[0])} ${groupCount(g)}`.trim() : 'this group';
   const ctrl = groupControls(g.id);
-  const prog = progressOf(g, tr);
-  const groupVolume = store.groupVol(g); // 0–100, or null when no real reading yet
   // "Up next" = the queue AFTER the currently-playing track, so the top of the
   // list is genuinely the next song and skipping advances it off the top. The
   // current track is already shown big above. qStart is the absolute queue index
@@ -290,26 +287,8 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
                     {spinning('repeat', 20) ?? <Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} />}
                   </Pressable>
                 </View>
-                {/* Timeline + scrub — ONLY for a real finite track. For live/unknown
-                    metadata there's no accurate position, so we show no scrubber
-                    rather than an interpolated, inaccurate one. */}
-                {prog.finite && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 34, textAlign: 'right' }}>{fmt(prog.elapsed)}</Text>
-                    <TrackBar value={prog.fraction} onScrub={ctrl.seek} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb style={{ flex: 1 }} />
-                    <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted, width: 38 }}>
-                      {prog.remaining === null ? '' : `-${fmt(prog.remaining)}`}
-                    </Text>
-                  </View>
-                )}
-                {groupVolume !== null && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
-                      {spinning('mute', 19) ?? (g.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />)}
-                    </Pressable>
-                    <TrackBar value={(g.muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(g)} style={{ flex: 1 }} />
-                  </View>
-                )}
+                <ProgressRow group={g} />
+                <VolumeRow group={g} />
               </View>
             </>
           )}

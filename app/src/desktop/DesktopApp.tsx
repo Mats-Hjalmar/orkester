@@ -4,6 +4,8 @@ import TopBar from './TopBar';
 import RoomList from './RoomList';
 import DesktopNowPlaying from './NowPlaying';
 import SpotifySearch from './SpotifySearch';
+import MiniPlayer from './MiniPlayer';
+import GroupPanel from './GroupPanel';
 import ErrorToast from './ErrorToast';
 import { colors } from '../theme/tokens';
 import { useStore } from '../state/store';
@@ -25,6 +27,8 @@ export default function DesktopApp() {
   // user opens it from the TopBar, the Spotify catalog search (which plays onto
   // whichever group is selected in the left rail).
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const [groupsOpen, setGroupsOpen] = React.useState(false);
+  const closeGroups = React.useCallback(() => setGroupsOpen(false), []);
 
   // Resolve the selection fresh from topology each render. With no live selection
   // — first launch, or the selected group vanished (ungrouped / dropped) — fall
@@ -64,6 +68,10 @@ export default function DesktopApp() {
           )}
         </View>
       </View>
+      {selectedGroup && (
+        <MiniPlayer group={selectedGroup} groupsOpen={groupsOpen} onToggleGroups={() => setGroupsOpen((v) => !v)} />
+      )}
+      {selectedGroup && groupsOpen && <GroupPanel group={selectedGroup} onClose={closeGroups} />}
       <ErrorToast />
     </View>
   );
