@@ -4,8 +4,8 @@
   "packageManager": "bun@1.3.11",
   "scripts": {
     "build": "bun run --cwd packages/core build && bun run --cwd desktop build",
-    "test": "bun run --cwd packages/core test",
-    "typecheck": "bun run --filter @orkester/core --filter app typecheck",
+    "test": "bun run --cwd packages/sonos-api test && bun run --cwd packages/core test",
+    "typecheck": "bun run --filter @orkester/sonos-api --filter @orkester/core --filter app typecheck",
     "desktop": "bun run --cwd packages/core build && bun run --cwd desktop dev",
     "desktop:install": "bun run --cwd packages/core build && bun run --cwd desktop install:mac",
     "desktop:uninstall": "bun run --cwd desktop uninstall:mac",

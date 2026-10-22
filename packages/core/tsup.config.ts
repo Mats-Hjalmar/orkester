@@ -19,6 +19,9 @@ export default defineConfig({
   // — the host app supplies its single React copy. Its jsx-runtime subpath must
   // stay external too.
   external: ['react', 'react/jsx-runtime'],
+  // Inline the protocol package so every consumer gets a self-contained dist
+  // (the packaged desktop app and Metro never resolve it on their own).
+  noExternal: ['@orkester/sonos-api'],
   // Bundling (tsup default) inlines the relative barrel re-exports so the emitted
   // ESM has no extensionless imports that native Node ESM resolution would reject.
   target: 'node18',

@@ -12,7 +12,21 @@ export {
   SonosClient,
   type SonosTransports,
   type ResolvedRoom,
+  type EQType,
+  type AudioSettings,
 } from './client';
+
+// ContentDirectory browse + AlarmClock alarm-list parsing.
+export {
+  parseBrowseResult,
+  parseAlarmList,
+  browseItemDIDL,
+  type BrowseItem,
+  type BrowseResult,
+  type Alarm,
+  type AlarmRecurrence,
+  type AlarmPlayMode,
+} from './library';
 
 // SOAP envelope / fault / call primitives.
 export {

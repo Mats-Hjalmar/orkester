@@ -7,16 +7,19 @@ files cover package-specific rules; this file covers the whole workspace.
 
 ## Shape
 
-bun workspace (`app`, `desktop`, `packages/*`). One shared package,
-`@orkester/core`, holds the Sonos engine, the app store, and theme tokens; `app`
-and `desktop` are clients. Put shared logic in core, not in a client.
+bun workspace (`app`, `desktop`, `packages/*`). `@orkester/sonos-api` is the
+protocol layer: a typed client for every UPnP action a Sonos device exposes, plus
+SOAP and GENA. `@orkester/core` builds the engine, the app store, and theme tokens
+on top of it and inlines it into its `dist/`; `app` and `desktop` are clients and
+depend on core only. Put shared logic in core, not in a client.
 
 ## Invariants — do not break these
 
 - **RN/Node boundary.** The RN-facing surface of `@orkester/core` (`src/index.ts`,
   `src/engine`, `src/state`, `src/theme`, `src/api`, `src/sonos`) must import **no**
   `node:*` builtins — only `src/node/**` may. Enforced by a static import-graph
-  test (`packages/core/src/__tests__/rn-no-node.test.ts`). If the engine needs a
+  test (`packages/core/src/__tests__/rn-no-node.test.ts`), which also walks
+  `packages/sonos-api/src`. If the engine needs a
   Node capability, inject it through a transport under `src/node/**`.
 - **`parseTagValue: false`.** fast-xml-parser is frozen with this option so numeric
   strings ("11", "007", RINCON ids) stay strings and callers convert explicitly.
@@ -52,6 +55,6 @@ investigation yields a durable conclusion.
 
 ## Verifying a change
 
-`bun run typecheck`, `bun run --cwd packages/core test`, and for the desktop
+`bun run typecheck`, `bun run test` (sonos-api, then core), and for the desktop
 `bun run --cwd desktop build && bun run --cwd desktop check:renderer-no-node`.
 Real-hardware checks are user-run only.

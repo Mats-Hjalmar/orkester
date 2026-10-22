@@ -11,6 +11,10 @@
 
 import type {
   Api,
+  ApiAlarm,
+  ApiAudioSettings,
+  ApiBrowseItem,
+  ApiBrowseResult,
   ApiGroup,
   ApiNowPlaying,
   ApiQueueItem,
@@ -21,7 +25,7 @@ import type {
   CredentialStore,
   SpotifySearchKind,
 } from '../api';
-import type { QueuePosition, RepeatMode } from '../engine';
+import type { Alarm, BrowseItem, EQType, QueuePosition, RepeatMode } from '../engine';
 import {
   type Household,
   type Member,
@@ -59,18 +63,6 @@ const SPOTIFY_SEARCH_CATEGORY: Record<SpotifySearchKind, string> = {
   playlists: 'playlist',
 };
 
-/**
- * Duck-typed SMAPIFault check — deliberately NOT `instanceof`. tsup bundles each
- * package entry separately, so the SMAPIFault thrown by the engine (the `.` entry,
- * where smapiCall/parseSMAPIFault live) is a DIFFERENT class identity from the
- * SMAPIFault this module (the `./state` entry) imports. `instanceof` across that
- * boundary is always false, which is exactly why the token-refresh retry never
- * fired in the packaged app. Match on the stable `name` instead.
- */
-function isSMAPIFault(e: unknown): e is SMAPIFault {
-  return e instanceof Error && e.name === 'SMAPIFault';
-}
-
 export class SonosApi implements Api {
   private readonly client: SonosClient;
   /** The most-recent topology + a responder base for cheap refresh. */
@@ -96,14 +88,6 @@ export class SonosApi implements Api {
     this.credentials = credentials;
   }
 
-  /** The injected store, or a thrown error when Spotify support wasn't wired. */
-  private requireCredentials(): CredentialStore {
-    if (!this.credentials) {
-      throw new Error('Spotify support is not configured (no CredentialStore injected)');
-    }
-    return this.credentials;
-  }
-
   // --- topology ---
 
   async loadTopology(): Promise<ApiTopology> {
@@ -124,58 +108,6 @@ export class SonosApi implements Api {
       }
     }
     return this.index(await this.client.loadHousehold(DISCOVER_WAIT_MS));
-  }
-
-  /** Indexes a household into the id maps and projects it to an ApiTopology. */
-  private index(household: Household): ApiTopology {
-    this.household = household;
-    this.roomIndex.clear();
-    this.groupIndex.clear();
-
-    // Remember any member with a resolvable address as the next refresh's responder.
-    for (const g of household.groups) {
-      const base = g.members.map(memberBaseURL).find((b) => b !== '');
-      if (base) {
-        this.responderBase = base;
-        break;
-      }
-    }
-
-    const refs = engineRooms(household);
-    const rooms: ApiRoom[] = refs.map((r) => {
-      this.roomIndex.set(r.handle, { member: r.member, group: r.group });
-      return { id: r.handle, name: r.member.zoneName };
-    });
-
-    const groups: ApiGroup[] = household.groups.map((g) => {
-      this.groupIndex.set(g.id, g);
-      // The group's rooms, as handles (only the visible ones appear in refs).
-      const roomIds = refs.filter((r) => r.group.id === g.id).map((r) => r.handle);
-      return {
-        id: g.id,
-        name: engineGroupName(g),
-        roomIds,
-        coordinatorUuid: g.coordinator,
-      };
-    });
-
-    return { rooms, groups };
-  }
-
-  // --- id resolution ---
-
-  private roomFor(roomId: string): ResolvedRoom {
-    const r = this.roomIndex.get(roomId);
-    if (!r) throw new Error(`unknown room "${roomId}"`);
-    return r;
-  }
-
-  /** Resolves a group id to a ResolvedRoom anchored on the group's coordinator. */
-  private groupFor(groupId: string): ResolvedRoom {
-    const g = this.groupIndex.get(groupId);
-    if (!g) throw new Error(`unknown group "${groupId}"`);
-    const coord = coordinatorMember(g);
-    return { member: coord, group: g };
   }
 
   // --- per active group ---
@@ -419,6 +351,154 @@ export class SonosApi implements Api {
     return this.client.playNow(this.groupFor(groupId), { uri: item.uri, metadata: item.metadata });
   }
 
+  // --- transport & queue extras ---
+
+  stop(groupId: string): Promise<void> {
+    return this.client.stop(this.groupFor(groupId));
+  }
+
+  getCrossfade(groupId: string): Promise<boolean> {
+    return this.client.getCrossfade(this.groupFor(groupId));
+  }
+
+  setCrossfade(groupId: string, on: boolean): Promise<void> {
+    return this.client.setCrossfade(this.groupFor(groupId), on);
+  }
+
+  getSleepTimer(groupId: string): Promise<number> {
+    return this.client.getSleepTimer(this.groupFor(groupId));
+  }
+
+  setSleepTimer(groupId: string, seconds: number): Promise<void> {
+    return this.client.setSleepTimer(this.groupFor(groupId), seconds);
+  }
+
+  removeQueueItem(groupId: string, index: number): Promise<void> {
+    return this.client.removeQueueTrack(this.groupFor(groupId), index);
+  }
+
+  saveQueue(groupId: string, title: string): Promise<string> {
+    return this.client.saveQueue(this.groupFor(groupId), title);
+  }
+
+  playLineIn(groupId: string, sourceRoomId: string): Promise<void> {
+    return this.client.playLineIn(this.groupFor(groupId), this.uuidFor(sourceRoomId));
+  }
+
+  playTv(groupId: string): Promise<void> {
+    return this.client.playTv(this.groupFor(groupId));
+  }
+
+  getGroupVolume(groupId: string): Promise<number> {
+    return this.client.getGroupVolume(this.groupFor(groupId));
+  }
+
+  setGroupVolume(groupId: string, volume: number): Promise<void> {
+    return this.client.setGroupVolume(this.groupFor(groupId), volume);
+  }
+
+  getGroupMute(groupId: string): Promise<boolean> {
+    return this.client.getGroupMute(this.groupFor(groupId));
+  }
+
+  setGroupMute(groupId: string, muted: boolean): Promise<void> {
+    return this.client.setGroupMute(this.groupFor(groupId), muted);
+  }
+
+  // --- audio settings ---
+
+  getAudioSettings(roomId: string): Promise<ApiAudioSettings> {
+    return this.client.getAudioSettings(this.roomFor(roomId));
+  }
+
+  setBass(roomId: string, bass: number): Promise<void> {
+    return this.client.setBass(this.roomFor(roomId), bass);
+  }
+
+  setTreble(roomId: string, treble: number): Promise<void> {
+    return this.client.setTreble(this.roomFor(roomId), treble);
+  }
+
+  setLoudness(roomId: string, on: boolean): Promise<void> {
+    return this.client.setLoudness(this.roomFor(roomId), on);
+  }
+
+  getEQ(roomId: string, type: EQType): Promise<number> {
+    return this.client.getEQ(this.roomFor(roomId), type);
+  }
+
+  setEQ(roomId: string, type: EQType, value: number): Promise<void> {
+    return this.client.setEQ(this.roomFor(roomId), type, value);
+  }
+
+  // --- library ---
+
+  async browse(objectId: string, start?: number, count?: number): Promise<ApiBrowseResult> {
+    const { items, total } = await this.client.browse(this.anyRoom(), objectId, start, count);
+    return { items: items.map(toApiBrowseItem), total };
+  }
+
+  async getFavorites(): Promise<ApiBrowseItem[]> {
+    return (await this.browse('FV:2')).items;
+  }
+
+  async getPlaylists(): Promise<ApiBrowseItem[]> {
+    return (await this.browse('SQ:')).items;
+  }
+
+  playBrowseItem(groupId: string, item: ApiBrowseItem): Promise<void> {
+    return this.client.playBrowseItem(this.groupFor(groupId), fromApiBrowseItem(item));
+  }
+
+  enqueueBrowseItem(groupId: string, item: ApiBrowseItem, where: QueuePosition = 'end'): Promise<void> {
+    return this.client.enqueueBrowseItem(this.groupFor(groupId), fromApiBrowseItem(item), where);
+  }
+
+  deletePlaylist(playlistId: string): Promise<void> {
+    return this.client.deletePlaylist(this.anyRoom(), playlistId);
+  }
+
+  // --- alarms ---
+
+  async listAlarms(): Promise<ApiAlarm[]> {
+    const alarms = await this.client.listAlarms(this.anyRoom());
+    return alarms.map(({ roomUuid, ...rest }) => ({ ...rest, roomId: this.roomIdFor(roomUuid) }));
+  }
+
+  createAlarm(alarm: Omit<ApiAlarm, 'id'>): Promise<number> {
+    return this.client.createAlarm(this.anyRoom(), this.toAlarm({ ...alarm, id: 0 }));
+  }
+
+  updateAlarm(alarm: ApiAlarm): Promise<void> {
+    return this.client.updateAlarm(this.anyRoom(), this.toAlarm(alarm));
+  }
+
+  deleteAlarm(alarmId: number): Promise<void> {
+    return this.client.deleteAlarm(this.anyRoom(), alarmId);
+  }
+
+  // --- device settings ---
+
+  setRoomName(roomId: string, name: string): Promise<void> {
+    return this.client.setRoomName(this.roomFor(roomId), name);
+  }
+
+  getLed(roomId: string): Promise<boolean> {
+    return this.client.getLed(this.roomFor(roomId));
+  }
+
+  setLed(roomId: string, on: boolean): Promise<void> {
+    return this.client.setLed(this.roomFor(roomId), on);
+  }
+
+  getButtonLock(roomId: string): Promise<boolean> {
+    return this.client.getButtonLock(this.roomFor(roomId));
+  }
+
+  setButtonLock(roomId: string, locked: boolean): Promise<void> {
+    return this.client.setButtonLock(this.roomFor(roomId), locked);
+  }
+
   /** Exposed for tests/diagnostics: the household the maps were built from. */
   currentHousehold(): Household | undefined {
     return this.household;
@@ -428,4 +508,115 @@ export class SonosApi implements Api {
   memberFor(roomId: string): Member {
     return this.roomFor(roomId).member;
   }
+
+  /** The injected store, or a thrown error when Spotify support wasn't wired. */
+  private requireCredentials(): CredentialStore {
+    if (!this.credentials) {
+      throw new Error('Spotify support is not configured (no CredentialStore injected)');
+    }
+    return this.credentials;
+  }
+
+  /** Indexes a household into the id maps and projects it to an ApiTopology. */
+  private index(household: Household): ApiTopology {
+    this.household = household;
+    this.roomIndex.clear();
+    this.groupIndex.clear();
+
+    // Remember any member with a resolvable address as the next refresh's responder.
+    for (const g of household.groups) {
+      const base = g.members.map(memberBaseURL).find((b) => b !== '');
+      if (base) {
+        this.responderBase = base;
+        break;
+      }
+    }
+
+    const refs = engineRooms(household);
+    const rooms: ApiRoom[] = refs.map((r) => {
+      this.roomIndex.set(r.handle, { member: r.member, group: r.group });
+      return { id: r.handle, name: r.member.zoneName };
+    });
+
+    const groups: ApiGroup[] = household.groups.map((g) => {
+      this.groupIndex.set(g.id, g);
+      // The group's rooms, as handles (only the visible ones appear in refs).
+      const roomIds = refs.filter((r) => r.group.id === g.id).map((r) => r.handle);
+      return {
+        id: g.id,
+        name: engineGroupName(g),
+        roomIds,
+        coordinatorUuid: g.coordinator,
+      };
+    });
+
+    return { rooms, groups };
+  }
+
+  /** Resolves a room handle to its player + group. THROWS when unknown. */
+  private roomFor(roomId: string): ResolvedRoom {
+    const r = this.roomIndex.get(roomId);
+    if (!r) throw new Error(`unknown room "${roomId}"`);
+    return r;
+  }
+
+  /**
+   * Any room of the household, for household-wide services (library, alarms).
+   * THROWS before a topology has been loaded.
+   */
+  private anyRoom(): ResolvedRoom {
+    const first = this.roomIndex.values().next();
+    if (first.done) throw new Error('no rooms known; load the topology first');
+    return first.value;
+  }
+
+  /** Resolves a room handle to its player's RINCON UUID. */
+  private uuidFor(roomId: string): string {
+    return this.roomFor(roomId).member.uuid;
+  }
+
+  /** Resolves a player's RINCON UUID to its room handle. THROWS when unknown. */
+  private roomIdFor(uuid: string): string {
+    for (const [id, r] of this.roomIndex) {
+      if (r.member.uuid === uuid) return id;
+    }
+    throw new Error(`no room for player "${uuid}"`);
+  }
+
+  /** Resolves a group id to a ResolvedRoom anchored on the group's coordinator. */
+  private groupFor(groupId: string): ResolvedRoom {
+    const g = this.groupIndex.get(groupId);
+    if (!g) throw new Error(`unknown group "${groupId}"`);
+    const coord = coordinatorMember(g);
+    return { member: coord, group: g };
+  }
+
+  /** Maps an Api alarm's room handle back to the player UUID the service stores. */
+  private toAlarm({ roomId, ...rest }: ApiAlarm): Alarm {
+    return { ...rest, roomUuid: this.uuidFor(roomId) };
+  }
+}
+
+/**
+ * Duck-typed SMAPIFault check — deliberately NOT `instanceof`. tsup bundles each
+ * package entry separately, so the SMAPIFault thrown by the engine (the `.` entry,
+ * where smapiCall/parseSMAPIFault live) is a DIFFERENT class identity from the
+ * SMAPIFault this module (the `./state` entry) imports. `instanceof` across that
+ * boundary is always false, which is exactly why the token-refresh retry never
+ * fired in the packaged app. Match on the stable `name` instead.
+ */
+function isSMAPIFault(e: unknown): e is SMAPIFault {
+  return e instanceof Error && e.name === 'SMAPIFault';
+}
+
+/** Projects an engine browse entry onto the Api shape. */
+function toApiBrowseItem(item: BrowseItem): ApiBrowseItem {
+  const { albumArtUrl, ...rest } = item;
+  return { ...rest, artUrl: albumArtUrl };
+}
+
+/** Projects an Api browse entry back onto the engine shape. */
+function fromApiBrowseItem(item: ApiBrowseItem): BrowseItem {
+  const { artUrl, ...rest } = item;
+  return { ...rest, albumArtUrl: artUrl };
 }

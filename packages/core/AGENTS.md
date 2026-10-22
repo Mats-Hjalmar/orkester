@@ -12,8 +12,9 @@ public API and how to test it, see [README.md](./README.md). Workspace rules:
   import-graph walk — the ONLY check that catches a leak; an `expo export` green does
   not). Need a Node capability in the engine? Inject it through an
   `HttpTransport`/`DiscoveryTransport` implemented under `src/node/**`.
-- **`parseTagValue: false`** is frozen in `src/engine/soap.ts` `parserOptions` and
-  pinned by `src/engine/__tests__/soap.test.ts` (asserts the option *and* that
+- **`parseTagValue: false`** is frozen in `@orkester/sonos-api`'s `src/soap.ts`
+  `parserOptions` (re-exported by `src/engine/soap.ts`) and pinned by
+  `packages/sonos-api/src/__tests__/soap.test.ts` (asserts the option *and* that
   `<X>0714</X>` parses to the string `'0714'`). Numeric coercion would silently
   change types / drop leading zeros. Callers convert numbers explicitly.
 - **No silent fallbacks.** `discoverOne` throws on zero responders; `resolveRoom`
@@ -27,14 +28,19 @@ public API and how to test it, see [README.md](./README.md). Workspace rules:
 
 ## Routing rule (SonosClient facade)
 
-AVTransport actions (play/pause/next/previous/getNowPlaying/seek/playmode) →
-group **coordinator** base URL. RenderingControl (get/setVolume, get/setMute) →
-**named player** base URL. Grouping join/leave → the **member's own** base URL.
+AVTransport and GroupRenderingControl actions (transport, queue, play mode,
+crossfade, sleep timer, line-in/TV source, group volume/mute) → group
+**coordinator** base URL. RenderingControl (volume, mute, bass, treble, loudness,
+EQ) and DeviceProperties → **named player** base URL. Grouping join/leave → the
+**member's own** base URL. ContentDirectory and AlarmClock are household-wide, so
+any player answers. `coordinatorDevice` / `playerDevice` hand out the full
+`SonosDevice` for anything the facade does not wrap.
 
 ## Layout & tests
 
-`src/engine` = protocol modules (ssdp, device, soap, topology, control, smapi,
-musicservices, client) + the shared XML helpers in `xml.ts`. `src/state` = the
+`src/engine` = protocol modules (ssdp, device, topology, control, library, smapi,
+musicservices, client); `soap.ts` and `xml.ts` re-export `@orkester/sonos-api`.
+The `build` script builds sonos-api first, and tsup inlines it (`noExternal`). `src/state` = the
 store, reducer, and the engine-backed `Api` impl (`SonosApi`). `src/node` = the
 only Node adapters. Tests are co-located in `__tests__/` beside the code they cover
 (`bun run --cwd packages/core test`).

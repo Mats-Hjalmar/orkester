@@ -1,0 +1,5117 @@
+{
+  "services": [
+    {
+      "name": "AVTransport",
+      "serviceType": "urn:schemas-upnp-org:service:AVTransport:1",
+      "serviceId": "urn:upnp-org:serviceId:AVTransport",
+      "controlURL": "/MediaRenderer/AVTransport/Control",
+      "eventSubURL": "/MediaRenderer/AVTransport/Event",
+      "actions": [
+        {
+          "name": "AddMultipleURIsToQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumberOfURIs",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueuedURIs",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "EnqueuedURIsMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ContainerURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ContainerMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredFirstTrackNumberEnqueued",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueueAsNext",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "FirstTrackNumberEnqueued",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumTracksAdded",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "AddURIToQueue",
+          "description": "Adds songs to the SONOS queue",
+          "remarks": "In NORMAL play mode the songs are added prior to the specified `DesiredFirstTrackNumberEnqueued`.",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueuedURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "EnqueuedURIMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredFirstTrackNumberEnqueued",
+              "direction": "in",
+              "dataType": "ui4",
+              "description": "use `0` to add at the end or `1` to insert at the beginning"
+            },
+            {
+              "name": "EnqueueAsNext",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "FirstTrackNumberEnqueued",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumTracksAdded",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "AddURIToSavedQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueuedURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "EnqueuedURIMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AddAtIndex",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumTracksAdded",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "BackupQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "BecomeCoordinatorOfStandaloneGroup",
+          "description": "Leave the current group and revert to a single player.",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DelegatedGroupCoordinatorID",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "NewGroupID",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "BecomeGroupCoordinator",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentCoordinator",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentGroupID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "OtherMembers",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "TransportSettings",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentURIMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "SleepTimerState",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AlarmState",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "StreamRestartState",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentQueueTrackList",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentVLIState",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "BecomeGroupCoordinatorAndSource",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentCoordinator",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentGroupID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "OtherMembers",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentURIMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "SleepTimerState",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AlarmState",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "StreamRestartState",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentAVTTrackList",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentQueueTrackList",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentSourceState",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ResumePlayback",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "ChangeCoordinator",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentCoordinator",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewCoordinator",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewTransportSettings",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentAVTransportURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "RestartSink",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "ChangeTransportSettings",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewTransportSettings",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentAVTransportURI",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ConfigureSleepTimer",
+          "description": "Stop playing after set sleep timer or cancel",
+          "remarks": "Send to non-coordinator returns error code 800",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewSleepTimerDuration",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Time to stop after, as `hh:mm:ss` or empty string to cancel"
+            }
+          ]
+        },
+        {
+          "name": "CreateSavedQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Title",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "EnqueuedURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "EnqueuedURIMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NumTracksAdded",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AssignedObjectID",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "DelegateGroupCoordinationTo",
+          "description": "Delegates the coordinator role to another player in the same group",
+          "remarks": "Send to non-coordinator has no results - should be avoided.",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewCoordinator",
+              "direction": "in",
+              "dataType": "string",
+              "description": "uuid of the new coordinator - must be in same group"
+            },
+            {
+              "name": "RejoinGroup",
+              "direction": "in",
+              "dataType": "boolean",
+              "description": "Should former coordinator rejoin the group?"
+            }
+          ]
+        },
+        {
+          "name": "EndDirectControlSession",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "GetCrossfadeMode",
+          "description": "Get crossfade mode",
+          "remarks": "Send to non-coordinator may return wrong value as only the coordinator value in a group",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CrossfadeMode",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetCurrentTransportActions",
+          "description": "Get current transport actions such as Set, Stop, Pause, Play, X_DLNA_SeekTime, Next, X_DLNA_SeekTrackNr",
+          "remarks": "Send to non-coordinator returns only `Start` and `Stop` since it cannot control the stream.",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Actions",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetDeviceCapabilities",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "PlayMedia",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "RecMedia",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "RecQualityModes",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetMediaInfo",
+          "description": "Get information about the current playing media (queue)",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NrTracks",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "MediaDuration",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentURIMetaData",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "NextURI",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "NextURIMetaData",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "PlayMedium",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "NONE",
+                "NETWORK"
+              ]
+            },
+            {
+              "name": "RecordMedium",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "NONE"
+              ]
+            },
+            {
+              "name": "WriteStatus",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetPositionInfo",
+          "description": "Get information about current position (position in queue and time in current song)",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Track",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "TrackDuration",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "TrackMetaData",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "TrackURI",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "RelTime",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "AbsTime",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "RelCount",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "AbsCount",
+              "direction": "out",
+              "dataType": "i4"
+            }
+          ]
+        },
+        {
+          "name": "GetRemainingSleepTimerDuration",
+          "description": "Get time left on sleeptimer.",
+          "remarks": "Send to non-coordinator returns error code 800",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "RemainingSleepTimerDuration",
+              "direction": "out",
+              "dataType": "string",
+              "description": "Format hh:mm:ss or empty string if not set"
+            },
+            {
+              "name": "CurrentSleepTimerGeneration",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "GetRunningAlarmProperties",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AlarmID",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "GroupID",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "LoggedStartTime",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetTransportInfo",
+          "description": "Get current transport status, speed and state such as PLAYING, STOPPED, PLAYING, PAUSED_PLAYBACK, TRANSITIONING, NO_MEDIA_PRESENT",
+          "remarks": "Send to non-coordinator always returns PLAYING",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentTransportState",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "STOPPED",
+                "PLAYING",
+                "PAUSED_PLAYBACK",
+                "TRANSITIONING"
+              ]
+            },
+            {
+              "name": "CurrentTransportStatus",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentSpeed",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "1"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "GetTransportSettings",
+          "description": "Get transport settings",
+          "remarks": "Send to non-coordinator returns the settings of it's queue",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "PlayMode",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "NORMAL",
+                "REPEAT_ALL",
+                "REPEAT_ONE",
+                "SHUFFLE_NOREPEAT",
+                "SHUFFLE",
+                "SHUFFLE_REPEAT_ONE"
+              ]
+            },
+            {
+              "name": "RecQualityMode",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Next",
+          "description": "Go to next song",
+          "remarks": "Possibly not supported at the moment see GetCurrentTransportActions",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "NotifyDeletedURI",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DeletedURI",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Pause",
+          "description": "Pause playback",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "Play",
+          "description": "Start playing the set TransportURI",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Speed",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "1"
+              ],
+              "description": "Play speed usually 1, can be a fraction of 1"
+            }
+          ]
+        },
+        {
+          "name": "Previous",
+          "description": "Go to previous song",
+          "remarks": "Possibly not supported at the moment see GetCurrentTransportActions",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RemoveAllTracksFromQueue",
+          "description": "Flushes the SONOS queue.",
+          "remarks": "If queue is already empty it throw error 804. Send to non-coordinator returns error code 800.",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RemoveTrackFromQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RemoveTrackRangeFromQueue",
+          "description": "Removes the specified range of songs from the SONOS queue.",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4",
+              "description": "Leave blank"
+            },
+            {
+              "name": "StartingIndex",
+              "direction": "in",
+              "dataType": "ui4",
+              "description": "between 1 and queue-length"
+            },
+            {
+              "name": "NumberOfTracks",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "ReorderTracksInQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "StartingIndex",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumberOfTracks",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "InsertBefore",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "ReorderTracksInSavedQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "TrackList",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewPositionList",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "QueueLengthChange",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RunAlarm",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AlarmID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "LoggedStartTime",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Duration",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ProgramURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ProgramMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "PlayMode",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "NORMAL",
+                "REPEAT_ALL",
+                "REPEAT_ONE",
+                "SHUFFLE_NOREPEAT",
+                "SHUFFLE",
+                "SHUFFLE_REPEAT_ONE"
+              ]
+            },
+            {
+              "name": "Volume",
+              "direction": "in",
+              "dataType": "ui2"
+            },
+            {
+              "name": "IncludeLinkedZones",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "SaveQueue",
+          "description": "Saves the current SONOS queue as a SONOS playlist and outputs objectID",
+          "remarks": "Send to non-coordinator returns error code 800",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Title",
+              "direction": "in",
+              "dataType": "string",
+              "description": "SONOS playlist title"
+            },
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Leave blank"
+            },
+            {
+              "name": "AssignedObjectID",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Seek",
+          "description": "Seek track in queue, time delta or absolute time in song",
+          "remarks": "Returns error code 701 in case that content does not support Seek or send to non-coordinator",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Unit",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "TRACK_NR",
+                "REL_TIME",
+                "TIME_DELTA"
+              ],
+              "description": "What to seek"
+            },
+            {
+              "name": "Target",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Position of track in queue (start at 1) or `hh:mm:ss` for `REL_TIME` or `+/-hh:mm:ss` for `TIME_DELTA`"
+            }
+          ]
+        },
+        {
+          "name": "SetAVTransportURI",
+          "description": "Set the transport URI to a song, a stream, the queue, another player-rincon and a lot more",
+          "remarks": "If set to another player RINCON, the player is grouped with that one.",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The new TransportURI - its a special SONOS format"
+            },
+            {
+              "name": "CurrentURIMetaData",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Track Metadata, see MetadataHelper.GuessTrack to guess based on track uri"
+            }
+          ]
+        },
+        {
+          "name": "SetCrossfadeMode",
+          "description": "Set crossfade mode",
+          "remarks": "Send to non-coordinator returns error code 800. Same for content, which does not support crossfade mode.",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CrossfadeMode",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "SetNextAVTransportURI",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NextURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NextURIMetaData",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetPlayMode",
+          "description": "Set the PlayMode",
+          "remarks": "Send to non-coordinator returns error code 712. If SONOS queue is not activated returns error code 712.",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewPlayMode",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "NORMAL",
+                "REPEAT_ALL",
+                "REPEAT_ONE",
+                "SHUFFLE_NOREPEAT",
+                "SHUFFLE",
+                "SHUFFLE_REPEAT_ONE"
+              ],
+              "description": "New playmode"
+            }
+          ]
+        },
+        {
+          "name": "SnoozeAlarm",
+          "description": "Snooze the current alarm for some time.",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Duration",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Snooze time as `hh:mm:ss`, 10 minutes = 00:10:00"
+            }
+          ]
+        },
+        {
+          "name": "StartAutoplay",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ProgramURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ProgramMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Volume",
+              "direction": "in",
+              "dataType": "ui2"
+            },
+            {
+              "name": "IncludeLinkedZones",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "ResetVolumeAfter",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "Stop",
+          "description": "Stop playback",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "LastChange"
+      ],
+      "description": "Service that controls stuff related to transport (play/pause/next/special URLs)"
+    },
+    {
+      "name": "AlarmClock",
+      "serviceType": "urn:schemas-upnp-org:service:AlarmClock:1",
+      "serviceId": "urn:upnp-org:serviceId:AlarmClock",
+      "controlURL": "/AlarmClock/Control",
+      "eventSubURL": "/AlarmClock/Event",
+      "actions": [
+        {
+          "name": "CreateAlarm",
+          "description": "Create a single alarm, all properties are required",
+          "remarks": "",
+          "args": [
+            {
+              "name": "StartLocalTime",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The start time as `hh:mm:ss`"
+            },
+            {
+              "name": "Duration",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The duration as `hh:mm:ss`"
+            },
+            {
+              "name": "Recurrence",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "ONCE",
+                "WEEKDAYS",
+                "WEEKENDS",
+                "DAILY"
+              ],
+              "description": "Repeat this alarm on"
+            },
+            {
+              "name": "Enabled",
+              "direction": "in",
+              "dataType": "boolean",
+              "description": "Alarm enabled after creation"
+            },
+            {
+              "name": "RoomUUID",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The UUID of the speaker you want this alarm for"
+            },
+            {
+              "name": "ProgramURI",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The sound uri"
+            },
+            {
+              "name": "ProgramMetaData",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The sound metadata, can be empty string"
+            },
+            {
+              "name": "PlayMode",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "NORMAL",
+                "REPEAT_ALL",
+                "SHUFFLE_NOREPEAT",
+                "SHUFFLE"
+              ],
+              "description": "Alarm play mode"
+            },
+            {
+              "name": "Volume",
+              "direction": "in",
+              "dataType": "ui2",
+              "description": "Volume between 0 and 100"
+            },
+            {
+              "name": "IncludeLinkedZones",
+              "direction": "in",
+              "dataType": "boolean",
+              "description": "Should grouped players also play the alarm?"
+            },
+            {
+              "name": "AssignedID",
+              "direction": "out",
+              "dataType": "ui4",
+              "description": "The ID of the new alarm"
+            }
+          ]
+        },
+        {
+          "name": "DestroyAlarm",
+          "description": "Delete an alarm",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ID",
+              "direction": "in",
+              "dataType": "ui4",
+              "description": "The Alarm ID from ListAlarms"
+            }
+          ]
+        },
+        {
+          "name": "GetDailyIndexRefreshTime",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentDailyIndexRefreshTime",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetFormat",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentTimeFormat",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentDateFormat",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetHouseholdTimeAtStamp",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "TimeStamp",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "HouseholdUTCTime",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetTimeNow",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentUTCTime",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentLocalTime",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentTimeZone",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentTimeGeneration",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "GetTimeServer",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentTimeServer",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetTimeZone",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Index",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "AutoAdjustDst",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetTimeZoneAndRule",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Index",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "AutoAdjustDst",
+              "direction": "out",
+              "dataType": "boolean"
+            },
+            {
+              "name": "CurrentTimeZone",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetTimeZoneRule",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Index",
+              "direction": "in",
+              "dataType": "i4"
+            },
+            {
+              "name": "TimeZone",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ListAlarms",
+          "description": "Get the AlarmList as XML",
+          "remarks": "Some libraries also provide a ListAndParseAlarms where the alarm list xml is parsed",
+          "args": [
+            {
+              "name": "CurrentAlarmList",
+              "direction": "out",
+              "dataType": "string",
+              "description": "xml string, see remarks"
+            },
+            {
+              "name": "CurrentAlarmListVersion",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetDailyIndexRefreshTime",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredDailyIndexRefreshTime",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetFormat",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredTimeFormat",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredDateFormat",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetTimeNow",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredTime",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "TimeZoneForDesiredTime",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetTimeServer",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredTimeServer",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetTimeZone",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Index",
+              "direction": "in",
+              "dataType": "i4"
+            },
+            {
+              "name": "AutoAdjustDst",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "UpdateAlarm",
+          "description": "Update an alarm, all parameters are required.",
+          "remarks": "Some libraries support PatchAlarm where you can update a single parameter",
+          "args": [
+            {
+              "name": "ID",
+              "direction": "in",
+              "dataType": "ui4",
+              "description": "The ID of the alarm see ListAlarms"
+            },
+            {
+              "name": "StartLocalTime",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The start time as `hh:mm:ss`"
+            },
+            {
+              "name": "Duration",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The duration as `hh:mm:ss`"
+            },
+            {
+              "name": "Recurrence",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "ONCE",
+                "WEEKDAYS",
+                "WEEKENDS",
+                "DAILY"
+              ],
+              "description": "Repeat this alarm on"
+            },
+            {
+              "name": "Enabled",
+              "direction": "in",
+              "dataType": "boolean",
+              "description": "Alarm enabled after creation"
+            },
+            {
+              "name": "RoomUUID",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The UUID of the speaker you want this alarm for"
+            },
+            {
+              "name": "ProgramURI",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The sound uri"
+            },
+            {
+              "name": "ProgramMetaData",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The sound metadata, can be empty string"
+            },
+            {
+              "name": "PlayMode",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "NORMAL",
+                "REPEAT_ALL",
+                "SHUFFLE_NOREPEAT",
+                "SHUFFLE"
+              ],
+              "description": "Alarm play mode"
+            },
+            {
+              "name": "Volume",
+              "direction": "in",
+              "dataType": "ui2",
+              "description": "Volume between 0 and 100"
+            },
+            {
+              "name": "IncludeLinkedZones",
+              "direction": "in",
+              "dataType": "boolean",
+              "description": "Should grouped players also play the alarm?"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "AlarmListVersion",
+        "DailyIndexRefreshTime",
+        "DateFormat",
+        "TimeFormat",
+        "TimeGeneration",
+        "TimeServer",
+        "TimeZone"
+      ],
+      "description": "Control the sonos alarms and times"
+    },
+    {
+      "name": "AudioIn",
+      "serviceType": "urn:schemas-upnp-org:service:AudioIn:1",
+      "serviceId": "urn:upnp-org:serviceId:AudioIn",
+      "controlURL": "/AudioIn/Control",
+      "eventSubURL": "/AudioIn/Event",
+      "actions": [
+        {
+          "name": "GetAudioInputAttributes",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentName",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentIcon",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetLineInLevel",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentLeftLineInLevel",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "CurrentRightLineInLevel",
+              "direction": "out",
+              "dataType": "i4"
+            }
+          ]
+        },
+        {
+          "name": "SelectAudio",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetAudioInputAttributes",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredName",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredIcon",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetLineInLevel",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredLeftLineInLevel",
+              "direction": "in",
+              "dataType": "i4"
+            },
+            {
+              "name": "DesiredRightLineInLevel",
+              "direction": "in",
+              "dataType": "i4"
+            }
+          ]
+        },
+        {
+          "name": "StartTransmissionToGroup",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CoordinatorID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentTransportSettings",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "StopTransmissionToGroup",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CoordinatorID",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "AudioInputName",
+        "Icon",
+        "LeftLineInLevel",
+        "LineInConnected",
+        "Playing",
+        "RightLineInLevel"
+      ],
+      "description": "Control line in"
+    },
+    {
+      "name": "ConnectionManager",
+      "serviceType": "urn:schemas-upnp-org:service:ConnectionManager:1",
+      "serviceId": "urn:upnp-org:serviceId:ConnectionManager",
+      "controlURL": "/MediaRenderer/ConnectionManager/Control",
+      "eventSubURL": "/MediaRenderer/ConnectionManager/Event",
+      "actions": [
+        {
+          "name": "GetCurrentConnectionIDs",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ConnectionIDs",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetCurrentConnectionInfo",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ConnectionID",
+              "direction": "in",
+              "dataType": "i4"
+            },
+            {
+              "name": "RcsID",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "AVTransportID",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "ProtocolInfo",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "PeerConnectionManager",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "PeerConnectionID",
+              "direction": "out",
+              "dataType": "i4"
+            },
+            {
+              "name": "Direction",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "Input",
+                "Output"
+              ]
+            },
+            {
+              "name": "Status",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "OK",
+                "ContentFormatMismatch",
+                "InsufficientBandwidth",
+                "UnreliableChannel",
+                "Unknown"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "GetProtocolInfo",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Source",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "Sink",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "CurrentConnectionIDs",
+        "SinkProtocolInfo",
+        "SourceProtocolInfo"
+      ],
+      "description": "Services related to connections and protocols"
+    },
+    {
+      "name": "ContentDirectory",
+      "serviceType": "urn:schemas-upnp-org:service:ContentDirectory:1",
+      "serviceId": "urn:upnp-org:serviceId:ContentDirectory",
+      "controlURL": "/MediaServer/ContentDirectory/Control",
+      "eventSubURL": "/MediaServer/ContentDirectory/Event",
+      "actions": [
+        {
+          "name": "Browse",
+          "description": "Browse for content: Music library (A), share(S:), Sonos playlists(SQ:), Sonos favorites(FV:2), radio stations(R:0/0), radio shows(R:0/1), queue(Q:)). Recommendation: Send one request, check the `TotalMatches` and - if necessary - do additional requests with higher `StartingIndex`. In case of duplicates only the first is returned! Example: albums with same title, even if artists are different",
+          "remarks": "(1) If the title contains an apostrophe the returned uri will contain a `&apos;`. (2) Some libraries support a BrowseAndParse, so you don't have to parse the xml.",
+          "args": [
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The search query, (`A:ARTIST` / `A:ALBUMARTIST` / `A:ALBUM` / `A:GENRE` / `A:COMPOSER` / `A:TRACKS` / `A:PLAYLISTS` / `FV:2` / `Q:`/ `R:0/0` / `R:0/1` / `S:` / `SQ:`) with optionally `:search+query` behind it."
+            },
+            {
+              "name": "BrowseFlag",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "BrowseMetadata",
+                "BrowseDirectChildren"
+              ],
+              "description": "How to browse"
+            },
+            {
+              "name": "Filter",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Which fields should be returned `*` for all."
+            },
+            {
+              "name": "StartingIndex",
+              "direction": "in",
+              "dataType": "ui4",
+              "description": "Paging, where to start, usually 0"
+            },
+            {
+              "name": "RequestedCount",
+              "direction": "in",
+              "dataType": "ui4",
+              "description": "Paging, number of items, maximum is 1,000. This parameter does NOT restrict the number of items being searched (filter) but only the number being returned. Using 0 is equivalent to 1,000"
+            },
+            {
+              "name": "SortCriteria",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Sort the results based on metadata fields. `+upnp:artist,+dc:title` for sorting on artist then on title."
+            },
+            {
+              "name": "Result",
+              "direction": "out",
+              "dataType": "string",
+              "description": "Encoded DIDL-Lite XML. See remark (2)"
+            },
+            {
+              "name": "NumberReturned",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "TotalMatches",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "CreateObject",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ContainerID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Elements",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ObjectID",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "Result",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "DestroyObject",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "FindPrefix",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Prefix",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "StartingIndex",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "GetAlbumArtistDisplayOption",
+          "description": "Get the current album art display option such as `WMP`, `ITUNES` or `NONE`",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AlbumArtistDisplayOption",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetAllPrefixLocations",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "TotalPrefixes",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "PrefixAndIndexCSV",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "GetBrowseable",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "IsBrowseable",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetLastIndexChange",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "LastIndexChange",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetSearchCapabilities",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "SearchCaps",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetShareIndexInProgress",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "IsIndexing",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetSortCapabilities",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "SortCaps",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetSystemUpdateID",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Id",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RefreshShareIndex",
+          "description": "Updates the music library (share) index",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AlbumArtistDisplayOption",
+              "direction": "in",
+              "dataType": "string",
+              "description": "`WMP`, `ITUNES` or `NONE`"
+            }
+          ]
+        },
+        {
+          "name": "RequestResort",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "SortOrder",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetBrowseable",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Browseable",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "UpdateObject",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentTagValue",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewTagValue",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "Browseable",
+        "ContainerUpdateIDs",
+        "FavoritePresetsUpdateID",
+        "FavoritesUpdateID",
+        "RadioFavoritesUpdateID",
+        "RadioLocationUpdateID",
+        "RecentlyPlayedUpdateID",
+        "SavedQueuesUpdateID",
+        "ShareIndexInProgress",
+        "ShareIndexLastError",
+        "ShareListUpdateID",
+        "SystemUpdateID",
+        "UserRadioUpdateID"
+      ],
+      "description": "Browse for local content"
+    },
+    {
+      "name": "DeviceProperties",
+      "serviceType": "urn:schemas-upnp-org:service:DeviceProperties:1",
+      "serviceId": "urn:upnp-org:serviceId:DeviceProperties",
+      "controlURL": "/DeviceProperties/Control",
+      "eventSubURL": "/DeviceProperties/Event",
+      "actions": [
+        {
+          "name": "AddBondedZones",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ChannelMapSet",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "AddHTSatellite",
+          "description": "Adds satellites and/or a sub woofer to a (main) player. The satellites become hidden. The main player RINCON_* is mandatory. RR: right - rear, LF: left - front, SW: subwoofer",
+          "remarks": "Not all speakers support satellites or sub woofer. Satellites should be of same type (e.g. Play:1)",
+          "args": [
+            {
+              "name": "HTSatChanMapSet",
+              "direction": "in",
+              "dataType": "string",
+              "description": "example: `RINCON_000PPP1400:LF,RF;RINCON_000RRR1400:RR;RINCON_000SSS1400:LR;RINCON_000QQQ1400:SW`"
+            }
+          ]
+        },
+        {
+          "name": "CreateStereoPair",
+          "description": "Create a stereo pair (left, right speakers), right one becomes hidden",
+          "remarks": "Not all speakers support StereoPairs",
+          "args": [
+            {
+              "name": "ChannelMapSet",
+              "direction": "in",
+              "dataType": "string",
+              "description": "example: `RINCON_B8E9375831C001400:LF,LF;RINCON_000E58FE3AEA01400:RF,RF`"
+            }
+          ]
+        },
+        {
+          "name": "EnterConfigMode",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Mode",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Options",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "State",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ExitConfigMode",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Options",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetAutoplayLinkedZones",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "IncludeLinkedZones",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetAutoplayRoomUUID",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "RoomUUID",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetAutoplayVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentVolume",
+              "direction": "out",
+              "dataType": "ui2"
+            }
+          ]
+        },
+        {
+          "name": "GetButtonLockState",
+          "description": "Get the current button lock state",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentButtonLockState",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "GetButtonState",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "State",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetHTForwardState",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "IsHTForwardEnabled",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetHouseholdID",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentHouseholdID",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetLEDState",
+          "description": "Get the current LED state",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentLEDState",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "GetUseAutoplayVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "UseVolume",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetZoneAttributes",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentZoneName",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentIcon",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentConfiguration",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentTargetRoomName",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetZoneInfo",
+          "description": "Get information about this specific speaker",
+          "remarks": "",
+          "args": [
+            {
+              "name": "SerialNumber",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "SoftwareVersion",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "DisplaySoftwareVersion",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "HardwareVersion",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "IPAddress",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "MACAddress",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CopyrightInfo",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "ExtraInfo",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "HTAudioIn",
+              "direction": "out",
+              "dataType": "ui4",
+              "description": "SPDIF input, `0` not connected / `2` stereo / `7` Dolby 2.0 / `18` dolby 5.1 / `21` not listening / `22` silence"
+            },
+            {
+              "name": "Flags",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RemoveBondedZones",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ChannelMapSet",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "KeepGrouped",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "RemoveHTSatellite",
+          "description": "Removes a satellite or a sub woofer from (main) player. The satellite becomes visible.",
+          "remarks": "Not all speakers support satellites or sub woofer. Multiples RINCON_* are not allowed.",
+          "args": [
+            {
+              "name": "SatRoomUUID",
+              "direction": "in",
+              "dataType": "string",
+              "description": "example: `RINCON_000RRR1400`"
+            }
+          ]
+        },
+        {
+          "name": "RoomDetectionStartChirping",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "ui2"
+            },
+            {
+              "name": "DurationMilliseconds",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ChirpIfPlayingSwappableAudio",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "PlayId",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RoomDetectionStopChirping",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "PlayId",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "SeparateStereoPair",
+          "description": "Separate a stereo pair",
+          "remarks": "Not all speakers support StereoPairs",
+          "args": [
+            {
+              "name": "ChannelMapSet",
+              "direction": "in",
+              "dataType": "string",
+              "description": "example: `RINCON_B8E9375831C001400:LF,LF;RINCON_000E58FE3AEA01400:RF,RF`"
+            }
+          ]
+        },
+        {
+          "name": "SetAutoplayLinkedZones",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "IncludeLinkedZones",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetAutoplayRoomUUID",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "RoomUUID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetAutoplayVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Volume",
+              "direction": "in",
+              "dataType": "ui2"
+            },
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetButtonLockState",
+          "description": "Set the button lock state",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredButtonLockState",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "SetLEDState",
+          "description": "Set the LED state",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredLEDState",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "SetUseAutoplayVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "UseVolume",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "Source",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetZoneAttributes",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredZoneName",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredIcon",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredConfiguration",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredTargetRoomName",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "AirPlayEnabled",
+        "AvailableHeadphoneSessions",
+        "AvailableRoomCalibration",
+        "BehindWifiExtender",
+        "ChannelFreq",
+        "ChannelMapSet",
+        "ConfigMode",
+        "Configuration",
+        "ConnectionType",
+        "EthLink",
+        "HTBondedZoneCommitState",
+        "HTFreq",
+        "HTSatChanMapSet",
+        "HasConfiguredSSID",
+        "HdmiCecAvailable",
+        "HeadphoneId",
+        "Icon",
+        "Invisible",
+        "IsIdle",
+        "IsZoneBridge",
+        "LastChangedPlayState",
+        "MicEnabled",
+        "MoreInfo",
+        "Orientation",
+        "RoomCalibrationState",
+        "SecureRegState",
+        "SettingsReplicationState",
+        "SupportsAudioClip",
+        "SupportsAudioIn",
+        "SvcActive",
+        "TVConfigurationError",
+        "VoiceConfigState",
+        "WifiEnabled",
+        "WirelessLeafOnly",
+        "WirelessMode",
+        "ZoneName"
+      ],
+      "description": "Modify device properties, like LED status and stereo pairs"
+    },
+    {
+      "name": "GroupManagement",
+      "serviceType": "urn:schemas-upnp-org:service:GroupManagement:1",
+      "serviceId": "urn:upnp-org:serviceId:GroupManagement",
+      "controlURL": "/GroupManagement/Control",
+      "eventSubURL": "/GroupManagement/Event",
+      "actions": [
+        {
+          "name": "AddMember",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "MemberID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "BootSeq",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentTransportSettings",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentURI",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "GroupUUIDJoined",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "ResetVolumeAfter",
+              "direction": "out",
+              "dataType": "boolean"
+            },
+            {
+              "name": "VolumeAVTransportURI",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "RemoveMember",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "MemberID",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ReportTrackBufferingResult",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "MemberID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ResultCode",
+              "direction": "in",
+              "dataType": "i4"
+            }
+          ]
+        },
+        {
+          "name": "SetSourceAreaIds",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredSourceAreaIds",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "GroupCoordinatorIsLocal",
+        "LocalGroupUUID",
+        "ResetVolumeAfter",
+        "VirtualLineInGroupID",
+        "VolumeAVTransportURI"
+      ],
+      "description": "Services related to groups"
+    },
+    {
+      "name": "GroupRenderingControl",
+      "serviceType": "urn:schemas-upnp-org:service:GroupRenderingControl:1",
+      "serviceId": "urn:upnp-org:serviceId:GroupRenderingControl",
+      "controlURL": "/MediaRenderer/GroupRenderingControl/Control",
+      "eventSubURL": "/MediaRenderer/GroupRenderingControl/Event",
+      "actions": [
+        {
+          "name": "GetGroupMute",
+          "description": "Get the group mute state.",
+          "remarks": "Should be send to coordinator only",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentMute",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetGroupVolume",
+          "description": "Get the group volume.",
+          "remarks": "Should be send to coordinator only",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentVolume",
+              "direction": "out",
+              "dataType": "ui2"
+            }
+          ]
+        },
+        {
+          "name": "SetGroupMute",
+          "description": "(Un-/)Mute the entire group",
+          "remarks": "Should be send to coordinator only",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DesiredMute",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "SetGroupVolume",
+          "description": "Change group volume. Players volume will be changed proportionally based on last snapshot",
+          "remarks": "Should be send to coordinator only",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DesiredVolume",
+              "direction": "in",
+              "dataType": "ui2",
+              "description": "New volume between 0 and 100"
+            }
+          ]
+        },
+        {
+          "name": "SetRelativeGroupVolume",
+          "description": "Relatively change group volume - returns final group volume. Players volume will be changed proportionally based on last snapshot",
+          "remarks": "Should be send to coordinator only",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Adjustment",
+              "direction": "in",
+              "dataType": "i4",
+              "description": "Number between -100 and +100"
+            },
+            {
+              "name": "NewVolume",
+              "direction": "out",
+              "dataType": "ui2"
+            }
+          ]
+        },
+        {
+          "name": "SnapshotGroupVolume",
+          "description": "Creates a new group volume snapshot,  the volume ratio between all players. It is used by SetGroupVolume and SetRelativeGroupVolume",
+          "remarks": "Should be send to coordinator only",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "GroupMute",
+        "GroupVolume",
+        "GroupVolumeChangeable"
+      ],
+      "description": "Volume related controls for groups"
+    },
+    {
+      "name": "HTControl",
+      "serviceType": "urn:schemas-upnp-org:service:HTControl:1",
+      "serviceId": "urn:upnp-org:serviceId:HTControl",
+      "controlURL": "/HTControl/Control",
+      "eventSubURL": "/HTControl/Event",
+      "actions": [
+        {
+          "name": "CommitLearnedIRCodes",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Name",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetIRRepeaterState",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentIRRepeaterState",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off",
+                "Disabled"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "GetLEDFeedbackState",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "LEDFeedbackState",
+              "direction": "out",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "IdentifyIRRemote",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Timeout",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "IsRemoteConfigured",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "RemoteConfigured",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "LearnIRCode",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "IRCode",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Timeout",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "SetIRRepeaterState",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DesiredIRRepeaterState",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off",
+                "Disabled"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "SetLEDFeedbackState",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "LEDFeedbackState",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "On",
+                "Off"
+              ]
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "IRRepeaterState",
+        "TOSLinkConnected"
+      ],
+      "description": "Service related to the TV remote control"
+    },
+    {
+      "name": "MusicServices",
+      "serviceType": "urn:schemas-upnp-org:service:MusicServices:1",
+      "serviceId": "urn:upnp-org:serviceId:MusicServices",
+      "controlURL": "/MusicServices/Control",
+      "eventSubURL": "/MusicServices/Event",
+      "actions": [
+        {
+          "name": "GetSessionId",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "ServiceId",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Username",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "SessionId",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ListAvailableServices",
+          "description": "Load music service list as xml",
+          "remarks": "Some libraries also support ListAndParseAvailableServices",
+          "args": [
+            {
+              "name": "AvailableServiceDescriptorList",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "AvailableServiceTypeList",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "AvailableServiceListVersion",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "UpdateAvailableServices",
+          "description": "",
+          "remarks": "",
+          "args": []
+        }
+      ],
+      "eventedVariables": [
+        "ServiceListVersion"
+      ],
+      "description": "Access to external music services, like Spotify or Youtube Music"
+    },
+    {
+      "name": "QPlay",
+      "serviceType": "urn:schemas-tencent-com:service:QPlay:1",
+      "serviceId": "urn:tencent-com:serviceId:QPlay",
+      "controlURL": "/QPlay/Control",
+      "eventSubURL": "/QPlay/Event",
+      "actions": [
+        {
+          "name": "QPlayAuth",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "Seed",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Code",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "MID",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "DID",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [],
+      "description": "Services related to Chinese Tencent Qplay service"
+    },
+    {
+      "name": "Queue",
+      "serviceType": "urn:schemas-sonos-com:service:Queue:1",
+      "serviceId": "urn:sonos-com:serviceId:Queue",
+      "controlURL": "/MediaRenderer/Queue/Control",
+      "eventSubURL": "/MediaRenderer/Queue/Event",
+      "actions": [
+        {
+          "name": "AddMultipleURIs",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ContainerURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ContainerMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredFirstTrackNumberEnqueued",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueueAsNext",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "NumberOfURIs",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueuedURIsAndMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "FirstTrackNumberEnqueued",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumTracksAdded",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "AddURI",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueuedURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "EnqueuedURIMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredFirstTrackNumberEnqueued",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueueAsNext",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "FirstTrackNumberEnqueued",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumTracksAdded",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "AttachQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueOwnerID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "QueueID",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "QueueOwnerContext",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Backup",
+          "description": "",
+          "remarks": "",
+          "args": []
+        },
+        {
+          "name": "Browse",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "StartingIndex",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "RequestedCount",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Result",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "NumberReturned",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "TotalMatches",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "CreateQueue",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueOwnerID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "QueueOwnerContext",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "QueuePolicy",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "QueueID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RemoveAllTracks",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "RemoveTrackRange",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "StartingIndex",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumberOfTracks",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "ReorderTracks",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "StartingIndex",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NumberOfTracks",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "InsertBefore",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "ReplaceAllTracks",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "UpdateID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ContainerURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ContainerMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentTrackIndex",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewCurrentTrackIndices",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NumberOfURIs",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EnqueuedURIsAndMetaData",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewQueueLength",
+              "direction": "out",
+              "dataType": "ui4"
+            },
+            {
+              "name": "NewUpdateID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "SaveAsSonosPlaylist",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "QueueID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Title",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "ObjectID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AssignedObjectID",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "LastChange"
+      ],
+      "description": "Modify and browse queues"
+    },
+    {
+      "name": "RenderingControl",
+      "serviceType": "urn:schemas-upnp-org:service:RenderingControl:1",
+      "serviceId": "urn:upnp-org:serviceId:RenderingControl",
+      "controlURL": "/MediaRenderer/RenderingControl/Control",
+      "eventSubURL": "/MediaRenderer/RenderingControl/Event",
+      "actions": [
+        {
+          "name": "GetBass",
+          "description": "Get bass level between -10 and 10",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentBass",
+              "direction": "out",
+              "dataType": "i2"
+            }
+          ]
+        },
+        {
+          "name": "GetEQ",
+          "description": "Get equalizer value",
+          "remarks": "Not all EQ types are available on every speaker",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EQType",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Allowed values `DialogLevel` (string, 1\u20134 on supported devices: 1 = low, 2 = medium, 3 = high, 4 = max) / `SpeechEnhanceEnabled` (bool) / `MusicSurroundLevel` (-15/+15) / `NightMode` (bool) / `SubGain` (-10/+10) / `SurroundEnable` (bool) / `SurroundLevel` (-15/+15) / `SurroundMode` (0 = ambient, 1 = full) / `HeightChannelLevel` (-10/+10)"
+            },
+            {
+              "name": "CurrentValue",
+              "direction": "out",
+              "dataType": "i2",
+              "description": "Booleans return `1` / `0`; `DialogLevel` returns a string value representing the dialog intensity level, rest return number as specified"
+            }
+          ]
+        },
+        {
+          "name": "GetHeadphoneConnected",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentHeadphoneConnected",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetLoudness",
+          "description": "Whether or not Loudness is on",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "CurrentLoudness",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetMute",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "CurrentMute",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetOutputFixed",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentFixed",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetRoomCalibrationStatus",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "RoomCalibrationEnabled",
+              "direction": "out",
+              "dataType": "boolean"
+            },
+            {
+              "name": "RoomCalibrationAvailable",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetSupportsOutputFixed",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentSupportsFixed",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetTreble",
+          "description": "Get treble",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CurrentTreble",
+              "direction": "out",
+              "dataType": "i2",
+              "description": "Number between -10 and 10"
+            }
+          ]
+        },
+        {
+          "name": "GetVolume",
+          "description": "Get volume",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "CurrentVolume",
+              "direction": "out",
+              "dataType": "ui2",
+              "description": "Number between 0 and 100"
+            }
+          ]
+        },
+        {
+          "name": "GetVolumeDB",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "CurrentVolume",
+              "direction": "out",
+              "dataType": "i2"
+            }
+          ]
+        },
+        {
+          "name": "GetVolumeDBRange",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "MinValue",
+              "direction": "out",
+              "dataType": "i2"
+            },
+            {
+              "name": "MaxValue",
+              "direction": "out",
+              "dataType": "i2"
+            }
+          ]
+        },
+        {
+          "name": "RampToVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "RampType",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "SLEEP_TIMER_RAMP_TYPE",
+                "ALARM_RAMP_TYPE",
+                "AUTOPLAY_RAMP_TYPE"
+              ]
+            },
+            {
+              "name": "DesiredVolume",
+              "direction": "in",
+              "dataType": "ui2"
+            },
+            {
+              "name": "ResetVolumeAfter",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "ProgramURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "RampTime",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "ResetBasicEQ",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Bass",
+              "direction": "out",
+              "dataType": "i2"
+            },
+            {
+              "name": "Treble",
+              "direction": "out",
+              "dataType": "i2"
+            },
+            {
+              "name": "Loudness",
+              "direction": "out",
+              "dataType": "boolean"
+            },
+            {
+              "name": "LeftVolume",
+              "direction": "out",
+              "dataType": "ui2"
+            },
+            {
+              "name": "RightVolume",
+              "direction": "out",
+              "dataType": "ui2"
+            }
+          ]
+        },
+        {
+          "name": "ResetExtEQ",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EQType",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "RestoreVolumePriorToRamp",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "SetBass",
+          "description": "Set bass level, between -10 and 10",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DesiredBass",
+              "direction": "in",
+              "dataType": "i2"
+            }
+          ]
+        },
+        {
+          "name": "SetChannelMap",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ChannelMap",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetEQ",
+          "description": "Set equalizer value for different types",
+          "remarks": "On newer devices (e.g. Arc Ultra), dialog enhancement on/off is controlled via `SpeechEnhanceEnabled`, while `DialogLevel` represents the intensity level (1 = low, 2 = medium, 3 = high, 4 = max) and does not return 0 when disabled. Not all EQ types are available on every speaker. Not supported by all speakers, TV related",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "EQType",
+              "direction": "in",
+              "dataType": "string",
+              "description": "Allowed values `DialogLevel` (string, 1\u20134 on supported devices: 1 = low, 2 = medium, 3 = high, 4 = max) / `SpeechEnhanceEnabled` (bool) / `MusicSurroundLevel` (-15/+15) / `NightMode` (bool) / `SubGain` (-10/+10) / `SurroundEnable` (bool) / `SurroundLevel` (-15/+15) / `SurroundMode` (0 = ambient, 1 = full) / `HeightChannelLevel` (-10/+10)"
+            },
+            {
+              "name": "DesiredValue",
+              "direction": "in",
+              "dataType": "i2",
+              "description": "Booleans return `1` / `0`; `DialogLevel` returns a string value representing the dialog intensity levels, rest number as specified"
+            }
+          ]
+        },
+        {
+          "name": "SetLoudness",
+          "description": "Set loudness on / off",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "DesiredLoudness",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "SetMute",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "DesiredMute",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "SetOutputFixed",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DesiredFixed",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "SetRelativeVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "Adjustment",
+              "direction": "in",
+              "dataType": "i4"
+            },
+            {
+              "name": "NewVolume",
+              "direction": "out",
+              "dataType": "ui2"
+            }
+          ]
+        },
+        {
+          "name": "SetRoomCalibrationStatus",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "RoomCalibrationEnabled",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "SetRoomCalibrationX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CalibrationID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Coefficients",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CalibrationMode",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetTreble",
+          "description": "Set treble level",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DesiredTreble",
+              "direction": "in",
+              "dataType": "i2",
+              "description": "between -10 and 10"
+            }
+          ]
+        },
+        {
+          "name": "SetVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "DesiredVolume",
+              "direction": "in",
+              "dataType": "ui2"
+            }
+          ]
+        },
+        {
+          "name": "SetVolumeDB",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Channel",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Master",
+                "LF",
+                "RF"
+              ]
+            },
+            {
+              "name": "DesiredVolume",
+              "direction": "in",
+              "dataType": "i2"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "LastChange"
+      ],
+      "description": "Volume related controls"
+    },
+    {
+      "name": "SystemProperties",
+      "serviceType": "urn:schemas-upnp-org:service:SystemProperties:1",
+      "serviceId": "urn:upnp-org:serviceId:SystemProperties",
+      "controlURL": "/SystemProperties/Control",
+      "eventSubURL": "/SystemProperties/Event",
+      "actions": [
+        {
+          "name": "AddAccountX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountPassword",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountUDN",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "AddOAuthAccountX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountToken",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountKey",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "OAuthDeviceID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AuthorizationCode",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "RedirectURI",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "UserIdHashCode",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountTier",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountUDN",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountNickname",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "DoPostUpdateTasks",
+          "description": "",
+          "remarks": "",
+          "args": []
+        },
+        {
+          "name": "EditAccountMd",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewAccountMd",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "EditAccountPasswordX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewAccountPassword",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "EnableRDM",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "RDMValue",
+              "direction": "in",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetRDM",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "RDMValue",
+              "direction": "out",
+              "dataType": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "GetString",
+          "description": "Get a saved string.",
+          "remarks": "Strings are saved in the system with SetString, every speaker should return the same data. Will error when not existing",
+          "args": [
+            {
+              "name": "VariableName",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The key for this variable"
+            },
+            {
+              "name": "StringValue",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetWebCode",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "WebCode",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ProvisionCredentialedTrialAccountX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountPassword",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "IsExpired",
+              "direction": "out",
+              "dataType": "boolean"
+            },
+            {
+              "name": "AccountUDN",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "RefreshAccountCredentialsX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountUID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountToken",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountKey",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Remove",
+          "description": "Remove a saved string",
+          "remarks": "Not sure what happens if you call this with a VariableName that doesn't exists.",
+          "args": [
+            {
+              "name": "VariableName",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The key for this variable"
+            }
+          ]
+        },
+        {
+          "name": "RemoveAccount",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountType",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "AccountID",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ReplaceAccountX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountUDN",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewAccountID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewAccountPassword",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountToken",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountKey",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "OAuthDeviceID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "NewAccountUDN",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ResetThirdPartyCredentials",
+          "description": "",
+          "remarks": "",
+          "args": []
+        },
+        {
+          "name": "SetAccountNicknameX",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "AccountUDN",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "AccountNickname",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "SetString",
+          "description": "Save a string in the system",
+          "remarks": "Strings are saved in the system, retrieve values with GetString.",
+          "args": [
+            {
+              "name": "VariableName",
+              "direction": "in",
+              "dataType": "string",
+              "description": "The key for this variable, use something unique"
+            },
+            {
+              "name": "StringValue",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "CustomerID",
+        "ThirdPartyHash",
+        "UpdateID",
+        "UpdateIDX",
+        "VoiceUpdateID"
+      ],
+      "description": "Manage system-wide settings, mainly account stuff"
+    },
+    {
+      "name": "VirtualLineIn",
+      "serviceType": "urn:schemas-upnp-org:service:VirtualLineIn:1",
+      "serviceId": "urn:upnp-org:serviceId:VirtualLineIn",
+      "controlURL": "/MediaRenderer/VirtualLineIn/Control",
+      "eventSubURL": "/MediaRenderer/VirtualLineIn/Event",
+      "actions": [
+        {
+          "name": "Next",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "Pause",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "Play",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "Speed",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Previous",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "SetVolume",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "DesiredVolume",
+              "direction": "in",
+              "dataType": "ui2"
+            }
+          ]
+        },
+        {
+          "name": "StartTransmission",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CoordinatorID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentTransportSettings",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "Stop",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            }
+          ]
+        },
+        {
+          "name": "StopTransmission",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "InstanceID",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "CoordinatorID",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "CurrentTrackMetaData",
+        "LastChange"
+      ],
+      "description": ""
+    },
+    {
+      "name": "ZoneGroupTopology",
+      "serviceType": "urn:schemas-upnp-org:service:ZoneGroupTopology:1",
+      "serviceId": "urn:upnp-org:serviceId:ZoneGroupTopology",
+      "controlURL": "/ZoneGroupTopology/Control",
+      "eventSubURL": "/ZoneGroupTopology/Event",
+      "actions": [
+        {
+          "name": "BeginSoftwareUpdate",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "UpdateURL",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "Flags",
+              "direction": "in",
+              "dataType": "ui4"
+            },
+            {
+              "name": "ExtraOptions",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "CheckForUpdate",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "UpdateType",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "All",
+                "Software"
+              ]
+            },
+            {
+              "name": "CachedOnly",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "Version",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "UpdateItem",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetZoneGroupAttributes",
+          "description": "Get information about the current Zone",
+          "remarks": "",
+          "args": [
+            {
+              "name": "CurrentZoneGroupName",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentZoneGroupID",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentZonePlayerUUIDsInGroup",
+              "direction": "out",
+              "dataType": "string"
+            },
+            {
+              "name": "CurrentMuseHouseholdId",
+              "direction": "out",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "GetZoneGroupState",
+          "description": "Get all the Sonos groups, (as XML)",
+          "remarks": "Some libraries also support GetParsedZoneGroupState that parses the xml for you.",
+          "args": [
+            {
+              "name": "ZoneGroupState",
+              "direction": "out",
+              "dataType": "string",
+              "description": "xml string, see remarks"
+            }
+          ]
+        },
+        {
+          "name": "RegisterMobileDevice",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "MobileDeviceName",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "MobileDeviceUDN",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "MobileIPAndPort",
+              "direction": "in",
+              "dataType": "string"
+            }
+          ]
+        },
+        {
+          "name": "ReportAlarmStartedRunning",
+          "description": "",
+          "remarks": "",
+          "args": []
+        },
+        {
+          "name": "ReportUnresponsiveDevice",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "DeviceUUID",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DesiredAction",
+              "direction": "in",
+              "dataType": "string",
+              "allowedValues": [
+                "Remove",
+                "TopologyMonitorProbe",
+                "VerifyThenRemoveSystemwide"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "SubmitDiagnostics",
+          "description": "",
+          "remarks": "",
+          "args": [
+            {
+              "name": "IncludeControllers",
+              "direction": "in",
+              "dataType": "boolean"
+            },
+            {
+              "name": "Type",
+              "direction": "in",
+              "dataType": "string"
+            },
+            {
+              "name": "DiagnosticID",
+              "direction": "out",
+              "dataType": "ui4"
+            }
+          ]
+        }
+      ],
+      "eventedVariables": [
+        "AlarmRunSequence",
+        "AreasUpdateID",
+        "AvailableSoftwareUpdate",
+        "MuseHouseholdId",
+        "NetsettingsUpdateID",
+        "SourceAreasUpdateID",
+        "ThirdPartyMediaServersX",
+        "ZoneGroupID",
+        "ZoneGroupName",
+        "ZoneGroupState",
+        "ZonePlayerUUIDsInGroup"
+      ],
+      "description": "Zone config stuff, eg getting all the configured sonos zones"
+    }
+  ]
+}

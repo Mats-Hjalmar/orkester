@@ -1,29 +1,7 @@
 // Transport-layer contracts for talking to Sonos devices.
 // TYPES ONLY — zero runtime values. The concrete engine lives elsewhere.
 
-/** A single HTTP request the transport must perform. */
-export interface HttpRequest {
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'SUBSCRIBE' | 'UNSUBSCRIBE';
-  url: string;
-  headers?: Record<string, string>;
-  body?: string;
-  timeoutMs?: number;
-}
-
-/** The response surfaced back from a performed HTTP request. */
-export interface HttpResponse {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-}
-
-/**
- * Performs HTTP(-ish) requests against a Sonos device's control endpoints.
- * Implementations live outside @orkester/core (RN fetch, node http, etc.).
- */
-export interface HttpTransport {
-  request(req: HttpRequest): Promise<HttpResponse>;
-}
+export type { HttpRequest, HttpResponse, HttpTransport } from '@orkester/sonos-api';
 
 /** A device discovered on the local network via SSDP. */
 export interface SSDPResult {

@@ -38,6 +38,8 @@ const RN_ENTRIES = [
   'api/index.ts',
   'state/index.ts',
   'theme/tokens.ts',
+  // @orkester/sonos-api is bundled into the engine, so its source is RN-facing too.
+  '../../sonos-api/src/index.ts',
 ];
 
 // The full set of bare Node builtin names (fs, dgram, crypto, ...). We treat a

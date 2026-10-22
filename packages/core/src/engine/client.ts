@@ -18,6 +18,7 @@
 // memberBaseURL surface an unresolvable address as a thrown error.
 
 import type { DiscoveryTransport, HttpTransport, SSDPResult } from '../sonos';
+import { SonosDevice, type AlarmClockCreateAlarmRequest } from '@orkester/sonos-api';
 import { HTTPPort } from './device';
 import {
   type Household,
@@ -54,7 +55,16 @@ import {
   getQueueTrackNumber as controlGetQueueTrackNumber,
   playFromQueue as controlPlayFromQueue,
   type EnqueueItem,
+  playItem as controlPlayItem,
+  parseRelTime,
 } from './control';
+import {
+  type Alarm,
+  type BrowseItem,
+  type BrowseResult,
+  parseAlarmList,
+  parseBrowseResult,
+} from './library';
 import {
   type MusicServiceInfo,
   listAvailableServices,
@@ -70,6 +80,28 @@ import {
   getDeviceAuthToken,
   search as smapiSearch,
 } from './smapi';
+
+/** The RenderingControl EQ settings a player may expose (availability varies by model). */
+export type EQType =
+  | 'DialogLevel'
+  | 'SpeechEnhanceEnabled'
+  | 'MusicSurroundLevel'
+  | 'NightMode'
+  | 'SubGain'
+  | 'SurroundEnable'
+  | 'SurroundLevel'
+  | 'SurroundMode'
+  | 'HeightChannelLevel';
+
+/** A player's tone settings. */
+export interface AudioSettings {
+  /** Bass level, -10..10. */
+  bass: number;
+  /** Treble level, -10..10. */
+  treble: number;
+  /** Whether loudness compensation is on. */
+  loudness: boolean;
+}
 
 /** The injected transports a SonosClient is constructed with. */
 export interface SonosTransports {
@@ -88,35 +120,10 @@ export interface ResolvedRoom {
 }
 
 /**
- * http://{address}:1400 — the device base URL for an SSDP responder. THROWS when
- * the responder reported no address (an empty base would silently mis-route the
- * very first topology fetch), mirroring the engine's no-silent-fallback rule.
- */
-function responderBaseURL(result: SSDPResult): string {
-  if (result.address === '') {
-    throw new Error(`SSDP responder ${result.usn || result.location} has no address`);
-  }
-  return `http://${result.address}:${HTTPPort}`;
-}
-
-/**
- * Resolves a member's base URL, throwing (rather than returning "") when the IP
- * is unresolvable — so a routing failure surfaces instead of POSTing to a
- * malformed URL.
- */
-function requireBaseURL(member: Member, role: string): string {
-  const base = memberBaseURL(member);
-  if (base === '') {
-    throw new Error(`${role} ${member.uuid || member.zoneName} has no resolvable IP`);
-  }
-  return base;
-}
-
-/**
  * SonosClient is the high-level entry point: discover a speaker, load the
  * household topology, resolve a room by fuzzy query, then drive transport /
- * volume / now-playing on it. Grouping (join/leave) is deliberately deferred to
- * a later feature.
+ * volume / now-playing on it, plus queue, audio, library, alarm and device
+ * settings. coordinatorDevice / playerDevice expose every UPnP service directly.
  */
 export class SonosClient {
   private readonly http: HttpTransport;
@@ -190,16 +197,6 @@ export class SonosClient {
   }
 
   // --- transport (AVTransport -> group coordinator base) ------------------
-
-  /** Resolves the AVTransport base URL: the room's group coordinator. */
-  private coordinatorBase(room: ResolvedRoom): string {
-    return requireBaseURL(coordinatorMember(room.group), 'coordinator');
-  }
-
-  /** Resolves the RenderingControl base URL: the room's own player. */
-  private playerBase(room: ResolvedRoom): string {
-    return requireBaseURL(room.member, 'player');
-  }
 
   /** Starts/resumes playback on the room's group coordinator. */
   play(room: ResolvedRoom): Promise<void> {
@@ -403,4 +400,341 @@ export class SonosClient {
     const track = await controlAddURIToQueue(this.http, base, item.uri, item.metadata, false);
     await controlPlayFromQueue(this.http, base, room.group.coordinator, track);
   }
+
+  // --- full service access (@orkester/sonos-api) -------------------------
+
+  /** Every UPnP service of the room's group coordinator (AVTransport routing). */
+  coordinatorDevice(room: ResolvedRoom): SonosDevice {
+    return new SonosDevice(this.http, this.coordinatorBase(room));
+  }
+
+  /** Every UPnP service of the room's own player (RenderingControl routing). */
+  playerDevice(room: ResolvedRoom): SonosDevice {
+    return new SonosDevice(this.http, this.playerBase(room));
+  }
+
+  // --- transport & queue (coordinator) -----------------------------------
+
+  /** Stops playback on the room's group coordinator. */
+  async stop(room: ResolvedRoom): Promise<void> {
+    await this.coordinatorDevice(room).AVTransport.Stop({ InstanceID: 0 });
+  }
+
+  /** Reports whether crossfade is on for the room's group. */
+  async getCrossfade(room: ResolvedRoom): Promise<boolean> {
+    const out = await this.coordinatorDevice(room).AVTransport.GetCrossfadeMode({ InstanceID: 0 });
+    return out.CrossfadeMode;
+  }
+
+  /** Turns crossfade on/off for the room's group. */
+  async setCrossfade(room: ResolvedRoom, on: boolean): Promise<void> {
+    await this.coordinatorDevice(room).AVTransport.SetCrossfadeMode({ InstanceID: 0, CrossfadeMode: on });
+  }
+
+  /** Seconds left on the group's sleep timer, 0 when none is set. */
+  async getSleepTimer(room: ResolvedRoom): Promise<number> {
+    const out = await this.coordinatorDevice(room).AVTransport.GetRemainingSleepTimerDuration({
+      InstanceID: 0,
+    });
+    return parseRelTime(out.RemainingSleepTimerDuration);
+  }
+
+  /** Sets the group's sleep timer to `seconds` from now; 0 cancels it. */
+  async setSleepTimer(room: ResolvedRoom, seconds: number): Promise<void> {
+    await this.coordinatorDevice(room).AVTransport.ConfigureSleepTimer({
+      InstanceID: 0,
+      NewSleepTimerDuration: seconds === 0 ? '' : formatSleepDuration(seconds),
+    });
+  }
+
+  /** Removes the queue entry at `index` (0-based). */
+  async removeQueueTrack(room: ResolvedRoom, index: number): Promise<void> {
+    if (!Number.isInteger(index) || index < 0) {
+      throw new RangeError(`queue index must be a non-negative integer, got ${index}`);
+    }
+    await this.coordinatorDevice(room).AVTransport.RemoveTrackFromQueue({
+      InstanceID: 0,
+      ObjectID: `Q:0/${index + 1}`,
+      UpdateID: 0,
+    });
+  }
+
+  /** Saves the group's queue as a Sonos playlist; returns the playlist's object id. */
+  async saveQueue(room: ResolvedRoom, title: string): Promise<string> {
+    const out = await this.coordinatorDevice(room).AVTransport.SaveQueue({
+      InstanceID: 0,
+      Title: title,
+      ObjectID: '',
+    });
+    return out.AssignedObjectID;
+  }
+
+  /** Plays the line-in of the player `sourceUuid` on the room's group. */
+  playLineIn(room: ResolvedRoom, sourceUuid: string): Promise<void> {
+    return this.playSource(room, `x-rincon-stream:${sourceUuid}`);
+  }
+
+  /** Plays the TV input of the room's group coordinator (home-theater players only). */
+  playTv(room: ResolvedRoom): Promise<void> {
+    return this.playSource(room, `x-sonos-htastream:${room.group.coordinator}:spdif`);
+  }
+
+  /** Reads the group volume (0–100) off the coordinator. */
+  async getGroupVolume(room: ResolvedRoom): Promise<number> {
+    const out = await this.coordinatorDevice(room).GroupRenderingControl.GetGroupVolume({ InstanceID: 0 });
+    return out.CurrentVolume;
+  }
+
+  /**
+   * Sets the group volume (0–100), scaling each member relative to the others.
+   * The snapshot fixes those proportions before the change.
+   */
+  async setGroupVolume(room: ResolvedRoom, volume: number): Promise<void> {
+    if (!Number.isInteger(volume) || volume < 0 || volume > 100) {
+      throw new RangeError(`group volume must be an integer in [0, 100], got ${volume}`);
+    }
+    const grc = this.coordinatorDevice(room).GroupRenderingControl;
+    await grc.SnapshotGroupVolume({ InstanceID: 0 });
+    await grc.SetGroupVolume({ InstanceID: 0, DesiredVolume: volume });
+  }
+
+  /** Reports whether the whole group is muted. */
+  async getGroupMute(room: ResolvedRoom): Promise<boolean> {
+    const out = await this.coordinatorDevice(room).GroupRenderingControl.GetGroupMute({ InstanceID: 0 });
+    return out.CurrentMute;
+  }
+
+  /** Mutes/unmutes the whole group. */
+  async setGroupMute(room: ResolvedRoom, muted: boolean): Promise<void> {
+    await this.coordinatorDevice(room).GroupRenderingControl.SetGroupMute({
+      InstanceID: 0,
+      DesiredMute: muted,
+    });
+  }
+
+  // --- audio settings (player) -------------------------------------------
+
+  /** Reads the room's bass, treble and loudness. */
+  async getAudioSettings(room: ResolvedRoom): Promise<AudioSettings> {
+    const rc = this.playerDevice(room).RenderingControl;
+    const [bass, treble, loudness] = await Promise.all([
+      rc.GetBass({ InstanceID: 0 }),
+      rc.GetTreble({ InstanceID: 0 }),
+      rc.GetLoudness({ InstanceID: 0, Channel: 'Master' }),
+    ]);
+    return { bass: bass.CurrentBass, treble: treble.CurrentTreble, loudness: loudness.CurrentLoudness };
+  }
+
+  /** Sets the room's bass (-10..10). */
+  async setBass(room: ResolvedRoom, bass: number): Promise<void> {
+    await this.playerDevice(room).RenderingControl.SetBass({ InstanceID: 0, DesiredBass: bass });
+  }
+
+  /** Sets the room's treble (-10..10). */
+  async setTreble(room: ResolvedRoom, treble: number): Promise<void> {
+    await this.playerDevice(room).RenderingControl.SetTreble({ InstanceID: 0, DesiredTreble: treble });
+  }
+
+  /** Turns the room's loudness compensation on/off. */
+  async setLoudness(room: ResolvedRoom, on: boolean): Promise<void> {
+    await this.playerDevice(room).RenderingControl.SetLoudness({
+      InstanceID: 0,
+      Channel: 'Master',
+      DesiredLoudness: on,
+    });
+  }
+
+  /** Reads one EQ setting; booleans read as 1/0. Faults when the model lacks it. */
+  async getEQ(room: ResolvedRoom, type: EQType): Promise<number> {
+    const out = await this.playerDevice(room).RenderingControl.GetEQ({ InstanceID: 0, EQType: type });
+    return out.CurrentValue;
+  }
+
+  /** Writes one EQ setting; booleans as 1/0. Faults when the model lacks it. */
+  async setEQ(room: ResolvedRoom, type: EQType, value: number): Promise<void> {
+    await this.playerDevice(room).RenderingControl.SetEQ({ InstanceID: 0, EQType: type, DesiredValue: value });
+  }
+
+  // --- library (ContentDirectory, any player) ----------------------------
+
+  /**
+   * Lists the children of a ContentDirectory object: `FV:2` favorites, `SQ:`
+   * Sonos playlists, `R:0/0` radio, `A:ARTIST` / `A:ALBUM` / `A:TRACKS` /
+   * `A:GENRE` the music library, `S:` shares, or any id a previous browse returned.
+   */
+  async browse(room: ResolvedRoom, objectId: string, start = 0, count = 100): Promise<BrowseResult> {
+    const base = this.playerBase(room);
+    const out = await new SonosDevice(this.http, base).ContentDirectory.Browse({
+      ObjectID: objectId,
+      BrowseFlag: 'BrowseDirectChildren',
+      Filter: '*',
+      StartingIndex: start,
+      RequestedCount: count,
+      SortCriteria: '',
+    });
+    return { items: parseBrowseResult(out.Result, base), total: out.TotalMatches };
+  }
+
+  /** Plays a browse entry now: streams directly, everything else via the queue. */
+  playBrowseItem(room: ResolvedRoom, item: BrowseItem): Promise<void> {
+    return controlPlayItem(this.http, this.coordinatorBase(room), room.group.coordinator, {
+      uri: this.browseItemUri(room, item),
+      metadata: item.metadata,
+    });
+  }
+
+  /** Adds a browse entry to the group's queue at `where`. */
+  enqueueBrowseItem(room: ResolvedRoom, item: BrowseItem, where: QueuePosition = 'end'): Promise<void> {
+    return this.enqueue(room, { uri: this.browseItemUri(room, item), metadata: item.metadata }, where);
+  }
+
+  /** Deletes a Sonos playlist (an `SQ:` object id). */
+  async deletePlaylist(room: ResolvedRoom, objectId: string): Promise<void> {
+    if (!objectId.startsWith('SQ:')) {
+      throw new Error(`"${objectId}" is not a Sonos playlist id`);
+    }
+    await this.playerDevice(room).ContentDirectory.DestroyObject({ ObjectID: objectId });
+  }
+
+  // --- alarms (AlarmClock, household-wide via any player) ------------------
+
+  /** Lists every alarm in the household. */
+  async listAlarms(room: ResolvedRoom): Promise<Alarm[]> {
+    const out = await this.playerDevice(room).AlarmClock.ListAlarms();
+    return parseAlarmList(out.CurrentAlarmList);
+  }
+
+  /** Creates an alarm; returns its id. */
+  async createAlarm(room: ResolvedRoom, alarm: Omit<Alarm, 'id'>): Promise<number> {
+    const out = await this.playerDevice(room).AlarmClock.CreateAlarm(SonosClient.alarmArgs(alarm));
+    return out.AssignedID;
+  }
+
+  /** Replaces every field of the alarm `alarm.id`. */
+  async updateAlarm(room: ResolvedRoom, alarm: Alarm): Promise<void> {
+    await this.playerDevice(room).AlarmClock.UpdateAlarm({ ID: alarm.id, ...SonosClient.alarmArgs(alarm) });
+  }
+
+  /** Deletes the alarm `id`. */
+  async deleteAlarm(room: ResolvedRoom, id: number): Promise<void> {
+    await this.playerDevice(room).AlarmClock.DestroyAlarm({ ID: id });
+  }
+
+  // --- device settings (DeviceProperties, player) -------------------------
+
+  /** Renames the room, keeping its icon and configuration. */
+  async setRoomName(room: ResolvedRoom, name: string): Promise<void> {
+    if (name.trim() === '') {
+      throw new Error('room name must not be empty');
+    }
+    const dp = this.playerDevice(room).DeviceProperties;
+    const cur = await dp.GetZoneAttributes();
+    await dp.SetZoneAttributes({
+      DesiredZoneName: name,
+      DesiredIcon: cur.CurrentIcon,
+      DesiredConfiguration: cur.CurrentConfiguration,
+      DesiredTargetRoomName: cur.CurrentTargetRoomName,
+    });
+  }
+
+  /** Reports whether the player's status light is on. */
+  async getLed(room: ResolvedRoom): Promise<boolean> {
+    const out = await this.playerDevice(room).DeviceProperties.GetLEDState();
+    return out.CurrentLEDState === 'On';
+  }
+
+  /** Turns the player's status light on/off. */
+  async setLed(room: ResolvedRoom, on: boolean): Promise<void> {
+    await this.playerDevice(room).DeviceProperties.SetLEDState({ DesiredLEDState: on ? 'On' : 'Off' });
+  }
+
+  /** Reports whether the player's physical buttons are locked. */
+  async getButtonLock(room: ResolvedRoom): Promise<boolean> {
+    const out = await this.playerDevice(room).DeviceProperties.GetButtonLockState();
+    return out.CurrentButtonLockState === 'On';
+  }
+
+  /** Locks/unlocks the player's physical buttons. */
+  async setButtonLock(room: ResolvedRoom, locked: boolean): Promise<void> {
+    await this.playerDevice(room).DeviceProperties.SetButtonLockState({
+      DesiredButtonLockState: locked ? 'On' : 'Off',
+    });
+  }
+
+  /** Resolves the AVTransport base URL: the room's group coordinator. */
+  private coordinatorBase(room: ResolvedRoom): string {
+    return requireBaseURL(coordinatorMember(room.group), 'coordinator');
+  }
+
+  /** Resolves the RenderingControl base URL: the room's own player. */
+  private playerBase(room: ResolvedRoom): string {
+    return requireBaseURL(room.member, 'player');
+  }
+
+  /** Sets the group's source to a URI and starts playback. */
+  private async playSource(room: ResolvedRoom, uri: string): Promise<void> {
+    const av = this.coordinatorDevice(room).AVTransport;
+    await av.SetAVTransportURI({ InstanceID: 0, CurrentURI: uri, CurrentURIMetaData: '' });
+    await av.Play({ InstanceID: 0, Speed: '1' });
+  }
+
+  /**
+   * The URI to enqueue a browse entry by. A library container without its own
+   * `res` is addressed as a playlist of the coordinator's ContentDirectory.
+   */
+  private browseItemUri(room: ResolvedRoom, item: BrowseItem): string {
+    if (item.uri !== '') return item.uri;
+    if (item.isContainer) return `x-rincon-playlist:${room.group.coordinator}#${item.id}`;
+    throw new Error(`"${item.title}" has no playable URI`);
+  }
+
+  /** Projects an alarm onto the AlarmClock create/update argument names. */
+  private static alarmArgs(alarm: Omit<Alarm, 'id'>) {
+    return {
+      StartLocalTime: alarm.startTime,
+      Duration: alarm.duration,
+      Recurrence: alarm.recurrence as AlarmClockCreateAlarmRequest['Recurrence'],
+      Enabled: alarm.enabled,
+      RoomUUID: alarm.roomUuid,
+      ProgramURI: alarm.programUri,
+      ProgramMetaData: alarm.programMetadata,
+      PlayMode: alarm.playMode,
+      Volume: alarm.volume,
+      IncludeLinkedZones: alarm.includeLinkedZones,
+    };
+  }
+}
+
+/** Formats whole seconds as the zero-padded `HH:MM:SS` ConfigureSleepTimer expects. */
+function formatSleepDuration(seconds: number): string {
+  if (!Number.isInteger(seconds) || seconds < 0 || seconds >= 24 * 3600) {
+    throw new RangeError(`sleep timer must be whole seconds in [0, 86399], got ${seconds}`);
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
+}
+
+/**
+ * http://{address}:1400 — the device base URL for an SSDP responder. THROWS when
+ * the responder reported no address (an empty base would silently mis-route the
+ * very first topology fetch), mirroring the engine's no-silent-fallback rule.
+ */
+function responderBaseURL(result: SSDPResult): string {
+  if (result.address === '') {
+    throw new Error(`SSDP responder ${result.usn || result.location} has no address`);
+  }
+  return `http://${result.address}:${HTTPPort}`;
+}
+
+/**
+ * Resolves a member's base URL, throwing (rather than returning "") when the IP
+ * is unresolvable — so a routing failure surfaces instead of POSTing to a
+ * malformed URL.
+ */
+function requireBaseURL(member: Member, role: string): string {
+  const base = memberBaseURL(member);
+  if (base === '') {
+    throw new Error(`${role} ${member.uuid || member.zoneName} has no resolvable IP`);
+  }
+  return base;
 }
