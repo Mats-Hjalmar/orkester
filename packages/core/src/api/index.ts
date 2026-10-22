@@ -8,7 +8,9 @@
 // The Api is the ONLY per-runtime difference: the StoreProvider drives the same
 // reducer regardless of which Api it was handed.
 
-import type { QueuePosition, RepeatMode } from '../engine';
+import type { AlarmPlayMode, AlarmRecurrence, EQType, QueuePosition, RepeatMode } from '../engine';
+
+export type { AlarmPlayMode, AlarmRecurrence, EQType };
 
 /**
  * A room the network exposes. `id` is the engine RoomRef.handle — a stable,
@@ -118,6 +120,79 @@ export interface SpotifyAuth {
   accountSn: string;
 }
 
+/** A room's tone settings. `bass`/`treble` are -10..10. */
+export interface ApiAudioSettings {
+  /** Bass level, -10..10. */
+  bass: number;
+  /** Treble level, -10..10. */
+  treble: number;
+  /** Whether loudness compensation is on. */
+  loudness: boolean;
+}
+
+/**
+ * One library entry (favorite, Sonos playlist, radio station, library artist /
+ * album / track). `id` is browsable when `isContainer`; `uri`/`metadata` are
+ * OPAQUE playback fields to pass back verbatim to playBrowseItem /
+ * enqueueBrowseItem.
+ */
+export interface ApiBrowseItem {
+  /** Library object id; pass to browse() when `isContainer`. */
+  id: string;
+  /** Display title (track, album, station, playlist or favorite name). */
+  title: string;
+  /** Artist or creator, "" if none. */
+  artist: string;
+  /** Album name, "" if none. */
+  album: string;
+  /** Absolute art URL, "" if none. */
+  artUrl: string;
+  /** True when the entry can be browsed into. */
+  isContainer: boolean;
+  /** Opaque: the parent object id. */
+  parentId: string;
+  /** Opaque: the DIDL upnp:class. */
+  upnpClass: string;
+  /** Opaque: the transport/enqueue URI ("" for a library container). */
+  uri: string;
+  /** Opaque: the DIDL-Lite metadata to send alongside `uri`. */
+  metadata: string;
+}
+
+/** One page of a browse plus the container's total entry count. */
+export interface ApiBrowseResult {
+  /** The entries of this page, containers first. */
+  items: ApiBrowseItem[];
+  /** How many entries the container holds in total, across all pages. */
+  total: number;
+}
+
+/** A household alarm. `roomId` is the room it sounds in. */
+export interface ApiAlarm {
+  /** The alarm's id. */
+  id: number;
+  /** The room (handle) the alarm sounds in. */
+  roomId: string;
+  /** Local start time, `HH:MM:SS`. */
+  startTime: string;
+  /** Play duration, `HH:MM:SS`. */
+  duration: string;
+  /** Which days the alarm fires on: a named schedule or `ON_` + weekday digits (0 = Sunday). */
+  recurrence: AlarmRecurrence;
+  /** Whether the alarm is armed. */
+  enabled: boolean;
+  /** What plays: `x-rincon-buzzer:0` for the chime, or a browse item's uri. */
+  programUri: string;
+  /** DIDL-Lite metadata for `programUri`, "" for the chime. */
+  programMetadata: string;
+  /** Shuffle/repeat mode the alarm plays in. */
+  playMode: AlarmPlayMode;
+  /** Volume the alarm plays at, 0–100. */
+  volume: number;
+  /** Whether the players grouped with the room also sound. */
+  includeLinkedZones: boolean;
+}
+
 /**
  * Persists the Spotify auth token across sessions. Injected into SonosApi so the
  * engine stays node-free: a Node host backs it with ~/.config/orkester/auth.json
@@ -207,4 +282,66 @@ export interface Api {
    * to the existing queue by design; use enqueueSearchItem to append instead.
    */
   playSearchItem(groupId: string, item: ApiSearchItem): Promise<void>;
+
+  // --- transport & queue extras (per active group) ---
+  stop(groupId: string): Promise<void>;
+  getCrossfade(groupId: string): Promise<boolean>;
+  setCrossfade(groupId: string, on: boolean): Promise<void>;
+  /** Seconds left on the group's sleep timer, 0 when none is set. */
+  getSleepTimer(groupId: string): Promise<number>;
+  /** Sets the sleep timer to `seconds` from now; 0 cancels it. */
+  setSleepTimer(groupId: string, seconds: number): Promise<void>;
+  /** Removes the queue entry at `index` (0-based). */
+  removeQueueItem(groupId: string, index: number): Promise<void>;
+  /** Saves the queue as a Sonos playlist; resolves with its browse id. */
+  saveQueue(groupId: string, title: string): Promise<string>;
+  /** Plays `sourceRoomId`'s line-in on the group. */
+  playLineIn(groupId: string, sourceRoomId: string): Promise<void>;
+  /** Plays the coordinator's TV input (home-theater players only). */
+  playTv(groupId: string): Promise<void>;
+  getGroupVolume(groupId: string): Promise<number>;
+  /** Sets the group volume (0–100), keeping members' relative levels. */
+  setGroupVolume(groupId: string, volume: number): Promise<void>;
+  getGroupMute(groupId: string): Promise<boolean>;
+  setGroupMute(groupId: string, muted: boolean): Promise<void>;
+
+  // --- audio settings (per room) ---
+  getAudioSettings(roomId: string): Promise<ApiAudioSettings>;
+  setBass(roomId: string, bass: number): Promise<void>;
+  setTreble(roomId: string, treble: number): Promise<void>;
+  setLoudness(roomId: string, on: boolean): Promise<void>;
+  /** Reads one EQ setting (booleans as 1/0). REJECTS when the model lacks it. */
+  getEQ(roomId: string, type: EQType): Promise<number>;
+  /** Writes one EQ setting (booleans as 1/0). REJECTS when the model lacks it. */
+  setEQ(roomId: string, type: EQType, value: number): Promise<void>;
+
+  // --- library ---
+  /**
+   * Lists the children of a library object: `FV:2` favorites, `SQ:` Sonos
+   * playlists, `R:0/0` radio, `A:ARTIST`/`A:ALBUM`/`A:TRACKS`/`A:GENRE` the
+   * music library, or any container id a previous browse returned.
+   */
+  browse(objectId: string, start?: number, count?: number): Promise<ApiBrowseResult>;
+  getFavorites(): Promise<ApiBrowseItem[]>;
+  getPlaylists(): Promise<ApiBrowseItem[]>;
+  /** Plays a library entry now: a stream becomes the source, anything else is added to the queue and played from there. */
+  playBrowseItem(groupId: string, item: ApiBrowseItem): Promise<void>;
+  /** Queues a library entry without changing what is playing. */
+  enqueueBrowseItem(groupId: string, item: ApiBrowseItem, where?: QueuePosition): Promise<void>;
+  /** Deletes a Sonos playlist by its `SQ:` id. */
+  deletePlaylist(playlistId: string): Promise<void>;
+
+  // --- alarms ---
+  listAlarms(): Promise<ApiAlarm[]>;
+  /** Creates an alarm; resolves with its id. */
+  createAlarm(alarm: Omit<ApiAlarm, 'id'>): Promise<number>;
+  updateAlarm(alarm: ApiAlarm): Promise<void>;
+  deleteAlarm(alarmId: number): Promise<void>;
+
+  // --- device settings (per room) ---
+  setRoomName(roomId: string, name: string): Promise<void>;
+  getLed(roomId: string): Promise<boolean>;
+  setLed(roomId: string, on: boolean): Promise<void>;
+  getButtonLock(roomId: string): Promise<boolean>;
+  setButtonLock(roomId: string, locked: boolean): Promise<void>;
 }

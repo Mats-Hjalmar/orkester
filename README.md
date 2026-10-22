@@ -21,6 +21,8 @@ in Electron's main process, the mobile app in-process) with **no mock data**.
 ## Repo layout
 
 ```
+packages/sonos-api/  @orkester/sonos-api — typed client for every Sonos UPnP
+                 service + SOAP/GENA, generated from device SCPDs. RN-safe.
 packages/core/   @orkester/core — Sonos engine (SSDP/SOAP/topology/control/SMAPI),
                  the app store, theme tokens. RN-safe; node:* only under src/node.
 app/             Expo app (native iOS/Android) — phone UI (src/screens +

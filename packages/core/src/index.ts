@@ -23,6 +23,10 @@ export type {
   ApiNowPlaying,
   ApiSearchItem,
   ApiSpotifyLink,
+  ApiAudioSettings,
+  ApiBrowseItem,
+  ApiBrowseResult,
+  ApiAlarm,
   SpotifySearchKind,
 } from './api';
 

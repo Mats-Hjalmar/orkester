@@ -6,6 +6,7 @@
 
 export { NodeHttpTransport } from './httpTransport';
 export { NodeCredentialStore } from './configStore';
+export { NodeEventListener, type EventNotification } from './eventListener';
 export {
   NodeDiscoveryTransport,
   makeDatagramHandler,

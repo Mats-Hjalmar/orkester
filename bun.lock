@@ -68,6 +68,7 @@
       "name": "@orkester/core",
       "version": "0.0.0",
       "dependencies": {
+        "@orkester/sonos-api": "workspace:*",
         "fast-xml-parser": "^4.5.6",
       },
       "devDependencies": {
@@ -84,6 +85,19 @@
       "optionalPeers": [
         "react",
       ],
+    },
+    "packages/sonos-api": {
+      "name": "@orkester/sonos-api",
+      "version": "0.0.0",
+      "dependencies": {
+        "fast-xml-parser": "^4.5.6",
+      },
+      "devDependencies": {
+        "@types/node": "^26.0.1",
+        "tsup": "^8.5.0",
+        "typescript": "~5.9.2",
+        "vitest": "^3.2.6",
+      },
     },
   },
   "packages": {
@@ -442,6 +456,8 @@
     "@noble/hashes": ["@noble/hashes@2.3.0", "", {}, "sha512-oN+QwyX7VSHotibwubG3kpzbwKrfnyR6OOO+3Nk/53ADL7FmgHHz4TgrbaYKvvOw09u6QTx0oiH1cNCIOuN0CQ=="],
 
     "@orkester/core": ["@orkester/core@workspace:packages/core"],
+
+    "@orkester/sonos-api": ["@orkester/sonos-api@workspace:packages/sonos-api"],
 
     "@peculiar/asn1-schema": ["@peculiar/asn1-schema@2.9.4", "", { "dependencies": { "@peculiar/utils": "^2.0.2", "asn1js": "^3.0.10", "tslib": "^2.8.1" } }, "sha512-GjzePcT9Iw8NzeOPf73iNS9xM+TBhd/FilAfP+RQGkTMQJTVWtytN3JHJACCjf/ABNau5S7mS3g+DcuxmRgYEg=="],
 

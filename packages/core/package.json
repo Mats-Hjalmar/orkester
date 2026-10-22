@@ -44,12 +44,13 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "bun run --cwd ../sonos-api build && tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "smoke:live": "node src/node/live-smoke.ts"
   },
   "dependencies": {
+    "@orkester/sonos-api": "workspace:*",
     "fast-xml-parser": "^4.5.6"
   },
   "peerDependencies": {
