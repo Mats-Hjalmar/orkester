@@ -135,6 +135,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   placeholder="Artists, tracks, albums, playlists…"
                   placeholderTextColor={colors.fgSubtle}
                   returnKeyType="search"
+                  autoFocus
                   style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg, outlineStyle: 'none' } as object}
                 />
                 <Pressable
