@@ -2,7 +2,7 @@ appId: com.orkester.desktop
 copyright: Copyright © 2026 Mats-Hjalmar Murman
 
 directories:
-  output: release
+  output: release.noindex
   buildResources: build
 
 # electron-vite has already inlined @orkester/core into out/main, so the packaged
@@ -19,12 +19,15 @@ mac:
   target:
     - target: dmg
       arch: [universal]
+    - target: zip
+      arch: [universal]
   hardenedRuntime: true
   gatekeeperAssess: false
   identity: Isotop AB (3GN395FUH4)
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
   notarize: false
+  artifactName: ${productName}-universal.${ext}
   extendInfo:
     # SSDP discovery is UDP multicast on the LAN; macOS 15+ gates that behind the
     # Local Network privacy prompt and shows this string in it.

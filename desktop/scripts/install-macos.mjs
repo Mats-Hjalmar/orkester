@@ -41,7 +41,7 @@ if (uninstall) {
 
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const archDir = process.arch === 'arm64' ? 'mac-arm64' : 'mac';
-const source = join(desktopDir, 'release', archDir, BUNDLE);
+const source = join(desktopDir, 'release.noindex', archDir, BUNDLE);
 if (!existsSync(source)) throw new Error(`No packaged app at ${source} — build it first (app:mac).`);
 
 rmSync(dest, { recursive: true, force: true });
