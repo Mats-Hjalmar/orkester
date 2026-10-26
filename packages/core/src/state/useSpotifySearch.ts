@@ -16,6 +16,7 @@ import { useStore } from './store';
 
 export const SPOTIFY_SEARCH_KINDS: SpotifySearchKind[] = ['tracks', 'albums', 'artists', 'playlists'];
 const POLL_MS = 2500;
+const SEARCH_DEBOUNCE_MS = 400;
 
 const ENQUEUE_NOTICE: Record<QueuePosition, (title: string, group: string) => string> = {
   end: (title, group) => `Added "${title}" to the queue on ${group}.`,
@@ -102,6 +103,8 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     pendingRef.current = null;
     setPending(null);
   };
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const searchSeqRef = useRef(0);
 
   // Initial link check — runs ONCE on mount (see apiRef note above).
   useEffect(() => {
@@ -183,16 +186,22 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   // newly-picked kind so switching categories re-searches the same query without
   // waiting for the (async) state update.
   const runSearch = async (searchKind: SpotifySearchKind = kind): Promise<void> => {
+    clearTimeout(debounceRef.current);
     const q = query.trim();
     if (q === '') return;
+    // Searches overlap while typing; only the latest one may touch state, so a
+    // slow earlier response can't overwrite newer results.
+    const seq = ++searchSeqRef.current;
     setBusy(true);
     setError('');
     setNotice('');
     try {
       const hits = await apiRef.current.searchSpotify(q, searchKind);
+      if (seq !== searchSeqRef.current) return;
       setResults(hits);
       if (hits.length === 0) setNotice(`No ${searchKind} match "${q}".`);
     } catch (e) {
+      if (seq !== searchSeqRef.current) return;
       // NotLinkedError surfaces as a re-link prompt; everything else is shown.
       // Its message (e.g. "session expired") becomes a notice so the user knows
       // why the link panel reappeared.
@@ -203,9 +212,16 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
         setError(messageOf(e));
       }
     } finally {
-      setBusy(false);
+      if (seq === searchSeqRef.current) setBusy(false);
     }
   };
+
+  // Search as the user types, once they pause. runSearch clears this timer, so an
+  // explicit search (Enter, the button, a kind chip) doesn't fire a duplicate.
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => void runSearch(), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(debounceRef.current);
+  }, [query]);
 
   const addToQueue = async (item: ApiSearchItem, where: QueuePosition = 'end'): Promise<void> => {
     if (pendingRef.current) return;
