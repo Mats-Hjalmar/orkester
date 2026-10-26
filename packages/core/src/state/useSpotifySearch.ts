@@ -100,7 +100,9 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(() =>
-    lastSearch && lastSearch.results.length === 0 ? noMatchNotice(lastSearch.kind, lastSearch.query) : '',
+    lastSearch && lastSearch.query !== '' && lastSearch.results.length === 0
+      ? noMatchNotice(lastSearch.kind, lastSearch.query)
+      : '',
   );
   // Which hit's add/play is in flight. The ref is the drop-guard (read
   // synchronously on click); the state drives the spinner.
@@ -236,6 +238,17 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   // Search as the user types, once they pause. runSearch clears this timer, so an
   // explicit search (Enter, the button, a kind chip) doesn't fire a duplicate.
   useEffect(() => {
+    // A cleared search bar clears the results too, and that empty state is what
+    // reopening the pane shows. Bumping the sequence drops a search in flight.
+    if (query.trim() === '') {
+      ++searchSeqRef.current;
+      setBusy(false);
+      setResults([]);
+      setNotice('');
+      resultsQueryRef.current = '';
+      lastSearch = { query: '', kind, results: [] };
+      return;
+    }
     if (!busy && query.trim() === resultsQueryRef.current) return;
     debounceRef.current = setTimeout(() => void runSearch(), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(debounceRef.current);
