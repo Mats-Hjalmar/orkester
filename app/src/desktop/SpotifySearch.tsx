@@ -38,6 +38,8 @@ const BACK_TOP = PAD + BACK_ROW_H / 2 - BACK_BTN / 2;
 const BACK_TOP_FOLDED = SEARCH_TOP_FOLDED + (SEARCH_H - BACK_BTN) / 2;
 const BACK_TOP_DOCKED = DOCKED_TOP + (SEARCH_H - BACK_BTN) / 2;
 const CHEVRON_INSET = (BACK_BTN - 16) / 2;
+const LABEL_GONE = FOLDED * 0.6;
+const LABEL_MAX_W = 600;
 
 export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
   const { roomName, config, reportError } = useStore();
@@ -89,19 +91,14 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, SEARCH_TOP_FOLDED + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
   const backTop = at([BACK_TOP, BACK_TOP_FOLDED, BACK_TOP_DOCKED]);
   const backLeft = at([PAD - CHEVRON_INSET, PAD, PAD]);
-  const labelOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.6], outputRange: [1, 0], extrapolate: 'clamp' });
+  const labelOpacity = progress.interpolate({ inputRange: [0, LABEL_GONE], outputRange: [1, 0], extrapolate: 'clamp' });
+  const labelMaxW = progress.interpolate({ inputRange: [LABEL_GONE - 0.001, LABEL_GONE], outputRange: [LABEL_MAX_W, 0], extrapolate: 'clamp' });
   const ringOpacity = progress.interpolate({ inputRange: [FOLDED * 0.5, FOLDED], outputRange: [0, 1], extrapolate: 'clamp' });
   const searchLeft = progress.interpolate({ inputRange: [FOLDED * 0.4, FOLDED], outputRange: [PAD, PAD + BACK_BTN + 10], extrapolate: 'clamp' });
   const titleOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.7], outputRange: [1, 0], extrapolate: 'clamp' });
   const titleScale = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [1, 0.92], extrapolate: 'clamp' });
   const titleLift = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [0, -8], extrapolate: 'clamp' });
   const hairline = progress.interpolate({ inputRange: [0.85, 1], outputRange: [0, 1], extrapolate: 'clamp' });
-
-  const [labelGone, setLabelGone] = React.useState(false);
-  React.useEffect(() => {
-    const id = progress.addListener(({ value }) => setLabelGone(value >= FOLDED * 0.6));
-    return () => progress.removeListener(id);
-  }, [progress]);
 
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.bg }}>
@@ -358,11 +355,11 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                       <ChevronRight size={16} color={colors.fgMuted} />
                     </View>
                   </View>
-                  {!labelGone && (
-                    <Animated.Text style={[type.bodyMuted, { marginLeft: 6 - CHEVRON_INSET, opacity: labelOpacity }]}>
+                  <Animated.View style={{ marginLeft: 6 - CHEVRON_INSET, maxWidth: labelMaxW, overflow: 'hidden' }}>
+                    <Animated.Text numberOfLines={1} style={[type.bodyMuted, { opacity: labelOpacity }]}>
                       Back to {groupLabel}
                     </Animated.Text>
-                  )}
+                  </Animated.View>
                 </>
               )}
             </Pressable>
