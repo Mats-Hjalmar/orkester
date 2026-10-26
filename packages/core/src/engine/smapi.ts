@@ -391,6 +391,11 @@ interface SpotifyKind {
   upnpClass: string;
   isContainer: boolean;
   flags: string;
+  /**
+   * Rewrites the search hit's id into the id the container expects, or throws
+   * when the id is not of the expected shape. Absent = the id is used as-is.
+   */
+  toContainerId?: (id: string) => string;
 }
 
 const SPOTIFY_KINDS: Record<string, SpotifyKind> = {
@@ -425,6 +430,16 @@ const SPOTIFY_KINDS: Record<string, SpotifyKind> = {
     upnpClass: 'object.container.playlistContainer',
     isContainer: true,
     flags: '',
+    // 100e206c is the artist's TOP TRACKS container: it takes
+    // spotify:artistTopTracks:<id>, not the bare spotify:artist:<id> a search
+    // returns (that one faults 804 on AddURIToQueue).
+    toContainerId: (id) => {
+      const prefix = 'spotify:artist:';
+      if (!id.startsWith(prefix)) {
+        throw new Error(`artist hit id "${id}" is not a ${prefix} id`);
+      }
+      return `spotify:artistTopTracks:${id.slice(prefix.length)}`;
+    },
   },
 };
 
@@ -464,7 +479,7 @@ export function spotifyEnqueueItem(
   if (item.id === '') {
     throw new Error(`search hit "${item.title}" has no id`);
   }
-  const enc = encodeServiceId(item.id);
+  const enc = encodeServiceId(kind.toContainerId ? kind.toContainerId(item.id) : item.id);
   const uri = kind.isContainer
     ? `${kind.uriScheme}${kind.uriPrefix}${enc}`
     : `${kind.uriScheme}${enc}?sid=${sid}&flags=${kind.flags}&sn=${accountSN}`;

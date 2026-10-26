@@ -167,6 +167,28 @@ describe('spotifyEnqueueItem', () => {
     expect(e.metadata).toContain('<upnp:class>object.container.playlistContainer</upnp:class>');
   });
 
+  it("enqueues an artist as its top-tracks container", () => {
+    const e = spotifyEnqueueItem(
+      { id: 'spotify:artist:0kbY', itemType: 'artist', title: 'Miles Davis', artist: '', album: '', artUrl: '', isContainer: true },
+      SID,
+      SEED,
+      SN,
+    );
+    expect(e.uri).toBe('x-rincon-cpcontainer:100e206cspotify%3aartistTopTracks%3a0kbY');
+    expect(e.metadata).toContain('<item id="100e206cspotify%3aartistTopTracks%3a0kbY" parentID="0" restricted="true">');
+  });
+
+  it('throws for an artist hit whose id is not a spotify:artist: id', () => {
+    expect(() =>
+      spotifyEnqueueItem(
+        { id: 'spotify:album:x', itemType: 'artist', title: 'Odd', artist: '', album: '', artUrl: '', isContainer: true },
+        SID,
+        SEED,
+        SN,
+      ),
+    ).toThrow(/spotify:artist:/);
+  });
+
   it('throws for an unsupported item type', () => {
     expect(() =>
       spotifyEnqueueItem(
