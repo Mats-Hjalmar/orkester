@@ -248,6 +248,10 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     return () => clearTimeout(debounceRef.current);
   }, [query]);
 
+  useEffect(() => {
+    if (query.trim() === '') lastSearch = { query: '', kind, results: [] };
+  }, [kind]);
+
   const addToQueue = async (item: ApiSearchItem, where: QueuePosition = 'end'): Promise<void> => {
     if (pendingRef.current) return;
     setError('');
