@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Animated, Image, Linking, Pressable, Text, TextInput, View } from 'react-native';
-import { ChevronRight, Play, Plus, Queue, Search, Speaker } from '../icons';
+import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, Text, TextInput, View } from 'react-native';
+import { ChevronRight, Close, Play, Plus, Queue, Search, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -74,6 +74,22 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   };
 
   const linked = link.status === 'linked';
+  const inputRef = React.useRef<TextInput>(null);
+
+  // The clear button fades and scales in once there is text, and out again when
+  // the bar empties. It stays mounted (its slot reserved) so the text never shifts.
+  const hasQuery = query !== '';
+  const clearIn = React.useRef(new Animated.Value(hasQuery ? 1 : 0)).current;
+  React.useEffect(() => {
+    Animated.timing(clearIn, {
+      toValue: hasQuery ? 1 : 0,
+      duration: hasQuery ? 180 : 140,
+      easing: hasQuery ? Easing.out(Easing.back(1.6)) : Easing.in(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [hasQuery, clearIn]);
+  const clearOpacity = clearIn.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' });
+  const clearScale = clearIn.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
 
   // 0 = expanded, 1 = docked. The link flow has no search bar, so it stays at 0.
   const scrollY = React.useRef(new Animated.Value(0)).current;
@@ -239,6 +255,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
               >
                 <Search size={18} color={colors.fgSubtle} />
                 <TextInput
+                  ref={inputRef}
                   value={query}
                   onChangeText={setQuery}
                   onSubmitEditing={() => void runSearch()}
@@ -248,6 +265,30 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   autoFocus
                   style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg, outlineStyle: 'none' } as object}
                 />
+                <Animated.View
+                  pointerEvents={hasQuery ? 'auto' : 'none'}
+                  style={{ opacity: clearOpacity, transform: [{ scale: clearScale }] }}
+                >
+                  <Pressable
+                    onPress={() => {
+                      setQuery('');
+                      // Keep typing right away after clearing.
+                      inputRef.current?.focus();
+                    }}
+                    accessibilityLabel="Clear search"
+                    hitSlop={6}
+                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                      width: 26,
+                      height: 26,
+                      borderRadius: radii.pill,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: pressed ? ink(0.1) : hovered ? ink(0.06) : 'transparent',
+                    })}
+                  >
+                    <Close size={14} color={colors.fgSubtle} />
+                  </Pressable>
+                </Animated.View>
                 <Pressable
                   onPress={() => void runSearch()}
                   disabled={busy || query.trim() === ''}

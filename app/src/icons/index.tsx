@@ -208,6 +208,14 @@ export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
+export function Close({ size = 18, color = '#1A1814' }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Path d="M6 6l12 12M18 6L6 18" />
+    </Svg>
+  );
+}
+
 export function Check({ size = 18, color = '#1A1814' }: IconProps) {
   return (
     <Svg {...stroke(size, color, 2.25)}>
