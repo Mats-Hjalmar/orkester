@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
-import { ChevronDown, Next, Pause, Play, Prev, Speaker } from '../icons';
+import { ChevronDown, Next, Pause, Play, Prev, Repeat, Shuffle, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
@@ -44,6 +44,9 @@ export default function MiniPlayer({ group, groupsOpen, onToggleGroups }: { grou
 
       <View style={{ flex: 1, minWidth: 0, gap: 6, opacity: controllable ? 1 : 0.4, pointerEvents: controllable ? 'auto' : 'none' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, opacity: pending !== null ? 0.55 : 1 }}>
+          <Pressable onPress={() => ctrl.setShuffle(!group.shuffle)} hitSlop={8}>
+            {pending === 'shuffle' ? <Spinner size={16} /> : <Shuffle size={16} color={group.shuffle ? colors.fg : colors.fgSubtle} />}
+          </Pressable>
           <Pressable onPress={ctrl.prev} hitSlop={8}>
             {pending === 'prev' ? <Spinner size={18} /> : <Prev size={18} fill={colors.fg} />}
           </Pressable>
@@ -58,6 +61,9 @@ export default function MiniPlayer({ group, groupsOpen, onToggleGroups }: { grou
           </Pressable>
           <Pressable onPress={ctrl.next} hitSlop={8}>
             {pending === 'next' ? <Spinner size={18} /> : <Next size={18} fill={colors.fg} />}
+          </Pressable>
+          <Pressable onPress={() => ctrl.setRepeat(!group.repeat)} hitSlop={8}>
+            {pending === 'repeat' ? <Spinner size={16} /> : <Repeat size={16} color={group.repeat ? colors.fg : colors.fgSubtle} />}
           </Pressable>
         </View>
         <ProgressRow group={group} />
