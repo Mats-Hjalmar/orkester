@@ -83,22 +83,24 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
     () => (linked ? scrollY.interpolate({ inputRange: [0, COLLAPSE], outputRange: [0, 1], extrapolate: 'clamp' }) : new Animated.Value(0)),
     [linked, scrollY],
   );
-  const at = (outputRange: number[]) =>
-    progress.interpolate({ inputRange: outputRange.length === 3 ? [0, FOLDED, 1] : [0, 1], outputRange });
-
-  const headerH = linked ? at([HEADER_H, HEADER_H - COLLAPSE]) : LINK_HEADER_H;
-  const searchTop = at([SEARCH_TOP, SEARCH_TOP_FOLDED, DOCKED_TOP]);
-  const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, SEARCH_TOP_FOLDED + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
-  const backTop = at([BACK_TOP, BACK_TOP_FOLDED, BACK_TOP_DOCKED]);
-  const backLeft = at([PAD - CHEVRON_INSET, PAD, PAD]);
-  const labelOpacity = progress.interpolate({ inputRange: [0, LABEL_GONE], outputRange: [1, 0], extrapolate: 'clamp' });
-  const labelMaxW = progress.interpolate({ inputRange: [LABEL_GONE - 0.001, LABEL_GONE], outputRange: [LABEL_MAX_W, 0], extrapolate: 'clamp' });
-  const ringOpacity = progress.interpolate({ inputRange: [FOLDED * 0.5, FOLDED], outputRange: [0, 1], extrapolate: 'clamp' });
-  const searchLeft = progress.interpolate({ inputRange: [FOLDED * 0.4, FOLDED], outputRange: [PAD, PAD + BACK_BTN + 10], extrapolate: 'clamp' });
-  const titleOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.7], outputRange: [1, 0], extrapolate: 'clamp' });
-  const titleScale = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [1, 0.92], extrapolate: 'clamp' });
-  const titleLift = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [0, -8], extrapolate: 'clamp' });
-  const hairline = progress.interpolate({ inputRange: [0.85, 1], outputRange: [0, 1], extrapolate: 'clamp' });
+  const { headerH, searchTop, chipsTop, backTop, backLeft, labelOpacity, labelMaxW, ringOpacity, searchLeft, titleOpacity, titleScale, titleLift, hairline } = React.useMemo(() => {
+    const at = (outputRange: number[]) =>
+      progress.interpolate({ inputRange: outputRange.length === 3 ? [0, FOLDED, 1] : [0, 1], outputRange });
+    const headerH = linked ? at([HEADER_H, HEADER_H - COLLAPSE]) : LINK_HEADER_H;
+    const searchTop = at([SEARCH_TOP, SEARCH_TOP_FOLDED, DOCKED_TOP]);
+    const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, SEARCH_TOP_FOLDED + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
+    const backTop = at([BACK_TOP, BACK_TOP_FOLDED, BACK_TOP_DOCKED]);
+    const backLeft = at([PAD - CHEVRON_INSET, PAD, PAD]);
+    const labelOpacity = progress.interpolate({ inputRange: [0, LABEL_GONE], outputRange: [1, 0], extrapolate: 'clamp' });
+    const labelMaxW = progress.interpolate({ inputRange: [LABEL_GONE - 0.001, LABEL_GONE], outputRange: [LABEL_MAX_W, 0], extrapolate: 'clamp' });
+    const ringOpacity = progress.interpolate({ inputRange: [FOLDED * 0.5, FOLDED], outputRange: [0, 1], extrapolate: 'clamp' });
+    const searchLeft = progress.interpolate({ inputRange: [FOLDED * 0.4, FOLDED], outputRange: [PAD, PAD + BACK_BTN + 10], extrapolate: 'clamp' });
+    const titleOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.7], outputRange: [1, 0], extrapolate: 'clamp' });
+    const titleScale = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [1, 0.92], extrapolate: 'clamp' });
+    const titleLift = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [0, -8], extrapolate: 'clamp' });
+    const hairline = progress.interpolate({ inputRange: [0.85, 1], outputRange: [0, 1], extrapolate: 'clamp' });
+    return { headerH, searchTop, chipsTop, backTop, backLeft, labelOpacity, labelMaxW, ringOpacity, searchLeft, titleOpacity, titleScale, titleLift, hairline };
+  }, [linked, progress]);
 
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.bg }}>
