@@ -18,6 +18,16 @@ export const SPOTIFY_SEARCH_KINDS: SpotifySearchKind[] = ['tracks', 'albums', 'a
 const POLL_MS = 2500;
 const SEARCH_DEBOUNCE_MS = 400;
 
+// The last successful search, kept for the life of the JS runtime so closing and
+// reopening the search pane shows it again without a new request. In memory
+// only: catalog hits go stale, so they are not persisted across restarts.
+interface SearchSnapshot {
+  query: string;
+  kind: SpotifySearchKind;
+  results: ApiSearchItem[];
+}
+let lastSearch: SearchSnapshot | null = null;
+
 const ENQUEUE_NOTICE: Record<QueuePosition, (title: string, group: string) => string> = {
   end: (title, group) => `Added "${title}" to the queue on ${group}.`,
   next: (title, group) => `"${title}" plays next on ${group}.`,
@@ -84,12 +94,14 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   apiRef.current = store;
 
   const [link, setLink] = useState<LinkState>({ status: 'checking' });
-  const [query, setQuery] = useState('');
-  const [kind, setKind] = useState<SpotifySearchKind>('tracks');
-  const [results, setResults] = useState<ApiSearchItem[]>([]);
+  const [query, setQuery] = useState(lastSearch?.query ?? '');
+  const [kind, setKind] = useState<SpotifySearchKind>(lastSearch?.kind ?? 'tracks');
+  const [results, setResults] = useState<ApiSearchItem[]>(lastSearch?.results ?? []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(() =>
+    lastSearch && lastSearch.results.length === 0 ? noMatchNotice(lastSearch.kind, lastSearch.query) : '',
+  );
   // Which hit's add/play is in flight. The ref is the drop-guard (read
   // synchronously on click); the state drives the spinner.
   const [pending, setPending] = useState<{ id: string; op: PendingSearchOp } | null>(null);
@@ -104,6 +116,10 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   };
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchSeqRef = useRef(0);
+  // The trimmed query the shown results belong to, so the type-ahead effect
+  // doesn't re-run a search whose results are already on screen (a restored
+  // snapshot on reopen).
+  const resultsQueryRef = useRef(lastSearch?.query.trim() ?? '');
 
   // Initial link check — runs ONCE on mount (see apiRef note above).
   useEffect(() => {
@@ -198,7 +214,9 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
       const hits = await apiRef.current.searchSpotify(q, searchKind);
       if (seq !== searchSeqRef.current) return;
       setResults(hits);
-      if (hits.length === 0) setNotice(`No ${searchKind} match "${q}".`);
+      resultsQueryRef.current = q;
+      lastSearch = { query: q, kind: searchKind, results: hits };
+      if (hits.length === 0) setNotice(noMatchNotice(searchKind, q));
     } catch (e) {
       if (seq !== searchSeqRef.current) return;
       // NotLinkedError surfaces as a re-link prompt; everything else is shown.
@@ -218,6 +236,7 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   // Search as the user types, once they pause. runSearch clears this timer, so an
   // explicit search (Enter, the button, a kind chip) doesn't fire a duplicate.
   useEffect(() => {
+    if (!busy && query.trim() === resultsQueryRef.current) return;
     debounceRef.current = setTimeout(() => void runSearch(), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(debounceRef.current);
   }, [query]);
@@ -266,6 +285,10 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     playNow,
     pending,
   };
+}
+
+function noMatchNotice(kind: SpotifySearchKind, q: string): string {
+  return `No ${kind} match "${q}".`;
 }
 
 function messageOf(e: unknown): string {
