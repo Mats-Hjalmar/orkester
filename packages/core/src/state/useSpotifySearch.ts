@@ -116,6 +116,7 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchSeqRef = useRef(0);
   const resultsQueryRef = useRef(lastSearch?.query.trim() ?? '');
+  const resultsKindRef = useRef<SpotifySearchKind>(lastSearch?.kind ?? 'tracks');
 
   // Initial link check — runs ONCE on mount (see apiRef note above).
   useEffect(() => {
@@ -211,6 +212,7 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
       if (seq !== searchSeqRef.current) return;
       setResults(hits);
       resultsQueryRef.current = q;
+      resultsKindRef.current = searchKind;
       lastSearch = { query: q, kind: searchKind, results: hits };
       if (hits.length === 0) setNotice(noMatchNotice(searchKind, q));
     } catch (e) {
@@ -241,7 +243,7 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
       lastSearch = { query: '', kind, results: [] };
       return;
     }
-    if (!busy && query.trim() === resultsQueryRef.current) return;
+    if (!busy && query.trim() === resultsQueryRef.current && kind === resultsKindRef.current) return;
     debounceRef.current = setTimeout(() => void runSearch(), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(debounceRef.current);
   }, [query]);
