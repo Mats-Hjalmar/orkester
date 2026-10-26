@@ -53,7 +53,7 @@ export default function Search() {
 
   // True once a search has come back, so "no results" is distinguishable from
   // "haven't searched yet" — the old screen rendered nothing for both.
-  const [searched, setSearched] = React.useState(false);
+  const [searched, setSearched] = React.useState(query.trim() !== '');
   const [expanded, setExpanded] = React.useState<string | null>(null);
 
   const search = (k?: typeof kind) => {
