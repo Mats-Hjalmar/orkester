@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { ChevronRight, Close, Play, Plus, Queue, Search, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
@@ -102,9 +102,24 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
     return { headerH, searchTop, chipsTop, backTop, backLeft, labelOpacity, labelMaxW, ringOpacity, searchLeft, titleOpacity, titleScale, titleLift, hairline };
   }, [linked, progress]);
 
+  const scrollRef = React.useRef<ScrollView>(null);
+  const headerRef = React.useRef<View>(null);
+  React.useEffect(() => {
+    const header = headerRef.current as unknown as HTMLElement | null;
+    const scroller = scrollRef.current?.getScrollableNode() as HTMLElement | undefined;
+    if (!header || !scroller) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      scroller.scrollBy({ top: e.deltaY });
+    };
+    header.addEventListener('wheel', onWheel, { passive: false });
+    return () => header.removeEventListener('wheel', onWheel);
+  }, []);
+
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.bg }}>
       <Animated.ScrollView
+        ref={scrollRef}
         contentContainerStyle={{
           paddingHorizontal: PAD,
           paddingBottom: PAD,
@@ -196,6 +211,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
       </Animated.ScrollView>
 
       <Animated.View
+        ref={headerRef}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH, overflow: 'hidden', backgroundColor: colors.bg }}
       >
         <Animated.View
