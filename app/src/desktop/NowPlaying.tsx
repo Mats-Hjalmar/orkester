@@ -4,8 +4,7 @@ import CoverArt from '../components/CoverArt';
 import SpeakerChip from '../components/SpeakerChip';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
-import { ProgressRow, VolumeRow } from './controls';
-import { ChevronRight, Dots, Grip, Next, Pause, Play, Prev, Queue, QueueBottom, QueueTop, Repeat, Shuffle, Speaker, Trash } from '../icons';
+import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -168,7 +167,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
 // present, so onBack is omitted and no back button renders.
 export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?: Group; onBack?: () => void; onSearch?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
+  const { state, getTrack, roomName, config, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const status = state.topologyStatus;
@@ -214,7 +213,6 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
   const chips = chipsFor(store, g);
   const idle = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const here = g.roomIds.length ? `${roomName(g.roomIds[0])} ${groupCount(g)}`.trim() : 'this group';
-  const ctrl = groupControls(g.id);
   // "Up next" = the queue AFTER the currently-playing track, so the top of the
   // list is genuinely the next song and skipping advances it off the top. The
   // current track is already shown big above. qStart is the absolute queue index
@@ -225,11 +223,7 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
   // A group with a loaded queue is controllable even when it reports no
   // now-playing metadata — Play resumes the queue.
   const controllable = !idle || fullQueue.length > 0;
-  const pending = store.transportPending(g.id);
-  const busy = pending !== null;
   const queueBusy = store.queuePending(g.id);
-  const spinning = (op: typeof pending, size: number) =>
-    pending === op ? <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={colors.fg} /></View> : null;
 
   return (
     <View style={{ flex: 1 }}>
@@ -302,36 +296,6 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
               {!!tr.album && (
                 <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 18 }}>{tr.album}</Text>
               )}
-              {/* Inline transport for THIS group. */}
-              <View style={{ marginTop: 30, gap: 14, maxWidth: 560 }}>
-                {/* One transport request at a time: the control that fired shows a
-                    spinner, the rest dim, and further clicks are dropped by the store. */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 26, opacity: busy ? 0.55 : 1 }}>
-                  <Pressable onPress={() => ctrl.setShuffle(!g.shuffle)} hitSlop={8}>
-                    {spinning('shuffle', 20) ?? <Shuffle size={20} color={g.shuffle ? colors.fg : colors.fgSubtle} />}
-                  </Pressable>
-                  <Pressable onPress={ctrl.prev} hitSlop={8}>
-                    {spinning('prev', 24) ?? <Prev size={24} fill={colors.fg} />}
-                  </Pressable>
-                  <Pressable onPress={ctrl.togglePlay} style={{ width: 56, height: 56, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', boxShadow: shadow.sm } as any}>
-                    {pending === 'play' || pending === 'pause' ? (
-                      <ActivityIndicator size="small" color={accentText} />
-                    ) : g.isPlaying ? (
-                      <Pause size={22} fill={accentText} />
-                    ) : (
-                      <Play size={22} fill={accentText} />
-                    )}
-                  </Pressable>
-                  <Pressable onPress={ctrl.next} hitSlop={8}>
-                    {spinning('next', 24) ?? <Next size={24} fill={colors.fg} />}
-                  </Pressable>
-                  <Pressable onPress={() => ctrl.setRepeat(!g.repeat)} hitSlop={8}>
-                    {spinning('repeat', 20) ?? <Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} />}
-                  </Pressable>
-                </View>
-                <ProgressRow group={g} />
-                <VolumeRow group={g} />
-              </View>
             </>
           )}
 
