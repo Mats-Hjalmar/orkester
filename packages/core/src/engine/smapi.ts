@@ -391,6 +391,7 @@ interface SpotifyKind {
   upnpClass: string;
   isContainer: boolean;
   flags: string;
+  toContainerId?: (id: string) => string;
 }
 
 const SPOTIFY_KINDS: Record<string, SpotifyKind> = {
@@ -425,6 +426,13 @@ const SPOTIFY_KINDS: Record<string, SpotifyKind> = {
     upnpClass: 'object.container.playlistContainer',
     isContainer: true,
     flags: '',
+    toContainerId: (id) => {
+      const prefix = 'spotify:artist:';
+      if (!id.startsWith(prefix)) {
+        throw new Error(`artist hit id "${id}" is not a ${prefix} id`);
+      }
+      return `spotify:artistTopTracks:${id.slice(prefix.length)}`;
+    },
   },
 };
 
@@ -464,7 +472,7 @@ export function spotifyEnqueueItem(
   if (item.id === '') {
     throw new Error(`search hit "${item.title}" has no id`);
   }
-  const enc = encodeServiceId(item.id);
+  const enc = encodeServiceId(kind.toContainerId ? kind.toContainerId(item.id) : item.id);
   const uri = kind.isContainer
     ? `${kind.uriScheme}${kind.uriPrefix}${enc}`
     : `${kind.uriScheme}${enc}?sid=${sid}&flags=${kind.flags}&sn=${accountSN}`;

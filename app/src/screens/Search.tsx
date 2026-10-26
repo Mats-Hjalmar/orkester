@@ -53,7 +53,7 @@ export default function Search() {
 
   // True once a search has come back, so "no results" is distinguishable from
   // "haven't searched yet" — the old screen rendered nothing for both.
-  const [searched, setSearched] = React.useState(false);
+  const [searched, setSearched] = React.useState(query.trim() !== '');
   const [expanded, setExpanded] = React.useState<string | null>(null);
 
   const search = (k?: typeof kind) => {
@@ -420,7 +420,6 @@ function ResultRow({
       {expanded && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, marginLeft: 60 }}>
           <TextAction label="Play next" enabled={enabled && !anyPending} onPress={() => onEnqueue('next')} />
-          <TextAction label="Add first" enabled={enabled && !anyPending} onPress={() => onEnqueue('first')} />
           <TextAction label="Add to queue" enabled={enabled && !anyPending} icon onPress={() => onEnqueue('end')} />
         </View>
       )}

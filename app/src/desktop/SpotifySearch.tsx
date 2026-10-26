@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { ChevronRight, Play, Plus, Queue, QueueTop, Search, Speaker } from '../icons';
+import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ChevronRight, Close, Play, Plus, Queue, Search, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -17,6 +17,29 @@ import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 // platform `Linking.openURL` (kept out of core so it imports only react).
 
 const KINDS = SPOTIFY_SEARCH_KINDS;
+
+const PAD = 28;
+const BACK_ROW_H = 18;
+const TITLE_ROW_H = 24;
+const GAP = 18;
+const SEARCH_H = 46;
+const CHIPS_GAP = 12;
+const CHIP_H = 30;
+const PAD_BOTTOM = 12;
+const DOCKED_TOP = 20;
+const BACK_BTN = 36;
+const SEARCH_TOP = PAD + BACK_ROW_H + GAP + TITLE_ROW_H + GAP;
+const SEARCH_TOP_FOLDED = PAD + BACK_ROW_H + GAP;
+const COLLAPSE = SEARCH_TOP - DOCKED_TOP;
+const FOLDED = (SEARCH_TOP - SEARCH_TOP_FOLDED) / COLLAPSE;
+const HEADER_H = SEARCH_TOP + SEARCH_H + CHIPS_GAP + CHIP_H + PAD_BOTTOM;
+const LINK_HEADER_H = PAD + BACK_ROW_H + GAP + TITLE_ROW_H;
+const BACK_TOP = PAD + BACK_ROW_H / 2 - BACK_BTN / 2;
+const BACK_TOP_FOLDED = SEARCH_TOP_FOLDED + (SEARCH_H - BACK_BTN) / 2;
+const BACK_TOP_DOCKED = DOCKED_TOP + (SEARCH_H - BACK_BTN) / 2;
+const CHEVRON_INSET = (BACK_BTN - 16) / 2;
+const LABEL_GONE = FOLDED * 0.6;
+const LABEL_MAX_W = 600;
 
 export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
   const { roomName, config, reportError } = useStore();
@@ -39,26 +62,74 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
     if (info) void Linking.openURL(info.regUrl).catch(() => {});
   };
 
+  const linked = link.status === 'linked';
+  const inputRef = React.useRef<TextInput>(null);
+
+  const hasQuery = query !== '';
+  const clearIn = React.useRef(new Animated.Value(hasQuery ? 1 : 0)).current;
+  React.useEffect(() => {
+    Animated.timing(clearIn, {
+      toValue: hasQuery ? 1 : 0,
+      duration: hasQuery ? 180 : 140,
+      easing: hasQuery ? Easing.out(Easing.back(1.6)) : Easing.in(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [hasQuery, clearIn]);
+  const clearOpacity = clearIn.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' });
+  const clearScale = clearIn.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
+
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const progress = React.useMemo(
+    () => (linked ? scrollY.interpolate({ inputRange: [0, COLLAPSE], outputRange: [0, 1], extrapolate: 'clamp' }) : new Animated.Value(0)),
+    [linked, scrollY],
+  );
+  const { headerH, searchTop, chipsTop, backTop, backLeft, labelOpacity, labelMaxW, ringOpacity, searchLeft, titleOpacity, titleScale, titleLift, hairline } = React.useMemo(() => {
+    const at = (outputRange: number[]) =>
+      progress.interpolate({ inputRange: outputRange.length === 3 ? [0, FOLDED, 1] : [0, 1], outputRange });
+    const headerH = linked ? at([HEADER_H, HEADER_H - COLLAPSE]) : LINK_HEADER_H;
+    const searchTop = at([SEARCH_TOP, SEARCH_TOP_FOLDED, DOCKED_TOP]);
+    const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, SEARCH_TOP_FOLDED + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
+    const backTop = at([BACK_TOP, BACK_TOP_FOLDED, BACK_TOP_DOCKED]);
+    const backLeft = at([PAD - CHEVRON_INSET, PAD, PAD]);
+    const labelOpacity = progress.interpolate({ inputRange: [0, LABEL_GONE], outputRange: [1, 0], extrapolate: 'clamp' });
+    const labelMaxW = progress.interpolate({ inputRange: [LABEL_GONE - 0.001, LABEL_GONE], outputRange: [LABEL_MAX_W, 0], extrapolate: 'clamp' });
+    const ringOpacity = progress.interpolate({ inputRange: [FOLDED * 0.5, FOLDED], outputRange: [0, 1], extrapolate: 'clamp' });
+    const searchLeft = progress.interpolate({ inputRange: [FOLDED * 0.4, FOLDED], outputRange: [PAD, PAD + BACK_BTN + 10], extrapolate: 'clamp' });
+    const titleOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.7], outputRange: [1, 0], extrapolate: 'clamp' });
+    const titleScale = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [1, 0.92], extrapolate: 'clamp' });
+    const titleLift = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [0, -8], extrapolate: 'clamp' });
+    const hairline = progress.interpolate({ inputRange: [0.85, 1], outputRange: [0, 1], extrapolate: 'clamp' });
+    return { headerH, searchTop, chipsTop, backTop, backLeft, labelOpacity, labelMaxW, ringOpacity, searchLeft, titleOpacity, titleScale, titleLift, hairline };
+  }, [linked, progress]);
+
+  const scrollRef = React.useRef<ScrollView>(null);
+  const headerRef = React.useRef<View>(null);
+  React.useEffect(() => {
+    const header = headerRef.current as unknown as HTMLElement | null;
+    const scroller = scrollRef.current?.getScrollableNode() as HTMLElement | undefined;
+    if (!header || !scroller) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      scroller.scrollBy({ top: e.deltaY });
+    };
+    header.addEventListener('wheel', onWheel, { passive: false });
+    return () => header.removeEventListener('wheel', onWheel);
+  }, []);
+
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 28, gap: 18 }} showsVerticalScrollIndicator={false}>
-        {onClose && (
-          <Pressable
-            onPress={onClose}
-            hitSlop={8}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })}
-          >
-            <View style={{ transform: [{ rotate: '180deg' }] }}>
-              <ChevronRight size={16} color={colors.fgMuted} />
-            </View>
-            <Text style={type.bodyMuted}>Back to {groupLabel}</Text>
-          </Pressable>
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Search size={22} color={colors.fg} />
-          <Text style={[type.displaySm]}>Search Spotify</Text>
-        </View>
-
+      <Animated.ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{
+          paddingHorizontal: PAD,
+          paddingBottom: PAD,
+          paddingTop: linked ? HEADER_H + 4 : LINK_HEADER_H + GAP,
+          gap: 18,
+        }}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+      >
         {link.status === 'checking' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <ActivityIndicator size="small" color={colors.fgMuted} />
@@ -110,90 +181,8 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
           </View>
         )}
 
-        {link.status === 'linked' && (
+        {linked && (
           <View style={{ gap: 16 }}>
-            {/* Search input + kind selector. */}
-            <View style={{ gap: 12 }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  height: 46,
-                  paddingHorizontal: 14,
-                  borderRadius: radii.lg,
-                  borderWidth: 1,
-                  borderColor: ink(0.12),
-                  backgroundColor: colors.bgPaper,
-                }}
-              >
-                <Search size={18} color={colors.fgSubtle} />
-                <TextInput
-                  value={query}
-                  onChangeText={setQuery}
-                  onSubmitEditing={() => void runSearch()}
-                  placeholder="Artists, tracks, albums, playlists…"
-                  placeholderTextColor={colors.fgSubtle}
-                  returnKeyType="search"
-                  style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg, outlineStyle: 'none' } as object}
-                />
-                <Pressable
-                  onPress={() => void runSearch()}
-                  disabled={busy || query.trim() === ''}
-                  style={({ pressed }) => ({
-                    height: 32,
-                    paddingHorizontal: 14,
-                    borderRadius: radii.pill,
-                    backgroundColor: accent,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: busy || query.trim() === '' ? 0.5 : pressed ? 0.8 : 1,
-                  })}
-                >
-                  {busy ? (
-                    <ActivityIndicator size="small" color={accentText} />
-                  ) : (
-                    <Text style={{ fontFamily: font.bodySemiBold, fontSize: 13, color: accentText }}>Search</Text>
-                  )}
-                </Pressable>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {KINDS.map((k) => {
-                  const on = k === kind;
-                  return (
-                    <Pressable
-                      key={k}
-                      onPress={() => {
-                        setKind(k);
-                        // Re-run the current query against the new category.
-                        if (query.trim() !== '') void runSearch(k);
-                      }}
-                      style={({ pressed }) => ({
-                        paddingVertical: 6,
-                        paddingHorizontal: 12,
-                        borderRadius: radii.pill,
-                        borderWidth: 1,
-                        borderColor: on ? 'transparent' : ink(0.12),
-                        backgroundColor: on ? colors.fg : pressed ? ink(0.04) : 'transparent',
-                      })}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: font.bodyMedium,
-                          fontSize: 12,
-                          textTransform: 'capitalize',
-                          color: on ? colors.bgPaper : colors.fgMuted,
-                        }}
-                      >
-                        {k}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
             {/* Where playback lands. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Speaker size={15} color={colors.fgSubtle} />
@@ -219,7 +208,186 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
         )}
 
         {notice !== '' && <Text style={[type.small, { color: colors.fgMuted }]}>{notice}</Text>}
-      </ScrollView>
+      </Animated.ScrollView>
+
+      <Animated.View
+        ref={headerRef}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH, overflow: 'hidden', backgroundColor: colors.bg }}
+      >
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: SEARCH_TOP_FOLDED,
+            left: PAD,
+            height: TITLE_ROW_H,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            opacity: titleOpacity,
+            transform: [{ translateY: titleLift }, { scale: titleScale }],
+            transformOrigin: 'left center',
+          } as object}
+        >
+          <Search size={22} color={colors.fg} />
+          <Text style={[type.displaySm]}>Search Spotify</Text>
+        </Animated.View>
+
+        {linked && (
+          <>
+            <Animated.View style={{ position: 'absolute', top: searchTop, left: searchLeft, right: PAD }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  height: SEARCH_H,
+                  paddingHorizontal: 14,
+                  borderRadius: radii.lg,
+                  borderWidth: 1,
+                  borderColor: ink(0.12),
+                  backgroundColor: colors.bgPaper,
+                }}
+              >
+                <Search size={18} color={colors.fgSubtle} />
+                <TextInput
+                  ref={inputRef}
+                  value={query}
+                  onChangeText={setQuery}
+                  onSubmitEditing={() => void runSearch()}
+                  placeholder="Artists, tracks, albums, playlists…"
+                  placeholderTextColor={colors.fgSubtle}
+                  returnKeyType="search"
+                  autoFocus
+                  style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg, outlineStyle: 'none' } as object}
+                />
+                <Animated.View
+                  pointerEvents={hasQuery ? 'auto' : 'none'}
+                  style={{ opacity: clearOpacity, transform: [{ scale: clearScale }] }}
+                >
+                  <Pressable
+                    onPress={() => {
+                      setQuery('');
+                      inputRef.current?.focus();
+                    }}
+                    accessibilityLabel="Clear search"
+                    hitSlop={6}
+                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                      width: 26,
+                      height: 26,
+                      borderRadius: radii.pill,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: pressed ? ink(0.1) : hovered ? ink(0.06) : 'transparent',
+                    })}
+                  >
+                    <Close size={14} color={colors.fgSubtle} />
+                  </Pressable>
+                </Animated.View>
+                <Pressable
+                  onPress={() => void runSearch()}
+                  disabled={busy || query.trim() === ''}
+                  style={({ pressed }) => ({
+                    height: 32,
+                    paddingHorizontal: 14,
+                    borderRadius: radii.pill,
+                    backgroundColor: accent,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: busy || query.trim() === '' ? 0.5 : pressed ? 0.8 : 1,
+                  })}
+                >
+                  {busy ? (
+                    <ActivityIndicator size="small" color={accentText} />
+                  ) : (
+                    <Text style={{ fontFamily: font.bodySemiBold, fontSize: 13, color: accentText }}>Search</Text>
+                  )}
+                </Pressable>
+              </View>
+            </Animated.View>
+
+            <Animated.View style={{ position: 'absolute', top: chipsTop, left: PAD, right: PAD }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {KINDS.map((k) => {
+                  const on = k === kind;
+                  return (
+                    <Pressable
+                      key={k}
+                      onPress={() => {
+                        setKind(k);
+                        // Re-run the current query against the new category.
+                        if (query.trim() !== '') void runSearch(k);
+                      }}
+                      style={({ pressed }) => ({
+                        height: CHIP_H,
+                        justifyContent: 'center',
+                        paddingHorizontal: 12,
+                        borderRadius: radii.pill,
+                        borderWidth: 1,
+                        borderColor: on ? 'transparent' : ink(0.12),
+                        backgroundColor: on ? colors.fg : pressed ? ink(0.04) : 'transparent',
+                      })}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: font.bodyMedium,
+                          fontSize: 12,
+                          textTransform: 'capitalize',
+                          color: on ? colors.bgPaper : colors.fgMuted,
+                        }}
+                      >
+                        {k}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          </>
+        )}
+
+        {onClose && (
+          <Animated.View style={{ position: 'absolute', top: backTop, left: backLeft }}>
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel={`Back to ${groupLabel}`}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', height: BACK_BTN, opacity: pressed ? 0.6 : 1 })}
+            >
+              {({ hovered }: { pressed: boolean; hovered?: boolean }) => (
+                <>
+                  <View style={{ width: BACK_BTN, height: BACK_BTN, alignItems: 'center', justifyContent: 'center' }}>
+                    <Animated.View
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        borderRadius: radii.pill,
+                        borderWidth: 1,
+                        borderColor: ink(0.12),
+                        backgroundColor: hovered ? ink(0.06) : colors.bgPaper,
+                        opacity: ringOpacity,
+                      }}
+                    />
+                    <View style={{ transform: [{ rotate: '180deg' }] }}>
+                      <ChevronRight size={16} color={colors.fgMuted} />
+                    </View>
+                  </View>
+                  <Animated.View style={{ marginLeft: 6 - CHEVRON_INSET, maxWidth: labelMaxW, overflow: 'hidden' }}>
+                    <Animated.Text numberOfLines={1} style={[type.bodyMuted, { opacity: labelOpacity }]}>
+                      Back to {groupLabel}
+                    </Animated.Text>
+                  </Animated.View>
+                </>
+              )}
+            </Pressable>
+          </Animated.View>
+        )}
+
+        <Animated.View
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: ink(0.08), opacity: hairline }}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -286,21 +454,14 @@ function ResultRow({
           {line}
         </Text>
       </View>
-      {/* Four explicit actions: append to the queue, put it at the top, insert
-          after the current track, or play now (which REPLACES the queue). One
+      {/* Three explicit actions: append to the queue, insert after the current
+          track, or play now (which REPLACES the queue). One
           catalog request runs at a time; the rest dim while it does. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: anyPending && !pendingOp ? 0.45 : 1 }}>
         <ActionButton
           label="Add to queue"
           onPress={() => onEnqueue('end')}
           icon={pendingOp === 'end' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
-          bg={colors.bgPaper}
-          border
-        />
-        <ActionButton
-          label="Add first in queue"
-          onPress={() => onEnqueue('first')}
-          icon={pendingOp === 'first' ? <ActivityIndicator size="small" color={colors.fg} /> : <QueueTop size={15} color={colors.fg} />}
           bg={colors.bgPaper}
           border
         />

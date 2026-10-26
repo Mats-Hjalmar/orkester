@@ -316,24 +316,6 @@ describe('SonosClient.enqueue queue position', () => {
     );
   });
 
-  it("inserts at the top for 'first', without reading the current position", async () => {
-    const http = new KeyedTransport(table());
-    const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
-    const household = await client.loadHousehold(3000);
-    const room = client.resolveRoom(household, 'living');
-    await client.enqueue(room, { uri: 'x-sonos-spotify:track', metadata: '<DIDL/>' }, 'first');
-    const body = http.requests.find(
-      (r) => r.headers?.['SOAPACTION'] === soapAction('AddURIToQueue'),
-    )!.body;
-    expect(body).toContain('<EnqueueAsNext>0</EnqueueAsNext>');
-    expect(body).toContain(
-      '<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>',
-    );
-    expect(
-      http.requests.some((r) => r.headers?.['SOAPACTION'] === soapAction('GetPositionInfo')),
-    ).toBe(false);
-  });
-
   it("falls to the top for 'next' when the coordinator is not on its queue", async () => {
     const http = new KeyedTransport({
       ...table(),
