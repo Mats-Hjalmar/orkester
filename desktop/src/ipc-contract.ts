@@ -78,3 +78,17 @@ export const CHANNEL_PREFIX = 'orkester:';
 export function channelFor(method: ApiMethod): string {
   return CHANNEL_PREFIX + method;
 }
+
+// Shell features that are not Sonos Api methods live on their own bridge
+// (`window.orkesterShell`) so `window.orkester` stays exactly an `Api`.
+
+/** One entry of a native context menu, as sent from the renderer. */
+export interface ContextMenuItem {
+  label: string;
+  enabled?: boolean;
+  /** A PNG data URL drawn at 2x; shown as a macOS template image. */
+  icon?: string;
+}
+
+/** Pops a native menu at the cursor; resolves with the chosen item's index, or null. */
+export const SHOW_CONTEXT_MENU_CHANNEL = 'orkester-shell:showContextMenu';

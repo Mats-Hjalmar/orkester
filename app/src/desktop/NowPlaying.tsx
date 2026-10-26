@@ -3,8 +3,9 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import CoverArt from '../components/CoverArt';
 import SpeakerChip from '../components/SpeakerChip';
 import QueueRow from '../components/QueueRow';
+import { showContextMenu } from './contextMenu';
 import { ProgressRow, VolumeRow } from './controls';
-import { ChevronRight, Grip, Next, Pause, Play, Prev, Queue, Repeat, Shuffle, Speaker } from '../icons';
+import { ChevronRight, Dots, Grip, Next, Pause, Play, Prev, Queue, QueueBottom, QueueTop, Repeat, Shuffle, Speaker, Trash } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -47,14 +48,29 @@ const QUEUE_ROW_H = 52;
 // neighbouring rows to preview the drop; on release we ask the SPEAKER to reorder
 // (the store re-reads from Sonos — no optimistic local splice). The fixed row
 // height makes dy → row-offset exact.
-function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay }: {
+//
+// Each row also has a menu (dots button or right-click) for the moves that are
+// tedious by drag: play now, play next, move to end, remove.
+function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemove }: {
   items: QueueItem[];
   motif: Motif;
   accent: string;
   isCurrent: (q: QueueItem) => boolean;
   onReorder: (from: number, to: number) => void;
   onPlay: (index: number) => void;
+  onRemove: (index: number) => void;
 }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [menuIndex, setMenuIndex] = useState<number | null>(null);
+  const openMenu = (index: number) => {
+    setMenuIndex(index);
+    void showContextMenu([
+      { label: 'Play now', icon: <Play size={16} />, onPress: () => onPlay(index) },
+      { label: 'Play next', icon: <QueueTop size={16} />, onPress: () => onReorder(index, 0), enabled: index > 0 },
+      { label: 'Move to end of queue', icon: <QueueBottom size={16} />, onPress: () => onReorder(index, items.length - 1), enabled: index < items.length - 1 },
+      { label: 'Remove from queue', icon: <Trash size={16} />, onPress: () => onRemove(index) },
+    ]).finally(() => setMenuIndex(null));
+  };
   const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
   const dragRef = useRef(drag);
   dragRef.current = drag;
@@ -107,12 +123,37 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay }: {
           </View>
         );
 
+        const dots = (
+          <Pressable
+            accessibilityLabel={`More options for ${item.title || item.album}`}
+            onPress={() => openMenu(index)}
+            hitSlop={4}
+            style={({ pressed }) => ({ padding: 4, opacity: pressed ? 0.5 : 1 })}
+          >
+            <View style={{ transform: [{ rotate: '90deg' }] }}>
+              <Dots size={16} color={colors.fgSubtle} />
+            </View>
+          </Pressable>
+        );
+
         return (
           <View
             key={`${index}:${item.title}:${item.artist}`}
-            style={{ height: QUEUE_ROW_H, justifyContent: 'center', transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1 }}
+            // RN's ViewProps lacks onContextMenu; react-native-web forwards it to the DOM.
+            {...{ onContextMenu: (e: MouseEvent) => {
+              e.preventDefault();
+              openMenu(index);
+            } }}
+            onPointerEnter={() => setHovered(index)}
+            onPointerLeave={() => setHovered((h) => (h === index ? null : h))}
+            // The negative margin lets the tint extend past the content without shifting it.
+            style={{
+              height: QUEUE_ROW_H, justifyContent: 'center', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: radii.md,
+              backgroundColor: isDragged || menuIndex === index ? colors.bgCream : hovered === index ? ink(0.03) : 'transparent',
+              transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1,
+            }}
           >
-            <QueueRow item={item} motif={motif} fg={colors.fg} muted={colors.fgMuted} accent={accent} current={isCurrent(item)} onPress={() => onPlay(index)} trailing={handle} />
+            <QueueRow item={item} motif={motif} fg={colors.fg} muted={colors.fgMuted} accent={accent} current={isCurrent(item)} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
           </View>
         );
       })}
@@ -127,7 +168,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay }: {
 // present, so onBack is omitted and no back button renders.
 export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?: Group; onBack?: () => void; onSearch?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue, playQueueIndex } = store;
+  const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
   const status = state.topologyStatus;
@@ -226,6 +267,7 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
                 isCurrent={() => false}
                 onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
                 onPlay={(index) => playQueueIndex(g.id, qStart + index)}
+                onRemove={(index) => removeQueueItem(g.id, qStart + index)}
               />
             </>
           )}

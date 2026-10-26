@@ -6,7 +6,7 @@
 // be treated as a structural `Api`.
 
 import { contextBridge, ipcRenderer } from 'electron';
-import { API_METHODS, channelFor } from '../ipc-contract';
+import { API_METHODS, SHOW_CONTEXT_MENU_CHANNEL, channelFor, type ContextMenuItem } from '../ipc-contract';
 
 // Build { methodName: (...args) => ipcRenderer.invoke(channel, ...args) }.
 const bridge: Record<string, (...args: unknown[]) => Promise<unknown>> = {};
@@ -16,3 +16,7 @@ for (const method of API_METHODS) {
 }
 
 contextBridge.exposeInMainWorld('orkester', bridge);
+
+contextBridge.exposeInMainWorld('orkesterShell', {
+  showContextMenu: (items: ContextMenuItem[]) => ipcRenderer.invoke(SHOW_CONTEXT_MENU_CHANNEL, items),
+});

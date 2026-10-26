@@ -12,12 +12,12 @@
 // SonosApi instance keeps the topology id-maps warm across calls.
 
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron';
 import { SonosClient } from '@orkester/core';
 import { SonosApi } from '@orkester/core/state';
 import { NodeHttpTransport, NodeDiscoveryTransport, NodeCredentialStore } from '@orkester/core/node';
 import type { Api } from '@orkester/core';
-import { API_METHODS, channelFor, type ApiMethod } from '../ipc-contract';
+import { API_METHODS, SHOW_CONTEXT_MENU_CHANNEL, channelFor, type ApiMethod, type ContextMenuItem } from '../ipc-contract';
 
 // One engine, one Api, for the whole app lifetime. The NodeCredentialStore backs
 // Spotify search with ~/.config/orkester/auth.json — the same token the CLI's
@@ -42,6 +42,39 @@ function registerApiHandlers(): void {
       return fn.apply(api, args);
     });
   }
+}
+
+function menuIcon(dataUrl: string): Electron.NativeImage {
+  const png = Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
+  const image = nativeImage.createFromBuffer(png, { scaleFactor: 2 });
+  // Template = alpha mask the OS tints, so icons follow dark mode and the highlight.
+  image.setTemplateImage(true);
+  return image;
+}
+
+/**
+ * Pops a native menu at the cursor; resolves with the clicked item's index, or
+ * null when dismissed. Native so the OS can place it past the window's edge
+ * while keeping it on-screen. The close callback can fire BEFORE the item's
+ * click handler, so the null resolve waits a tick to let a click win.
+ */
+function registerShellHandlers(): void {
+  ipcMain.handle(SHOW_CONTEXT_MENU_CHANNEL, (event, items: ContextMenuItem[]) =>
+    new Promise<number | null>((resolve) => {
+      const menu = Menu.buildFromTemplate(
+        items.map((item, i) => ({
+          label: item.label,
+          enabled: item.enabled ?? true,
+          icon: item.icon ? menuIcon(item.icon) : undefined,
+          click: () => resolve(i),
+        })),
+      );
+      menu.popup({
+        window: BrowserWindow.fromWebContents(event.sender) ?? undefined,
+        callback: () => setTimeout(() => resolve(null), 0),
+      });
+    }),
+  );
 }
 
 function createWindow(): void {
@@ -92,6 +125,7 @@ void app.whenReady().then(() => {
     app.dock?.setIcon(join(__dirname, '../../build/icon.png'));
   }
   registerApiHandlers();
+  registerShellHandlers();
   createWindow();
 
   app.on('activate', () => {

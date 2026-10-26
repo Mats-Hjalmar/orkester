@@ -183,6 +183,23 @@ export function QueueTop({ size = 20, color = '#1A1814' }: IconProps) {
   );
 }
 
+export function QueueBottom({ size = 20, color = '#1A1814' }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Path d="M4 6h9M4 12h9M4 18h16" />
+      <Path d="M17 4v11M14.2 12.2 17 15l2.8-2.8" />
+    </Svg>
+  );
+}
+
+export function Trash({ size = 18, color = '#1A1814' }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Path d="M4 7h16M9 7V4.5h6V7M6 7l1 12.5h10L18 7M10 11v5.5M14 11v5.5" />
+    </Svg>
+  );
+}
+
 export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
