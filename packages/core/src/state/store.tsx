@@ -120,6 +120,8 @@ export interface Store {
   clearQueue: (gid: string) => void;
   /** Moves a queue track on the speaker (0-based), then re-reads it (Sonos is truth). */
   reorderQueue: (gid: string, fromIndex: number, toIndex: number) => void;
+  /** Removes the queue track at `index` (0-based) on the speaker, then re-reads it. */
+  removeQueueItem: (gid: string, index: number) => void;
   /** Plays the group's queue entry at `index` (0-based), then re-reads state. */
   playQueueIndex: (gid: string, index: number) => void;
   // --- Spotify catalog search (imperative; the search panel owns its results) ---
@@ -751,6 +753,16 @@ export function StoreProvider({
         inFlight.current.run(queueSlot(gid), 'queue', async () => {
           try {
             await api.reorderQueue(gid, fromIndex, toIndex);
+          } finally {
+            await fetchQueue.current(gid);
+          }
+        });
+      },
+      removeQueueItem: (gid: string, index: number) => {
+        if (gid === '' || index < 0) return;
+        inFlight.current.run(queueSlot(gid), 'queue', async () => {
+          try {
+            await api.removeQueueItem(gid, index);
           } finally {
             await fetchQueue.current(gid);
           }

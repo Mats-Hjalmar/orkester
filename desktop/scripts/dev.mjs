@@ -1,6 +1,8 @@
-// Runs `electron-vite dev`. On macOS it first points it at a renamed copy of the
-// stock Electron.app: the menu bar, dock and ⌘-Tab take a dev run's name from the
-// bundle (its folder name and Info.plist), which the app can't change at runtime.
+// Runs `electron-vite dev --watch`, so edits to main or preload rebuild and restart
+// Electron (without it only the renderer hot-reloads). On macOS it first points it
+// at a renamed copy of the stock Electron.app: the menu bar, dock and ⌘-Tab take a
+// dev run's name from the bundle (its folder name and Info.plist), which the app
+// can't change at runtime.
 // The copy is an APFS clone with its own bundle id, so LaunchServices doesn't mix
 // it up with Electron.app; it is rebuilt whenever the Electron version changes.
 
@@ -40,5 +42,5 @@ function devBundle() {
 const env = { ...process.env };
 if (process.platform === 'darwin') env.ELECTRON_EXEC_PATH = devBundle();
 
-const child = spawn('electron-vite', ['dev'], { stdio: 'inherit', env });
+const child = spawn('electron-vite', ['dev', '--watch'], { stdio: 'inherit', env });
 child.on('exit', (code, signal) => (signal ? process.kill(process.pid, signal) : process.exit(code ?? 0)));
