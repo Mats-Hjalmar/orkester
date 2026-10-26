@@ -52,6 +52,17 @@ bun run ios          # phone app in the iOS simulator
 bun run android      # phone app on Android
 ```
 
+**Install the latest release (macOS)**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Mats-Hjalmar/orkester/main/install.sh | sh
+```
+
+`VERSION=0.2.0` pins a release; `APPS_DIR=~/Applications` installs per-user. Pushing
+a `v*` tag builds the universal app and publishes it as a GitHub release
+(`.github/workflows/release.yml`). It is Developer ID signed when the `CSC_LINK` and
+`CSC_KEY_PASSWORD` secrets are set, otherwise ad-hoc signed.
+
 **Install the desktop app into /Applications (macOS)**
 
 ```sh

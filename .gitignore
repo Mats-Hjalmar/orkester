@@ -12,7 +12,7 @@ dist/
 out/
 
 # electron-builder packaged output
-desktop/release/
+desktop/release.noindex/
 
 # Expo export output
 app/dist/

@@ -40,7 +40,7 @@ bun run desktop:install   # from the repo root; APPS_DIR=~/Applications for a pe
 ```
 
 That is `app:mac` (`electron-builder --mac dir` — host arch, no DMG) into
-`release/mac-<arch>/Orkester.app`, then `scripts/install-macos.mjs` copies it to
+`release.noindex/mac-<arch>/Orkester.app`, then `scripts/install-macos.mjs` copies it to
 `/Applications` with `ditto`, quitting a running instance first.
 `bun run desktop:uninstall` removes it.
 
@@ -53,7 +53,7 @@ block it — the "Open Anyway" dance below applies only to a DMG someone downloa
 bun run desktop:dist
 ```
 
-Output: `desktop/release/Orkester-<version>-universal.dmg` — a universal (x86_64 +
+Output: `desktop/release.noindex/Orkester-<version>-universal.dmg` — a universal (x86_64 +
 arm64) bundle, Developer ID signed with hardened runtime, **not notarized**.
 Config lives in `desktop/electron-builder.yml`; entitlements and the icon in
 `desktop/build/`.
@@ -71,7 +71,7 @@ Because it is unnotarized, Gatekeeper blocks first launch on another Mac
 (`spctl --assess` reports `rejected  source=Unnotarized Developer ID`). On macOS 15+
 the recipient's **only** route is System Settings → Privacy & Security →
 **Open Anyway** + login password — Apple removed the Control-click → Open override
-in Sequoia. Recipient instructions live in `release/FIRST-RUN.txt`; notarizing
+in Sequoia. Recipient instructions live in `release.noindex/FIRST-RUN.txt`; notarizing
 (`mac.notarize` + notarytool credentials) removes the prompt entirely.
 
 `build/entitlements.mac.plist` grants **only** `com.apple.security.cs.allow-jit`.
