@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { ChevronRight, Play, Plus, Queue, QueueTop, Search, Speaker } from '../icons';
+import { ChevronRight, Play, Plus, Queue, Search, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
@@ -286,21 +286,14 @@ function ResultRow({
           {line}
         </Text>
       </View>
-      {/* Four explicit actions: append to the queue, put it at the top, insert
-          after the current track, or play now (which REPLACES the queue). One
+      {/* Three explicit actions: append to the queue, insert after the current
+          track, or play now (which REPLACES the queue). One
           catalog request runs at a time; the rest dim while it does. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: anyPending && !pendingOp ? 0.45 : 1 }}>
         <ActionButton
           label="Add to queue"
           onPress={() => onEnqueue('end')}
           icon={pendingOp === 'end' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
-          bg={colors.bgPaper}
-          border
-        />
-        <ActionButton
-          label="Add first in queue"
-          onPress={() => onEnqueue('first')}
-          icon={pendingOp === 'first' ? <ActivityIndicator size="small" color={colors.fg} /> : <QueueTop size={15} color={colors.fg} />}
           bg={colors.bgPaper}
           border
         />

@@ -20,7 +20,6 @@ const SEARCH_DEBOUNCE_MS = 400;
 
 const ENQUEUE_NOTICE: Record<QueuePosition, (title: string, group: string) => string> = {
   end: (title, group) => `Added "${title}" to the queue on ${group}.`,
-  first: (title, group) => `"${title}" is first in the queue on ${group}.`,
   next: (title, group) => `"${title}" plays next on ${group}.`,
 };
 

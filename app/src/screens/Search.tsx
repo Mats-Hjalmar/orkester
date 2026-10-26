@@ -420,7 +420,6 @@ function ResultRow({
       {expanded && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, marginLeft: 60 }}>
           <TextAction label="Play next" enabled={enabled && !anyPending} onPress={() => onEnqueue('next')} />
-          <TextAction label="Add first" enabled={enabled && !anyPending} onPress={() => onEnqueue('first')} />
           <TextAction label="Add to queue" enabled={enabled && !anyPending} icon onPress={() => onEnqueue('end')} />
         </View>
       )}
