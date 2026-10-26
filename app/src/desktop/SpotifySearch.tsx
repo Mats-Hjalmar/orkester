@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { ChevronRight, Play, Plus, Queue, Search, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
@@ -17,6 +17,40 @@ import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 // platform `Linking.openURL` (kept out of core so it imports only react).
 
 const KINDS = SPOTIFY_SEARCH_KINDS;
+
+// Collapsing header geometry. The header is an overlay above the scroll view.
+// At the top it stacks the back link, the title, the search bar and the kind
+// chips. Scrolling first folds the title away while the back link travels down
+// next to the search bar, then search bar, chips and back button rise together
+// and stay docked at the top. Scrolling back up reverses it. Every position is a
+// pure function of the scroll offset, so the motion tracks the scroll exactly.
+const PAD = 28;
+const BACK_ROW_H = 18; // type.bodyMuted lineHeight
+const TITLE_ROW_H = 24; // type.displaySm lineHeight
+const GAP = 18;
+const SEARCH_H = 46;
+const CHIPS_GAP = 12;
+const CHIP_H = 30;
+const PAD_BOTTOM = 12;
+const DOCKED_TOP = 20;
+const BACK_BTN = 36;
+// Search bar top: expanded, after the title folds away, and docked.
+const SEARCH_TOP = PAD + BACK_ROW_H + GAP + TITLE_ROW_H + GAP;
+const SEARCH_TOP_FOLDED = PAD + BACK_ROW_H + GAP;
+// Scroll distance of the whole collapse, and the point where the title has folded
+// and the back button has arrived beside the search bar.
+const COLLAPSE = SEARCH_TOP - DOCKED_TOP;
+const FOLDED = (SEARCH_TOP - SEARCH_TOP_FOLDED) / COLLAPSE;
+const HEADER_H = SEARCH_TOP + SEARCH_H + CHIPS_GAP + CHIP_H + PAD_BOTTOM;
+const LINK_HEADER_H = PAD + BACK_ROW_H + GAP + TITLE_ROW_H;
+// The back control is a BACK_BTN-tall row; these center it on the back-link line
+// (expanded) and on the search bar (folded / docked).
+const BACK_TOP = PAD + BACK_ROW_H / 2 - BACK_BTN / 2;
+const BACK_TOP_FOLDED = SEARCH_TOP_FOLDED + (SEARCH_H - BACK_BTN) / 2;
+const BACK_TOP_DOCKED = DOCKED_TOP + (SEARCH_H - BACK_BTN) / 2;
+// The chevron sits centered in a BACK_BTN circle; shift it left so it lines up
+// with the content edge while the label is showing.
+const CHEVRON_INSET = (BACK_BTN - 16) / 2;
 
 export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
   const { roomName, config, reportError } = useStore();
@@ -39,26 +73,53 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
     if (info) void Linking.openURL(info.regUrl).catch(() => {});
   };
 
+  const linked = link.status === 'linked';
+
+  // 0 = expanded, 1 = docked. The link flow has no search bar, so it stays at 0.
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const progress = React.useMemo(
+    () => (linked ? scrollY.interpolate({ inputRange: [0, COLLAPSE], outputRange: [0, 1], extrapolate: 'clamp' }) : new Animated.Value(0)),
+    [linked, scrollY],
+  );
+  const at = (outputRange: number[]) =>
+    progress.interpolate({ inputRange: outputRange.length === 3 ? [0, FOLDED, 1] : [0, 1], outputRange });
+
+  const headerH = linked ? at([HEADER_H, HEADER_H - COLLAPSE]) : LINK_HEADER_H;
+  const searchTop = at([SEARCH_TOP, SEARCH_TOP_FOLDED, DOCKED_TOP]);
+  const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, SEARCH_TOP_FOLDED + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
+  // The back control travels DOWN beside the search bar while the title folds,
+  // then rises with it.
+  const backTop = at([BACK_TOP, BACK_TOP_FOLDED, BACK_TOP_DOCKED]);
+  const backLeft = at([PAD - CHEVRON_INSET, PAD, PAD]);
+  const labelOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.6], outputRange: [1, 0], extrapolate: 'clamp' });
+  const ringOpacity = progress.interpolate({ inputRange: [FOLDED * 0.5, FOLDED], outputRange: [0, 1], extrapolate: 'clamp' });
+  const searchLeft = progress.interpolate({ inputRange: [FOLDED * 0.4, FOLDED], outputRange: [PAD, PAD + BACK_BTN + 10], extrapolate: 'clamp' });
+  const titleOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.7], outputRange: [1, 0], extrapolate: 'clamp' });
+  const titleScale = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [1, 0.92], extrapolate: 'clamp' });
+  const titleLift = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [0, -8], extrapolate: 'clamp' });
+  const hairline = progress.interpolate({ inputRange: [0.85, 1], outputRange: [0, 1], extrapolate: 'clamp' });
+
+  // The faded label would still catch clicks over the search bar, so it is
+  // unmounted once it is gone.
+  const [labelGone, setLabelGone] = React.useState(false);
+  React.useEffect(() => {
+    const id = progress.addListener(({ value }) => setLabelGone(value >= FOLDED * 0.6));
+    return () => progress.removeListener(id);
+  }, [progress]);
+
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 28, gap: 18 }} showsVerticalScrollIndicator={false}>
-        {onClose && (
-          <Pressable
-            onPress={onClose}
-            hitSlop={8}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.6 : 1 })}
-          >
-            <View style={{ transform: [{ rotate: '180deg' }] }}>
-              <ChevronRight size={16} color={colors.fgMuted} />
-            </View>
-            <Text style={type.bodyMuted}>Back to {groupLabel}</Text>
-          </Pressable>
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Search size={22} color={colors.fg} />
-          <Text style={[type.displaySm]}>Search Spotify</Text>
-        </View>
-
+      <Animated.ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: PAD,
+          paddingBottom: PAD,
+          paddingTop: linked ? HEADER_H + 4 : LINK_HEADER_H + GAP,
+          gap: 18,
+        }}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+      >
         {link.status === 'checking' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <ActivityIndicator size="small" color={colors.fgMuted} />
@@ -110,16 +171,65 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
           </View>
         )}
 
-        {link.status === 'linked' && (
+        {linked && (
           <View style={{ gap: 16 }}>
-            {/* Search input + kind selector. */}
-            <View style={{ gap: 12 }}>
+            {/* Where playback lands. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Speaker size={15} color={colors.fgSubtle} />
+              <Text style={type.small}>Plays on {groupLabel}</Text>
+            </View>
+
+            {/* Results. */}
+            <View style={{ gap: 4 }}>
+              {results.map((r) => (
+                <ResultRow
+                  key={r.id}
+                  item={r}
+                  accent={accent}
+                  accentText={accentText}
+                  pendingOp={pending && pending.id === r.id ? pending.op : null}
+                  anyPending={pending !== null}
+                  onEnqueue={(where) => void addToQueue(r, where)}
+                  onPlay={() => void playNow(r)}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {notice !== '' && <Text style={[type.small, { color: colors.fgMuted }]}>{notice}</Text>}
+      </Animated.ScrollView>
+
+      <Animated.View
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH, overflow: 'hidden', backgroundColor: colors.bg }}
+      >
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: SEARCH_TOP_FOLDED,
+            left: PAD,
+            height: TITLE_ROW_H,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            opacity: titleOpacity,
+            transform: [{ translateY: titleLift }, { scale: titleScale }],
+            transformOrigin: 'left center',
+          } as object}
+        >
+          <Search size={22} color={colors.fg} />
+          <Text style={[type.displaySm]}>Search Spotify</Text>
+        </Animated.View>
+
+        {linked && (
+          <>
+            <Animated.View style={{ position: 'absolute', top: searchTop, left: searchLeft, right: PAD }}>
               <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 10,
-                  height: 46,
+                  height: SEARCH_H,
                   paddingHorizontal: 14,
                   borderRadius: radii.lg,
                   borderWidth: 1,
@@ -158,7 +268,9 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   )}
                 </Pressable>
               </View>
+            </Animated.View>
 
+            <Animated.View style={{ position: 'absolute', top: chipsTop, left: PAD, right: PAD }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {KINDS.map((k) => {
                   const on = k === kind;
@@ -171,7 +283,8 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                         if (query.trim() !== '') void runSearch(k);
                       }}
                       style={({ pressed }) => ({
-                        paddingVertical: 6,
+                        height: CHIP_H,
+                        justifyContent: 'center',
                         paddingHorizontal: 12,
                         borderRadius: radii.pill,
                         borderWidth: 1,
@@ -193,34 +306,54 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   );
                 })}
               </View>
-            </View>
-
-            {/* Where playback lands. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Speaker size={15} color={colors.fgSubtle} />
-              <Text style={type.small}>Plays on {groupLabel}</Text>
-            </View>
-
-            {/* Results. */}
-            <View style={{ gap: 4 }}>
-              {results.map((r) => (
-                <ResultRow
-                  key={r.id}
-                  item={r}
-                  accent={accent}
-                  accentText={accentText}
-                  pendingOp={pending && pending.id === r.id ? pending.op : null}
-                  anyPending={pending !== null}
-                  onEnqueue={(where) => void addToQueue(r, where)}
-                  onPlay={() => void playNow(r)}
-                />
-              ))}
-            </View>
-          </View>
+            </Animated.View>
+          </>
         )}
 
-        {notice !== '' && <Text style={[type.small, { color: colors.fgMuted }]}>{notice}</Text>}
-      </ScrollView>
+        {onClose && (
+          <Animated.View style={{ position: 'absolute', top: backTop, left: backLeft }}>
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel={`Back to ${groupLabel}`}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', height: BACK_BTN, opacity: pressed ? 0.6 : 1 })}
+            >
+              {({ hovered }: { pressed: boolean; hovered?: boolean }) => (
+                <>
+                  <View style={{ width: BACK_BTN, height: BACK_BTN, alignItems: 'center', justifyContent: 'center' }}>
+                    <Animated.View
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        borderRadius: radii.pill,
+                        borderWidth: 1,
+                        borderColor: ink(0.12),
+                        backgroundColor: hovered ? ink(0.06) : colors.bgPaper,
+                        opacity: ringOpacity,
+                      }}
+                    />
+                    <View style={{ transform: [{ rotate: '180deg' }] }}>
+                      <ChevronRight size={16} color={colors.fgMuted} />
+                    </View>
+                  </View>
+                  {!labelGone && (
+                    <Animated.Text style={[type.bodyMuted, { marginLeft: 6 - CHEVRON_INSET, opacity: labelOpacity }]}>
+                      Back to {groupLabel}
+                    </Animated.Text>
+                  )}
+                </>
+              )}
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Hairline under the docked header. */}
+        <Animated.View
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: ink(0.08), opacity: hairline }}
+        />
+      </Animated.View>
     </View>
   );
 }
