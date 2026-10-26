@@ -24,7 +24,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
           signing=()
-          [ -n "$CSC_LINK" ] || signing=(-c.mac.identity=- -c.mac.hardenedRuntime=false)
+          [ -n "$CSC_LINK" ] || { unset CSC_LINK CSC_KEY_PASSWORD; signing=(-c.mac.identity=- -c.mac.hardenedRuntime=false); }
           bunx electron-builder --mac --universal --publish never \
             -c.extraMetadata.version="${GITHUB_REF_NAME#v}" "${signing[@]}"
       - name: Publish
