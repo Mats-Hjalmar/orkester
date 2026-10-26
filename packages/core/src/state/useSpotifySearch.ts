@@ -18,9 +18,6 @@ export const SPOTIFY_SEARCH_KINDS: SpotifySearchKind[] = ['tracks', 'albums', 'a
 const POLL_MS = 2500;
 const SEARCH_DEBOUNCE_MS = 400;
 
-// The last successful search, kept for the life of the JS runtime so closing and
-// reopening the search pane shows it again without a new request. In memory
-// only: catalog hits go stale, so they are not persisted across restarts.
 interface SearchSnapshot {
   query: string;
   kind: SpotifySearchKind;
@@ -118,9 +115,6 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   };
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchSeqRef = useRef(0);
-  // The trimmed query the shown results belong to, so the type-ahead effect
-  // doesn't re-run a search whose results are already on screen (a restored
-  // snapshot on reopen).
   const resultsQueryRef = useRef(lastSearch?.query.trim() ?? '');
 
   // Initial link check — runs ONCE on mount (see apiRef note above).
@@ -238,8 +232,6 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   // Search as the user types, once they pause. runSearch clears this timer, so an
   // explicit search (Enter, the button, a kind chip) doesn't fire a duplicate.
   useEffect(() => {
-    // A cleared search bar clears the results too, and that empty state is what
-    // reopening the pane shows. Bumping the sequence drops a search in flight.
     if (query.trim() === '') {
       ++searchSeqRef.current;
       setBusy(false);

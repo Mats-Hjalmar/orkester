@@ -18,15 +18,9 @@ import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 
 const KINDS = SPOTIFY_SEARCH_KINDS;
 
-// Collapsing header geometry. The header is an overlay above the scroll view.
-// At the top it stacks the back link, the title, the search bar and the kind
-// chips. Scrolling first folds the title away while the back link travels down
-// next to the search bar, then search bar, chips and back button rise together
-// and stay docked at the top. Scrolling back up reverses it. Every position is a
-// pure function of the scroll offset, so the motion tracks the scroll exactly.
 const PAD = 28;
-const BACK_ROW_H = 18; // type.bodyMuted lineHeight
-const TITLE_ROW_H = 24; // type.displaySm lineHeight
+const BACK_ROW_H = 18;
+const TITLE_ROW_H = 24;
 const GAP = 18;
 const SEARCH_H = 46;
 const CHIPS_GAP = 12;
@@ -34,22 +28,15 @@ const CHIP_H = 30;
 const PAD_BOTTOM = 12;
 const DOCKED_TOP = 20;
 const BACK_BTN = 36;
-// Search bar top: expanded, after the title folds away, and docked.
 const SEARCH_TOP = PAD + BACK_ROW_H + GAP + TITLE_ROW_H + GAP;
 const SEARCH_TOP_FOLDED = PAD + BACK_ROW_H + GAP;
-// Scroll distance of the whole collapse, and the point where the title has folded
-// and the back button has arrived beside the search bar.
 const COLLAPSE = SEARCH_TOP - DOCKED_TOP;
 const FOLDED = (SEARCH_TOP - SEARCH_TOP_FOLDED) / COLLAPSE;
 const HEADER_H = SEARCH_TOP + SEARCH_H + CHIPS_GAP + CHIP_H + PAD_BOTTOM;
 const LINK_HEADER_H = PAD + BACK_ROW_H + GAP + TITLE_ROW_H;
-// The back control is a BACK_BTN-tall row; these center it on the back-link line
-// (expanded) and on the search bar (folded / docked).
 const BACK_TOP = PAD + BACK_ROW_H / 2 - BACK_BTN / 2;
 const BACK_TOP_FOLDED = SEARCH_TOP_FOLDED + (SEARCH_H - BACK_BTN) / 2;
 const BACK_TOP_DOCKED = DOCKED_TOP + (SEARCH_H - BACK_BTN) / 2;
-// The chevron sits centered in a BACK_BTN circle; shift it left so it lines up
-// with the content edge while the label is showing.
 const CHEVRON_INSET = (BACK_BTN - 16) / 2;
 
 export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
@@ -76,8 +63,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   const linked = link.status === 'linked';
   const inputRef = React.useRef<TextInput>(null);
 
-  // The clear button fades and scales in once there is text, and out again when
-  // the bar empties. It stays mounted (its slot reserved) so the text never shifts.
   const hasQuery = query !== '';
   const clearIn = React.useRef(new Animated.Value(hasQuery ? 1 : 0)).current;
   React.useEffect(() => {
@@ -91,7 +76,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   const clearOpacity = clearIn.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' });
   const clearScale = clearIn.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
 
-  // 0 = expanded, 1 = docked. The link flow has no search bar, so it stays at 0.
   const scrollY = React.useRef(new Animated.Value(0)).current;
   const progress = React.useMemo(
     () => (linked ? scrollY.interpolate({ inputRange: [0, COLLAPSE], outputRange: [0, 1], extrapolate: 'clamp' }) : new Animated.Value(0)),
@@ -103,8 +87,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   const headerH = linked ? at([HEADER_H, HEADER_H - COLLAPSE]) : LINK_HEADER_H;
   const searchTop = at([SEARCH_TOP, SEARCH_TOP_FOLDED, DOCKED_TOP]);
   const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, SEARCH_TOP_FOLDED + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
-  // The back control travels DOWN beside the search bar while the title folds,
-  // then rises with it.
   const backTop = at([BACK_TOP, BACK_TOP_FOLDED, BACK_TOP_DOCKED]);
   const backLeft = at([PAD - CHEVRON_INSET, PAD, PAD]);
   const labelOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.6], outputRange: [1, 0], extrapolate: 'clamp' });
@@ -115,8 +97,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   const titleLift = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [0, -8], extrapolate: 'clamp' });
   const hairline = progress.interpolate({ inputRange: [0.85, 1], outputRange: [0, 1], extrapolate: 'clamp' });
 
-  // The faded label would still catch clicks over the search bar, so it is
-  // unmounted once it is gone.
   const [labelGone, setLabelGone] = React.useState(false);
   React.useEffect(() => {
     const id = progress.addListener(({ value }) => setLabelGone(value >= FOLDED * 0.6));
@@ -272,7 +252,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   <Pressable
                     onPress={() => {
                       setQuery('');
-                      // Keep typing right away after clearing.
                       inputRef.current?.focus();
                     }}
                     accessibilityLabel="Clear search"
@@ -390,7 +369,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
           </Animated.View>
         )}
 
-        {/* Hairline under the docked header. */}
         <Animated.View
           style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: ink(0.08), opacity: hairline }}
         />
