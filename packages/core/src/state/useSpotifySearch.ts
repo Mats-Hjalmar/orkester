@@ -117,6 +117,12 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   const searchSeqRef = useRef(0);
   const resultsQueryRef = useRef(lastSearch?.query.trim() ?? '');
   const resultsKindRef = useRef<SpotifySearchKind>(lastSearch?.kind ?? 'tracks');
+  const forgetSearch = () => {
+    lastSearch = null;
+    resultsQueryRef.current = '';
+    setResults([]);
+    setNotice('');
+  };
 
   // Initial link check — runs ONCE on mount (see apiRef note above).
   useEffect(() => {
@@ -124,7 +130,9 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     void (async () => {
       try {
         const linked = await apiRef.current.isSpotifyLinked();
-        if (!cancelled) setLink({ status: linked ? 'linked' : 'unlinked' });
+        if (cancelled) return;
+        if (!linked) forgetSearch();
+        setLink({ status: linked ? 'linked' : 'unlinked' });
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error('[spotify] isSpotifyLinked failed:', messageOf(e));
@@ -221,6 +229,7 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
       // Its message (e.g. "session expired") becomes a notice so the user knows
       // why the link panel reappeared.
       if (e instanceof Error && e.name === 'NotLinkedError') {
+        forgetSearch();
         setLink({ status: 'unlinked' });
         setNotice(messageOf(e));
       } else {
