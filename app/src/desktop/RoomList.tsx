@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import { ChevronRight, Pause, Play } from '../icons';
-import { colors, ink, radii } from '../theme/tokens';
+import { radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { accentTextOf, sortedGroups } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group } from '../state/types';
+import { useTone } from './tone';
 
 // The now-playing one-liner for a compact row: the real title (— artist) when
 // known. When idle — or playing without metadata — we show NOTHING (no second
@@ -19,6 +20,7 @@ function lineFor(idle: boolean, title: string, artist: string): string {
 }
 
 function GroupRow({ group, selected, onSelect }: { group: Group; selected: boolean; onSelect: () => void }) {
+  const tone = useTone();
   const store = useStore();
   const { config, getTrack, groupName, roomName, groupControls } = store;
   const accent = config.accentColor;
@@ -46,15 +48,15 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
         gap: 12,
         padding: 10,
         borderRadius: radii.lg,
-        backgroundColor: selected ? colors.bgPaper : pressed ? ink(0.04) : 'transparent',
+        backgroundColor: selected ? tone.surface : pressed ? tone.line(0.04) : 'transparent',
         borderWidth: 1,
-        borderColor: selected ? ink(0.12) : 'transparent',
+        borderColor: selected ? tone.line(0.12) : 'transparent',
       })}
     >
       <CoverArt size={46} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={tr.artUrl} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={expanded ? undefined : 1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg, flex: 1 }}>
+          <Text numberOfLines={expanded ? undefined : 1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: tone.fg, flex: 1 }}>
             {label}
           </Text>
           {group.isPlaying && <View style={{ width: 6, height: 6, borderRadius: radii.pill, backgroundColor: accent }} />}
@@ -64,14 +66,14 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
               hitSlop={6}
               style={({ pressed }) => ({ padding: 2, opacity: pressed ? 0.5 : 1, transform: [{ rotate: expanded ? '90deg' : '0deg' }] })}
             >
-              <ChevronRight size={14} color={colors.fgSubtle} />
+              <ChevronRight size={14} color={tone.subtle} />
             </Pressable>
           )}
         </View>
         {(() => {
           const line = lineFor(idle, tr.title, tr.artist);
           return line ? (
-            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>{line}</Text>
+            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: tone.subtle, marginTop: 2 }}>{line}</Text>
           ) : null;
         })()}
       </View>
@@ -104,13 +106,14 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
 // sonosApi.test.ts). An idle group is a row here like any other, and its detail
 // pane offers "Play something here".
 export default function RoomList({ selectedId, onSelect }: { selectedId: string | null; onSelect: (gid: string) => void }) {
+  const tone = useTone();
   const store = useStore();
   const groups = sortedGroups(store);
 
   return (
-    <View style={{ width: 320, flex: 'none' as any, borderRightWidth: 1, borderRightColor: ink(0.07), backgroundColor: colors.bg }}>
+    <View style={{ width: 320, flex: 'none' as any, borderRightWidth: 1, borderRightColor: tone.line(0.07), backgroundColor: tone.bg }}>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 4 }} showsVerticalScrollIndicator={false}>
-        <Text style={[type.eyebrow, { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 8 }]}>Groups</Text>
+        <Text style={[type.eyebrow, { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 8, color: tone.subtle }]}>Groups</Text>
         {groups.map((g) => (
           <GroupRow key={g.id} group={g} selected={g.id === selectedId} onSelect={() => onSelect(g.id)} />
         ))}

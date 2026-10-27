@@ -7,10 +7,11 @@ import SpotifySearch from './SpotifySearch';
 import MiniPlayer from './MiniPlayer';
 import GroupPanel from './GroupPanel';
 import ErrorToast from './ErrorToast';
-import { colors } from '../theme/tokens';
 import { useStore } from '../state/store';
 import { readLastSelection, writeLastSelection } from './lastSelection';
 import { groupForRooms } from '../state/selectors';
+import { synthesizeArt } from '@orkester/core/state';
+import { baseTone, ToneProvider, toneFrom, useCoverTone } from './tone';
 
 // Rooms-first controller, master–DETAIL. The left rail is a STABLE list of the
 // household (groups then idle rooms); selecting a row sticks and the right pane
@@ -21,7 +22,7 @@ import { groupForRooms } from '../state/selectors';
 // the store to ATOMICALLY load that group and then poll it at the fast cadence;
 // the phone addresses groups the same way, by id, through a route param.
 export default function DesktopApp() {
-  const { state, focusGroup } = useStore();
+  const { state, focusGroup, queueFor, getTrack } = useStore();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   // The right pane shows either the selected group's Now Playing or, when the
   // user opens it from the TopBar, the Spotify catalog search (which plays onto
@@ -55,24 +56,32 @@ export default function DesktopApp() {
     if (roomKey !== '') writeLastSelection(roomKey.split('\n'));
   }, [roomKey]);
 
+  // The whole window takes its colour from the selected group's playing cover.
+  const queue = selectedGroup ? queueFor(selectedGroup.id) : [];
+  const shown = selectedGroup && queue.length > 0 ? queue[Math.max(0, selectedGroup.queueIndex)] : selectedGroup ? getTrack(selectedGroup.trackId) : undefined;
+  const coverColor = useCoverTone(shown?.artUrl, shown?.title ? synthesizeArt(shown.title, shown.artist).coverBg : '');
+  const tone = React.useMemo(() => (coverColor ? toneFrom(coverColor) : baseTone), [coverColor]);
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <TopBar searchOpen={searchOpen} onToggleSearch={() => setSearchOpen((v) => !v)} />
-      <View style={{ flex: 1, minHeight: 0, flexDirection: 'row' }}>
-        <RoomList selectedId={effectiveId} onSelect={onSelect} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          {searchOpen ? (
-            <SpotifySearch group={selectedGroup} onClose={() => setSearchOpen(false)} />
-          ) : (
-            <DesktopNowPlaying group={selectedGroup} onSearch={() => setSearchOpen(true)} />
-          )}
+    <ToneProvider value={tone}>
+      <View style={{ flex: 1, backgroundColor: tone.bg, transitionProperty: 'background-color', transitionDuration: '700ms' } as object}>
+        <TopBar searchOpen={searchOpen} onToggleSearch={() => setSearchOpen((v) => !v)} />
+        <View style={{ flex: 1, minHeight: 0, flexDirection: 'row' }}>
+          <RoomList selectedId={effectiveId} onSelect={onSelect} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {searchOpen ? (
+              <SpotifySearch group={selectedGroup} onClose={() => setSearchOpen(false)} />
+            ) : (
+              <DesktopNowPlaying group={selectedGroup} onSearch={() => setSearchOpen(true)} />
+            )}
+          </View>
         </View>
+        {selectedGroup && (
+          <MiniPlayer group={selectedGroup} groupsOpen={groupsOpen} onToggleGroups={() => setGroupsOpen((v) => !v)} />
+        )}
+        {selectedGroup && groupsOpen && <GroupPanel group={selectedGroup} onClose={closeGroups} />}
+        <ErrorToast />
       </View>
-      {selectedGroup && (
-        <MiniPlayer group={selectedGroup} groupsOpen={groupsOpen} onToggleGroups={() => setGroupsOpen((v) => !v)} />
-      )}
-      {selectedGroup && groupsOpen && <GroupPanel group={selectedGroup} onClose={closeGroups} />}
-      <ErrorToast />
-    </View>
+    </ToneProvider>
   );
 }

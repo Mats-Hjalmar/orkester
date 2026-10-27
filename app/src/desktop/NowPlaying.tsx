@@ -5,7 +5,7 @@ import SpeakerChip from '../components/SpeakerChip';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
 import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
-import { colors, ink, radii, shadow } from '../theme/tokens';
+import { colors, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
@@ -13,6 +13,7 @@ import { accentTextOf, chipsFor, groupCount } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
+import { useTone } from './tone';
 
 // Centered guidance shown when there is nothing to control yet: still discovering,
 // couldn't reach any speakers (connect instructions), or connected-but-idle
@@ -27,12 +28,13 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 // A small back affordance to return to the rooms grid. Reuses the chevron motif.
 function BackButton({ onPress }: { onPress: () => void }) {
+  const tone = useTone();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, marginLeft: 32, marginTop: 24, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.12), backgroundColor: colors.bgPaper, opacity: pressed ? 0.7 : 1 })}>
+    <Pressable onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, marginLeft: 32, marginTop: 24, borderRadius: radii.pill, borderWidth: 1, borderColor: tone.line(0.12), backgroundColor: tone.surface, opacity: pressed ? 0.7 : 1 })}>
       <View style={{ transform: [{ rotate: '180deg' }] }}>
-        <ChevronRight size={16} color={colors.fg} />
+        <ChevronRight size={16} color={tone.fg} />
       </View>
-      <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>Rooms</Text>
+      <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: tone.fg }}>Rooms</Text>
     </Pressable>
   );
 }
@@ -59,6 +61,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
   onPlay: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
+  const tone = useTone();
   const [hovered, setHovered] = useState<number | null>(null);
   const [menuIndex, setMenuIndex] = useState<number | null>(null);
   const openMenu = (index: number) => {
@@ -118,7 +121,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
             // grab cursor + no text-select/scroll-gesture stealing the drag.
             style={{ padding: 6, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
           >
-            <Grip size={16} color={colors.fgSubtle} />
+            <Grip size={16} color={tone.subtle} />
           </View>
         );
 
@@ -130,7 +133,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
             style={({ pressed }) => ({ padding: 4, opacity: pressed ? 0.5 : 1 })}
           >
             <View style={{ transform: [{ rotate: '90deg' }] }}>
-              <Dots size={16} color={colors.fgSubtle} />
+              <Dots size={16} color={tone.subtle} />
             </View>
           </Pressable>
         );
@@ -148,11 +151,11 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
             // The negative margin lets the tint extend past the content without shifting it.
             style={{
               height: QUEUE_ROW_H, justifyContent: 'center', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: radii.md,
-              backgroundColor: isDragged || menuIndex === index ? colors.bgCream : hovered === index ? ink(0.03) : 'transparent',
+              backgroundColor: isDragged || menuIndex === index ? tone.surface : hovered === index ? tone.line(0.03) : 'transparent',
               transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1,
             }}
           >
-            <QueueRow item={item} motif={motif} fg={colors.fg} muted={colors.fgMuted} accent={accent} current={isCurrent(item)} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
+            <QueueRow item={item} motif={motif} fg={tone.fg} muted={tone.muted} accent={accent} current={isCurrent(item)} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
           </View>
         );
       })}
@@ -166,6 +169,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
 // it drives exactly this group. In the desktop master–detail the list is always
 // present, so onBack is omitted and no back button renders.
 export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?: Group; onBack?: () => void; onSearch?: () => void }) {
+  const tone = useTone();
   const store = useStore();
   const { state, getTrack, roomName, config, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
   const accent = config.accentColor;
@@ -180,19 +184,19 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
       <View style={{ flex: 1 }}>
         {onBack && <BackButton onPress={onBack} />}
         <Centered>
-          <View style={{ width: 64, height: 64, borderRadius: radii.pill, backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), alignItems: 'center', justifyContent: 'center' }}>
-            <Speaker size={30} color={colors.fgMuted} />
+          <View style={{ width: 64, height: 64, borderRadius: radii.pill, backgroundColor: tone.surface, borderWidth: 1, borderColor: tone.line(0.1), alignItems: 'center', justifyContent: 'center' }}>
+            <Speaker size={30} color={tone.muted} />
           </View>
-          <Text style={[type.displaySm, { textAlign: 'center' }]}>{heading}</Text>
+          <Text style={[type.displaySm, { color: tone.fg, textAlign: 'center' }]}>{heading}</Text>
           {status === 'loading' || status === 'idle' ? (
-            <Text style={[type.bodyMuted, { textAlign: 'center' }]}>Listening for Sonos on this network…</Text>
+            <Text style={[type.bodyMuted, { color: tone.muted, textAlign: 'center' }]}>Listening for Sonos on this network…</Text>
           ) : (
             <>
-              <Text style={[type.bodyMuted, { textAlign: 'center', lineHeight: 20 }]}>
+              <Text style={[type.bodyMuted, { color: tone.muted, textAlign: 'center', lineHeight: 20 }]}>
                 Make sure this device is on the same Wi‑Fi network as your Sonos, and that
                 Local Network access is allowed:
               </Text>
-              <Text style={[type.bodyMuted, { textAlign: 'center', fontFamily: font.mono, fontSize: 12 }]}>
+              <Text style={[type.bodyMuted, { color: tone.muted, textAlign: 'center', fontFamily: font.mono, fontSize: 12 }]}>
                 System Settings → Privacy & Security → Local Network → enable Orkester
               </Text>
               {!!state.topologyError && (
@@ -200,7 +204,7 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
                   {state.topologyError}
                 </Text>
               )}
-              <Text style={[type.small, { textAlign: 'center', color: colors.fgSubtle }]}>Retrying automatically…</Text>
+              <Text style={[type.small, { textAlign: 'center', color: tone.subtle }]}>Retrying automatically…</Text>
             </>
           )}
         </Centered>
@@ -244,13 +248,13 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
           {upNext.length > 0 && (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
-                <Queue size={16} color={colors.fgSubtle} />
-                <Text style={[type.eyebrow, { flex: 1 }]}>Up next · {upNext.length}</Text>
+                <Queue size={16} color={tone.subtle} />
+                <Text style={[type.eyebrow, { color: tone.subtle, flex: 1 }]}>Up next · {upNext.length}</Text>
                 <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                   {queueBusy ? (
-                    <ActivityIndicator size="small" color={colors.fgMuted} />
+                    <ActivityIndicator size="small" color={tone.muted} />
                   ) : (
-                    <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+                    <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: tone.muted }}>Clear</Text>
                   )}
                 </Pressable>
               </View>
@@ -270,8 +274,8 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
         {/* details */}
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
-            <Text style={type.eyebrow}>{here}</Text>
+            <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? tone.faint : accent }} />
+            <Text style={[type.eyebrow, { color: tone.subtle }]}>{here}</Text>
           </View>
 
           {/* Nothing playing and nothing queued → no title, no transport, just a
@@ -290,16 +294,16 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
             <>
               {/* Title only when the speaker reports one — no fabricated label. */}
               {!!tr.title && (
-                <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: colors.fg, marginTop: 14 }}>{tr.title}</Text>
+                <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: tone.fg, marginTop: 14 }}>{tr.title}</Text>
               )}
-              {!!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 19, color: colors.fgMuted, marginTop: 10 }}>{tr.artist}</Text>}
+              {!!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 19, color: tone.muted, marginTop: 10 }}>{tr.artist}</Text>}
               {!!tr.album && (
-                <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 18 }}>{tr.album}</Text>
+                <Text style={{ fontFamily: font.body, fontSize: 13, color: tone.fg, marginTop: 18 }}>{tr.album}</Text>
               )}
             </>
           )}
 
-          <Text style={[type.eyebrow, { marginTop: 34, marginBottom: 11 }]}>Speakers — tap to group</Text>
+          <Text style={[type.eyebrow, { color: tone.subtle, marginTop: 34, marginBottom: 11 }]}>Speakers — tap to group</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
             {chips.map((c) => <SpeakerChip key={c.id} chip={c} showIcon />)}
           </View>

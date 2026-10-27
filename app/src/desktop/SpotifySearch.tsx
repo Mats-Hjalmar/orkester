@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { ChevronRight, Close, Play, Plus, Queue, Search, Speaker } from '../icons';
-import { colors, ink, radii } from '../theme/tokens';
+import { radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
@@ -9,6 +9,7 @@ import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type PendingSearchOp } from '@o
 import { accentTextOf } from '../state/selectors';
 import type { Group } from '../state/types';
 import type { ApiSearchItem, QueuePosition } from '@orkester/core';
+import { useTone } from './tone';
 
 // Spotify catalog search, desktop pane. All domain logic lives in the shared
 // useSpotifySearch hook (@orkester/core/state) — the same one the mobile Search
@@ -42,6 +43,7 @@ const LABEL_GONE = FOLDED * 0.6;
 const LABEL_MAX_W = 600;
 
 export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
+  const tone = useTone();
   const { roomName, config, reportError } = useStore();
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
@@ -117,7 +119,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   }, []);
 
   return (
-    <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, minHeight: 0, backgroundColor: tone.bg }}>
       <Animated.ScrollView
         ref={scrollRef}
         contentContainerStyle={{
@@ -132,14 +134,14 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
       >
         {link.status === 'checking' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <ActivityIndicator size="small" color={colors.fgMuted} />
-            <Text style={type.bodyMuted}>Checking Spotify link…</Text>
+            <ActivityIndicator size="small" color={tone.muted} />
+            <Text style={[type.bodyMuted, { color: tone.muted }]}>Checking Spotify link…</Text>
           </View>
         )}
 
         {link.status === 'unlinked' && (
           <View style={{ gap: 12 }}>
-            <Text style={type.body}>
+            <Text style={[type.body, { color: tone.fg }]}>
               Connect the Spotify account on your Sonos system once. This opens a browser to log in;
               the token is stored locally and reused after that.
             </Text>
@@ -165,16 +167,16 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
         {link.status === 'linking' && (
           <View style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <ActivityIndicator size="small" color={colors.fgMuted} />
-              <Text style={type.bodyMuted}>Waiting for you to approve access in the browser…</Text>
+              <ActivityIndicator size="small" color={tone.muted} />
+              <Text style={[type.bodyMuted, { color: tone.muted }]}>Waiting for you to approve access in the browser…</Text>
             </View>
             <Pressable onPress={() => void Linking.openURL(link.regUrl).catch(() => {})}>
-              <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.fgMuted }} selectable>
+              <Text style={{ fontFamily: font.mono, fontSize: 12, color: tone.muted }} selectable>
                 {link.regUrl}
               </Text>
             </Pressable>
             {link.showLinkCode && link.linkCode !== '' && (
-              <Text style={type.bodyMuted}>
+              <Text style={[type.bodyMuted, { color: tone.muted }]}>
                 If asked for a code, enter <Text style={{ fontFamily: font.mono }}>{link.linkCode}</Text>.
               </Text>
             )}
@@ -185,8 +187,8 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
           <View style={{ gap: 16 }}>
             {/* Where playback lands. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Speaker size={15} color={colors.fgSubtle} />
-              <Text style={type.small}>Plays on {groupLabel}</Text>
+              <Speaker size={15} color={tone.subtle} />
+              <Text style={[type.small, { color: tone.muted }]}>Plays on {groupLabel}</Text>
             </View>
 
             {/* Results. */}
@@ -207,12 +209,12 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
           </View>
         )}
 
-        {notice !== '' && <Text style={[type.small, { color: colors.fgMuted }]}>{notice}</Text>}
+        {notice !== '' && <Text style={[type.small, { color: tone.muted }]}>{notice}</Text>}
       </Animated.ScrollView>
 
       <Animated.View
         ref={headerRef}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH, overflow: 'hidden', backgroundColor: colors.bg }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH, overflow: 'hidden', backgroundColor: tone.bg }}
       >
         <Animated.View
           style={{
@@ -228,8 +230,8 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
             transformOrigin: 'left center',
           } as object}
         >
-          <Search size={22} color={colors.fg} />
-          <Text style={[type.displaySm]}>Search Spotify</Text>
+          <Search size={22} color={tone.fg} />
+          <Text style={[type.displaySm, { color: tone.fg }]}>Search Spotify</Text>
         </Animated.View>
 
         {linked && (
@@ -244,21 +246,21 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   paddingHorizontal: 14,
                   borderRadius: radii.lg,
                   borderWidth: 1,
-                  borderColor: ink(0.12),
-                  backgroundColor: colors.bgPaper,
+                  borderColor: tone.line(0.12),
+                  backgroundColor: tone.surface,
                 }}
               >
-                <Search size={18} color={colors.fgSubtle} />
+                <Search size={18} color={tone.subtle} />
                 <TextInput
                   ref={inputRef}
                   value={query}
                   onChangeText={setQuery}
                   onSubmitEditing={() => void runSearch()}
                   placeholder="Artists, tracks, albums, playlists…"
-                  placeholderTextColor={colors.fgSubtle}
+                  placeholderTextColor={tone.subtle}
                   returnKeyType="search"
                   autoFocus
-                  style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg, outlineStyle: 'none' } as object}
+                  style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: tone.fg, outlineStyle: 'none' } as object}
                 />
                 <Animated.View
                   pointerEvents={hasQuery ? 'auto' : 'none'}
@@ -277,10 +279,10 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                       borderRadius: radii.pill,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: pressed ? ink(0.1) : hovered ? ink(0.06) : 'transparent',
+                      backgroundColor: pressed ? tone.line(0.1) : hovered ? tone.line(0.06) : 'transparent',
                     })}
                   >
-                    <Close size={14} color={colors.fgSubtle} />
+                    <Close size={14} color={tone.subtle} />
                   </Pressable>
                 </Animated.View>
                 <Pressable
@@ -323,8 +325,8 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                         paddingHorizontal: 12,
                         borderRadius: radii.pill,
                         borderWidth: 1,
-                        borderColor: on ? 'transparent' : ink(0.12),
-                        backgroundColor: on ? colors.fg : pressed ? ink(0.04) : 'transparent',
+                        borderColor: on ? 'transparent' : tone.line(0.12),
+                        backgroundColor: on ? tone.fg : pressed ? tone.line(0.04) : 'transparent',
                       })}
                     >
                       <Text
@@ -332,7 +334,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                           fontFamily: font.bodyMedium,
                           fontSize: 12,
                           textTransform: 'capitalize',
-                          color: on ? colors.bgPaper : colors.fgMuted,
+                          color: on ? tone.surface : tone.muted,
                         }}
                       >
                         {k}
@@ -364,17 +366,17 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                         bottom: 0,
                         borderRadius: radii.pill,
                         borderWidth: 1,
-                        borderColor: ink(0.12),
-                        backgroundColor: hovered ? ink(0.06) : colors.bgPaper,
+                        borderColor: tone.line(0.12),
+                        backgroundColor: hovered ? tone.line(0.06) : tone.surface,
                         opacity: ringOpacity,
                       }}
                     />
                     <View style={{ transform: [{ rotate: '180deg' }] }}>
-                      <ChevronRight size={16} color={colors.fgMuted} />
+                      <ChevronRight size={16} color={tone.muted} />
                     </View>
                   </View>
                   <Animated.View style={{ marginLeft: 6 - CHEVRON_INSET, maxWidth: labelMaxW, overflow: 'hidden' }}>
-                    <Animated.Text numberOfLines={1} style={[type.bodyMuted, { opacity: labelOpacity }]}>
+                    <Animated.Text numberOfLines={1} style={[type.bodyMuted, { color: tone.muted, opacity: labelOpacity }]}>
                       Back to {groupLabel}
                     </Animated.Text>
                   </Animated.View>
@@ -385,7 +387,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
         )}
 
         <Animated.View
-          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: ink(0.08), opacity: hairline }}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: tone.line(0.08), opacity: hairline }}
         />
       </Animated.View>
     </View>
@@ -409,6 +411,7 @@ function ResultRow({
   onEnqueue: (where: QueuePosition) => void;
   onPlay: () => void;
 }) {
+  const tone = useTone();
   // Secondary line: the artist/curator. Fall back to the kind only when there is
   // no artist at all (so we never show the redundant "Playlist · …").
   const line = item.artist || capitalizeKind(item);
@@ -424,13 +427,13 @@ function ResultRow({
         paddingVertical: 8,
         paddingHorizontal: 10,
         borderRadius: radii.md,
-        backgroundColor: hovered ? ink(0.04) : 'transparent',
+        backgroundColor: hovered ? tone.line(0.04) : 'transparent',
       }}
     >
       {item.artUrl !== '' ? (
         <Image
           source={{ uri: item.artUrl }}
-          style={{ width: 44, height: 44, borderRadius: item.isContainer ? radii.sm : radii.pill, backgroundColor: ink(0.06) }}
+          style={{ width: 44, height: 44, borderRadius: item.isContainer ? radii.sm : radii.pill, backgroundColor: tone.line(0.06) }}
         />
       ) : (
         <View
@@ -438,19 +441,19 @@ function ResultRow({
             width: 44,
             height: 44,
             borderRadius: item.isContainer ? radii.sm : radii.pill,
-            backgroundColor: ink(0.06),
+            backgroundColor: tone.line(0.06),
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Search size={16} color={colors.fgFaint} />
+          <Search size={16} color={tone.faint} />
         </View>
       )}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
+        <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: tone.fg }}>
           {item.title}
         </Text>
-        <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
+        <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: tone.subtle, marginTop: 2 }}>
           {line}
         </Text>
       </View>
@@ -461,15 +464,15 @@ function ResultRow({
         <ActionButton
           label="Add to queue"
           onPress={() => onEnqueue('end')}
-          icon={pendingOp === 'end' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
-          bg={colors.bgPaper}
+          icon={pendingOp === 'end' ? <ActivityIndicator size="small" color={tone.fg} /> : <Plus size={14} color={tone.fg} />}
+          bg={tone.surface}
           border
         />
         <ActionButton
           label="Play next"
           onPress={() => onEnqueue('next')}
-          icon={pendingOp === 'next' ? <ActivityIndicator size="small" color={colors.fg} /> : <Queue size={15} color={colors.fg} />}
-          bg={colors.bgPaper}
+          icon={pendingOp === 'next' ? <ActivityIndicator size="small" color={tone.fg} /> : <Queue size={15} color={tone.fg} />}
+          bg={tone.surface}
           border
         />
         <ActionButton
@@ -497,6 +500,7 @@ function ActionButton({
   border?: boolean;
   onPress: () => void;
 }) {
+  const tone = useTone();
   const [hover, setHover] = React.useState(false);
   return (
     <View style={{ position: 'relative' }}>
@@ -506,14 +510,14 @@ function ActionButton({
             position: 'absolute',
             bottom: 38,
             right: 0,
-            backgroundColor: colors.fg,
+            backgroundColor: tone.fg,
             paddingVertical: 4,
             paddingHorizontal: 8,
             borderRadius: radii.sm,
             zIndex: 10,
           }}
         >
-          <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 11, color: colors.bgPaper }}>
+          <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 11, color: tone.surface }}>
             {label}
           </Text>
         </View>
@@ -529,7 +533,7 @@ function ActionButton({
           borderRadius: radii.pill,
           backgroundColor: bg,
           borderWidth: border ? 1 : 0,
-          borderColor: ink(0.12),
+          borderColor: tone.line(0.12),
           alignItems: 'center',
           justifyContent: 'center',
           opacity: pressed ? 0.7 : 1,
