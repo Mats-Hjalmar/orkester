@@ -378,6 +378,7 @@ function Layer({ item, index, tunnel, pos, tilt, tilted, rail, motif, fg, muted,
 
   const art = synthesizeArt(item.title || item.album, item.artist);
   const title = item.title || item.album || '';
+  const [hovered, setHovered] = useState(false);
 
   return (
     <Animated.View
@@ -391,6 +392,8 @@ function Layer({ item, index, tunnel, pos, tilt, tilted, rail, motif, fg, muted,
       } as object}
     >
       <Pressable
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
         onPress={onPlay}
         disabled={!onPlay}
         accessibilityRole="button"
@@ -405,7 +408,9 @@ function Layer({ item, index, tunnel, pos, tilt, tilted, rail, motif, fg, muted,
       </Pressable>
 
       <Animated.View
-        pointerEvents={front && !tilted ? 'box-none' : 'none'}
+        pointerEvents={front && !tilted ? 'auto' : 'none'}
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
         style={{
           position: 'absolute', left: -COVER * 0.2, right: -COVER * 0.2, top: COVER + 36,
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28,
@@ -422,11 +427,13 @@ function Layer({ item, index, tunnel, pos, tilt, tilted, rail, motif, fg, muted,
             </Animated.Text>
           )}
         </View>
-        {grip && <GripHandle grip={grip} title={title} color={muted} size={52} held={rail.held} />}
+        {grip && <GripHandle grip={grip} title={title} color={muted} size={52} held={rail.held} shown={hovered || rail.held} />}
       </Animated.View>
 
       <Animated.View
-        pointerEvents={!front || tilted ? 'box-none' : 'none'}
+        pointerEvents={!front || tilted ? 'auto' : 'none'}
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
         style={{
           position: 'absolute', left: 0, bottom: COVER + 24, maxWidth: COVER * 1.4,
           flexDirection: 'row', alignItems: 'center', gap: 22,
@@ -441,25 +448,27 @@ function Layer({ item, index, tunnel, pos, tilt, tilted, rail, motif, fg, muted,
           <Animated.Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 40, color: fg }}>{title}</Animated.Text>
           {!!item.artist && <Animated.Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 28, color: muted, marginTop: 2 }}>{item.artist}</Animated.Text>}
         </View>
-        {grip && <GripHandle grip={grip} title={title} color={muted} size={40} held={rail.held} />}
+        {grip && <GripHandle grip={grip} title={title} color={muted} size={40} held={rail.held} shown={hovered || rail.held} />}
       </Animated.View>
 
     </Animated.View>
   );
 }
 
-function GripHandle({ grip, title, color, size, held }: {
+function GripHandle({ grip, title, color, size, held, shown }: {
   grip: Record<string, (e: PointerEvent) => void>;
   title: string;
   color: string;
   size: number;
   held: boolean;
+  shown: boolean;
 }) {
   return (
     <View
       {...grip}
       accessibilityLabel={`Hold to move ${title}`}
-      style={{ padding: size * 0.3, margin: -size * 0.3, cursor: held ? 'grabbing' : 'grab', touchAction: 'none' } as object}
+      pointerEvents={shown ? 'auto' : 'none'}
+      style={{ padding: size * 0.3, margin: -size * 0.3, opacity: shown ? 1 : 0, cursor: held ? 'grabbing' : 'grab', touchAction: 'none' } as object}
     >
       <Grip size={size} color={color} />
     </View>

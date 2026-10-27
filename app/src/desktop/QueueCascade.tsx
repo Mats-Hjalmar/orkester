@@ -384,7 +384,10 @@ function Row({ item, index, flow, pos, motif, accent, fg, muted, hover, lifted, 
       </Pressable>
 
       {!readOnly && (
-        <View style={{ position: 'absolute', right: 6, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+        <View
+          pointerEvents={hovered || lifted ? 'box-none' : 'none'}
+          style={{ position: 'absolute', right: 6, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 2, opacity: hovered || lifted ? 1 : 0 }}
+        >
           <View
             {...grip}
             accessibilityLabel={`Drag to move ${title}`}
