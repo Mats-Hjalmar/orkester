@@ -12,6 +12,7 @@ import { readLastSelection, writeLastSelection } from './lastSelection';
 import { groupForRooms } from '../state/selectors';
 import { synthesizeArt } from '@orkester/core/state';
 import { baseTone, ToneProvider, toneFrom, useCoverTone } from './tone';
+import { readQueueDesign, writeQueueDesign, type QueueDesign } from './queueDesign';
 
 // Rooms-first controller, master–DETAIL. The left rail is a STABLE list of the
 // household (groups then idle rooms); selecting a row sticks and the right pane
@@ -29,6 +30,11 @@ export default function DesktopApp() {
   // whichever group is selected in the left rail).
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [groupsOpen, setGroupsOpen] = React.useState(false);
+  const [design, setDesign] = React.useState<QueueDesign>(readQueueDesign);
+  const pickDesign = (next: QueueDesign) => {
+    setDesign(next);
+    writeQueueDesign(next);
+  };
   const closeGroups = React.useCallback(() => setGroupsOpen(false), []);
 
   // Resolve the selection fresh from topology each render. With no live selection
@@ -65,14 +71,14 @@ export default function DesktopApp() {
   return (
     <ToneProvider value={tone}>
       <View style={{ flex: 1, backgroundColor: tone.bg, transitionProperty: 'background-color', transitionDuration: '700ms' } as object}>
-        <TopBar searchOpen={searchOpen} onToggleSearch={() => setSearchOpen((v) => !v)} />
+        <TopBar searchOpen={searchOpen} onToggleSearch={() => setSearchOpen((v) => !v)} design={design} onDesign={pickDesign} />
         <View style={{ flex: 1, minHeight: 0, flexDirection: 'row' }}>
           <RoomList selectedId={effectiveId} onSelect={onSelect} />
           <View style={{ flex: 1, minWidth: 0 }}>
             {searchOpen ? (
               <SpotifySearch group={selectedGroup} onClose={() => setSearchOpen(false)} />
             ) : (
-              <DesktopNowPlaying group={selectedGroup} onSearch={() => setSearchOpen(true)} />
+              <DesktopNowPlaying group={selectedGroup} design={design} onSearch={() => setSearchOpen(true)} />
             )}
           </View>
         </View>

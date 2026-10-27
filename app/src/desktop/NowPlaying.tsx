@@ -1,18 +1,18 @@
-import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import CoverArt from '../components/CoverArt';
-import SpeakerChip from '../components/SpeakerChip';
-import QueueRow from '../components/QueueRow';
-import { showContextMenu } from './contextMenu';
-import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
-import { colors, radii, shadow } from '../theme/tokens';
+import React from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import QueueRotor from './QueueRotor';
+import QueueCascade from './QueueCascade';
+import QueueTunnel from './QueueTunnel';
+import { progressOf } from '../components/trackProgress';
+import type { QueueDesign } from './queueDesign';
+import { ChevronRight, Play, Queue, Speaker } from '../icons';
+import { colors, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { accentTextOf, chipsFor, groupCount } from '../state/selectors';
+import { accentTextOf, groupCount } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
-import type { Group, QueueItem } from '../state/types';
-import type { Motif } from '../state/types';
+import type { Group } from '../state/types';
 import { useTone } from './tone';
 
 // Centered guidance shown when there is nothing to control yet: still discovering,
@@ -39,136 +39,15 @@ function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-// Fixed row height so the drag math (dy / ROW_H) maps cleanly to row offsets.
-const QUEUE_ROW_H = 52;
-
-// A drag-to-reorder queue. Each row's grip uses W3C pointer events with pointer
-// CAPTURE — PanResponder is unreliable under react-native-web, but pointer capture
-// (rock-solid in Chromium/Electron) keeps move+up firing on the handle for the
-// whole drag even when the cursor leaves the tiny grip. Dragging shifts the
-// neighbouring rows to preview the drop; on release we ask the SPEAKER to reorder
-// (the store re-reads from Sonos — no optimistic local splice). The fixed row
-// height makes dy → row-offset exact.
-//
-// Each row also has a menu (dots button or right-click) for the moves that are
-// tedious by drag: play now, play next, move to end, remove.
-function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemove }: {
-  items: QueueItem[];
-  motif: Motif;
-  accent: string;
-  isCurrent: (q: QueueItem) => boolean;
-  onReorder: (from: number, to: number) => void;
-  onPlay: (index: number) => void;
-  onRemove: (index: number) => void;
-}) {
-  const tone = useTone();
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [menuIndex, setMenuIndex] = useState<number | null>(null);
-  const openMenu = (index: number) => {
-    setMenuIndex(index);
-    void showContextMenu([
-      { label: 'Play now', icon: <Play size={16} />, onPress: () => onPlay(index) },
-      { label: 'Play next', icon: <QueueTop size={16} />, onPress: () => onReorder(index, 0), enabled: index > 0 },
-      { label: 'Move to end of queue', icon: <QueueBottom size={16} />, onPress: () => onReorder(index, items.length - 1), enabled: index < items.length - 1 },
-      { label: 'Remove from queue', icon: <Trash size={16} />, onPress: () => onRemove(index) },
-    ]).finally(() => setMenuIndex(null));
-  };
-  const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
-  const dragRef = useRef(drag);
-  dragRef.current = drag;
-  const startY = useRef(0);
-  const targetOf = (from: number, dy: number) =>
-    Math.max(0, Math.min(items.length - 1, from + Math.round(dy / QUEUE_ROW_H)));
-
-  return (
-    // userSelect:none so dragging a handle doesn't start a text selection.
-    <View style={{ userSelect: 'none' } as any}>
-      {items.map((item, index) => {
-        const isDragged = drag?.from === index;
-        let translateY = 0;
-        if (drag) {
-          const to = targetOf(drag.from, drag.dy);
-          if (isDragged) translateY = drag.dy;
-          else if (drag.from < to && index > drag.from && index <= to) translateY = -QUEUE_ROW_H;
-          else if (drag.from > to && index < drag.from && index >= to) translateY = QUEUE_ROW_H;
-        }
-
-        const handle = (
-          <View
-            // RN ViewProps types currentTarget as a host ref; under react-native-web
-            // it's the DOM node, so setPointerCapture is available (cast below).
-            onPointerDown={(e) => {
-              const t = e.currentTarget as unknown as { setPointerCapture?: (id: number) => void };
-              try { t.setPointerCapture?.(e.nativeEvent.pointerId); } catch { /* capture optional */ }
-              startY.current = e.nativeEvent.pageY;
-              setDrag({ from: index, dy: 0 });
-            }}
-            onPointerMove={(e) => {
-              if (dragRef.current?.from !== index) return;
-              setDrag({ from: index, dy: e.nativeEvent.pageY - startY.current });
-            }}
-            onPointerUp={(e) => {
-              const t = e.currentTarget as unknown as { releasePointerCapture?: (id: number) => void };
-              try { t.releasePointerCapture?.(e.nativeEvent.pointerId); } catch { /* noop */ }
-              const d = dragRef.current;
-              setDrag(null);
-              if (d && d.from === index) {
-                const to = targetOf(d.from, d.dy);
-                if (to !== d.from) onReorder(d.from, to);
-              }
-            }}
-            onPointerCancel={() => setDrag(null)}
-            // grab cursor + no text-select/scroll-gesture stealing the drag.
-            style={{ padding: 6, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
-          >
-            <Grip size={16} color={tone.subtle} />
-          </View>
-        );
-
-        const dots = (
-          <Pressable
-            accessibilityLabel={`More options for ${item.title || item.album}`}
-            onPress={() => openMenu(index)}
-            hitSlop={4}
-            style={({ pressed }) => ({ padding: 4, opacity: pressed ? 0.5 : 1 })}
-          >
-            <View style={{ transform: [{ rotate: '90deg' }] }}>
-              <Dots size={16} color={tone.subtle} />
-            </View>
-          </Pressable>
-        );
-
-        return (
-          <View
-            key={`${index}:${item.title}:${item.artist}`}
-            // RN's ViewProps lacks onContextMenu; react-native-web forwards it to the DOM.
-            {...{ onContextMenu: (e: MouseEvent) => {
-              e.preventDefault();
-              openMenu(index);
-            } }}
-            onPointerEnter={() => setHovered(index)}
-            onPointerLeave={() => setHovered((h) => (h === index ? null : h))}
-            // The negative margin lets the tint extend past the content without shifting it.
-            style={{
-              height: QUEUE_ROW_H, justifyContent: 'center', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: radii.md,
-              backgroundColor: isDragged || menuIndex === index ? tone.surface : hovered === index ? tone.line(0.03) : 'transparent',
-              transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1,
-            }}
-          >
-            <QueueRow item={item} motif={motif} fg={tone.fg} muted={tone.muted} accent={accent} current={isCurrent(item)} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
-          </View>
-        );
-      })}
-    </View>
-  );
-}
+// The three queue designs under trial, picked by the top bar's A/B/C switch.
+const QUEUE_VIEWS = { a: QueueRotor, b: QueueCascade, c: QueueTunnel } as const;
 
 // The FOCUSED Now Playing for ONE group. It takes the group (and, on narrow
 // layouts, an optional onBack) rather than reading any global active-group
 // singleton — every control here is routed through groupControls(group.id), so
 // it drives exactly this group. In the desktop master–detail the list is always
 // present, so onBack is omitted and no back button renders.
-export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?: Group; onBack?: () => void; onSearch?: () => void }) {
+export default function DesktopNowPlaying({ group, design, onBack, onSearch }: { group?: Group; design: QueueDesign; onBack?: () => void; onSearch?: () => void }) {
   const tone = useTone();
   const store = useStore();
   const { state, getTrack, roomName, config, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
@@ -214,101 +93,69 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
 
   const g = group;
   const tr = getTrack(g.trackId);
-  const chips = chipsFor(store, g);
   const idle = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const here = g.roomIds.length ? `${roomName(g.roomIds[0])} ${groupCount(g)}`.trim() : 'this group';
-  // "Up next" = the queue AFTER the currently-playing track, so the top of the
-  // list is genuinely the next song and skipping advances it off the top. The
-  // current track is already shown big above. qStart is the absolute queue index
-  // of the first up-next item (drag/reorder maps local -> absolute through it).
   const fullQueue = queueFor(g.id);
-  const qStart = g.queueIndex >= 0 ? g.queueIndex + 1 : 0;
-  const upNext = fullQueue.slice(qStart);
   // A group with a loaded queue is controllable even when it reports no
   // now-playing metadata — Play resumes the queue.
   const controllable = !idle || fullQueue.length > 0;
   const queueBusy = store.queuePending(g.id);
+  // A stream plays without a queue; the queue view then holds just the current track.
+  const streamOnly = fullQueue.length === 0 && !idle;
+  const queueItems = streamOnly ? [{ title: tr.title, artist: tr.artist, album: tr.album, artUrl: tr.artUrl }] : fullQueue;
+  const prog = progressOf(g, tr);
+  const QueueView = QUEUE_VIEWS[design];
+  const queueProps = {
+    items: queueItems,
+    current: streamOnly ? 0 : g.queueIndex,
+    progress: prog.finite ? prog.fraction : null,
+    motif: config.coverMotif,
+    accent,
+    readOnly: streamOnly,
+    onPlay: (index: number) => playQueueIndex(g.id, index),
+    onReorder: (from: number, to: number) => reorderQueue(g.id, from, to),
+    onRemove: (index: number) => removeQueueItem(g.id, index),
+  };
 
   return (
     <View style={{ flex: 1 }}>
       {onBack && <BackButton onPress={onBack} />}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', gap: 44, padding: 44, paddingTop: 44 }} showsVerticalScrollIndicator={false}>
-        {/* cover */}
-        <View style={{ width: 374 }}>
-          <CoverArt size={374} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg} artUrl={idle ? undefined : tr.artUrl}>
-            {idle && (
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <Speaker size={64} color="rgba(26,24,20,0.35)" />
-              </View>
-            )}
-          </CoverArt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 44, paddingTop: 28, paddingBottom: 12 }}>
+        <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? tone.faint : accent }} />
+        <Text style={[type.eyebrow, { flex: 1, color: tone.subtle }]}>{here}</Text>
+        {fullQueue.length > 0 && (
+          <>
+            <Queue size={16} color={tone.subtle} />
+            <Text style={[type.eyebrow, { color: tone.subtle }]}>Queue · {fullQueue.length}</Text>
+            <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ marginLeft: 10, opacity: pressed ? 0.5 : 1 })}>
+              {queueBusy ? (
+                <ActivityIndicator size="small" color={tone.muted} />
+              ) : (
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: tone.fg }}>Clear</Text>
+              )}
+            </Pressable>
+          </>
+        )}
+      </View>
 
-          {/* The coordinator's queue, directly below the artwork. Hidden when
-              empty (some streaming sources play without a queue) — no placeholder. */}
-          {upNext.length > 0 && (
-            <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
-                <Queue size={16} color={tone.subtle} />
-                <Text style={[type.eyebrow, { color: tone.subtle, flex: 1 }]}>Up next · {upNext.length}</Text>
-                <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-                  {queueBusy ? (
-                    <ActivityIndicator size="small" color={tone.muted} />
-                  ) : (
-                    <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: tone.muted }}>Clear</Text>
-                  )}
-                </Pressable>
-              </View>
-              <QueueList
-                items={upNext}
-                motif={config.coverMotif}
-                accent={accent}
-                isCurrent={() => false}
-                onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
-                onPlay={(index) => playQueueIndex(g.id, qStart + index)}
-                onRemove={(index) => removeQueueItem(g.id, qStart + index)}
-              />
-            </>
-          )}
-        </View>
-
-        {/* details */}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? tone.faint : accent }} />
-            <Text style={[type.eyebrow, { color: tone.subtle }]}>{here}</Text>
-          </View>
-
-          {/* Nothing playing and nothing queued → no title, no transport, just a
-              way to put music on this group. */}
+      {queueItems.length > 0 ? (
+        <QueueView
+          key={`${design}:${g.id}:${streamOnly}`}
+          {...queueProps}
+        />
+      ) : (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           {!controllable && onSearch && (
             <Pressable
               onPress={onSearch}
-              style={({ pressed }) => ({ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, paddingHorizontal: 18, marginTop: 22, borderRadius: radii.pill, backgroundColor: accent, opacity: pressed ? 0.8 : 1 })}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, paddingHorizontal: 18, borderRadius: radii.pill, backgroundColor: accent, opacity: pressed ? 0.8 : 1 })}
             >
               <Play size={15} fill={accentText} />
               <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: accentText }}>Play something here</Text>
             </Pressable>
           )}
-
-          {controllable && (
-            <>
-              {/* Title only when the speaker reports one — no fabricated label. */}
-              {!!tr.title && (
-                <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: tone.fg, marginTop: 14 }}>{tr.title}</Text>
-              )}
-              {!!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 19, color: tone.muted, marginTop: 10 }}>{tr.artist}</Text>}
-              {!!tr.album && (
-                <Text style={{ fontFamily: font.body, fontSize: 13, color: tone.fg, marginTop: 18 }}>{tr.album}</Text>
-              )}
-            </>
-          )}
-
-          <Text style={[type.eyebrow, { color: tone.subtle, marginTop: 34, marginBottom: 11 }]}>Speakers — tap to group</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-            {chips.map((c) => <SpeakerChip key={c.id} chip={c} showIcon />)}
-          </View>
         </View>
-      </ScrollView>
+      )}
     </View>
   );
 }
