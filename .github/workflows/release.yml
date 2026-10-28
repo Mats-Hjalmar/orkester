@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
 
 permissions:
   contents: write
@@ -26,8 +26,15 @@ jobs:
           signing=()
           [ -n "$CSC_LINK" ] || { unset CSC_LINK CSC_KEY_PASSWORD; signing=(-c.mac.identity=- -c.mac.hardenedRuntime=false); }
           bunx electron-builder --mac --universal --publish never \
-            -c.extraMetadata.version="${GITHUB_REF_NAME#v}" "${signing[@]}"
+            -c.extraMetadata.version="$GITHUB_REF_NAME" "${signing[@]}"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes desktop/release.noindex/*.dmg desktop/release.noindex/*.zip
+        run: |
+          notes=$'## Install\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/Mats-Hjalmar/orkester/main/install.sh | sh\n```'
+          assets=(desktop/release.noindex/*.dmg desktop/release.noindex/*.zip)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" --clobber "${assets[@]}"
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes --notes "$notes" "${assets[@]}"
+          fi

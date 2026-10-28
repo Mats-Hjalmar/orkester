@@ -59,7 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/Mats-Hjalmar/orkester/main/install.
 ```
 
 `VERSION=0.2.0` pins a release; `APPS_DIR=~/Applications` installs per-user. Pushing
-a `v*` tag builds the universal app and publishes it as a GitHub release
+a version tag such as `1.0.0` builds the universal app and publishes it as a GitHub release
 (`.github/workflows/release.yml`). It is Developer ID signed when the `CSC_LINK` and
 `CSC_KEY_PASSWORD` secrets are set, otherwise ad-hoc signed.
 

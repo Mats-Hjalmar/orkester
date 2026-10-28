@@ -9,7 +9,7 @@ APPS_DIR="${APPS_DIR:-/Applications}"
 [ "$(uname -s)" = "Darwin" ] || { echo "Orkester only ships for macOS." >&2; exit 1; }
 
 if [ -n "${VERSION:-}" ]; then
-  url="https://github.com/$REPO/releases/download/v${VERSION#v}/$ASSET"
+  url="https://github.com/$REPO/releases/download/$VERSION/$ASSET"
 else
   url="https://github.com/$REPO/releases/latest/download/$ASSET"
 fi
@@ -34,4 +34,4 @@ $sudo rm -rf "$dest"
 $sudo ditto "$tmp/unpacked/$APP.app" "$dest"
 $sudo xattr -dr com.apple.quarantine "$dest" 2>/dev/null || true
 
-echo "Installed $dest — launch it from Launchpad or: open -a $APP"
+echo "Installed $dest"
