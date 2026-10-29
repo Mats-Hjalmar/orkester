@@ -22,7 +22,7 @@ curl -fL --progress-bar -o "$tmp/$ASSET" "$url"
 ditto -x -k "$tmp/$ASSET" "$tmp/unpacked"
 
 if pgrep -x "$APP" >/dev/null; then
-  echo "Quitting the running $APP…"
+  echo "Quitting the running ${APP}…"
   osascript -e "quit app \"$APP\""
   while pgrep -x "$APP" >/dev/null; do sleep 0.25; done
 fi
