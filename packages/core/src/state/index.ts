@@ -27,6 +27,7 @@ export {
   type SpotifySearchTarget,
   type LinkState,
   type PendingSearchOp,
+  type OpenedContainer,
 } from './useSpotifySearch';
 
 // The reducer + state shape (exported for adapter/unit tests).

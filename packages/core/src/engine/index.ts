@@ -169,13 +169,16 @@ export {
   getAppLink,
   getDeviceAuthToken,
   search,
+  getMetadata,
   parseSearchResult,
+  parseMetadataResult,
   encodeServiceId,
   spotifyEnqueueItem,
   type SMAPICredentials,
   type SMAPIService,
   type AppLink,
   type SMAPIItem,
+  type SMAPIPage,
 } from './smapi';
 
 // SSDP discovery parsing (the byte-level protocol; UDP socket lives in ../node).

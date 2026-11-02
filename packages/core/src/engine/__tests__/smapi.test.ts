@@ -3,6 +3,7 @@ import {
   buildSMAPIEnvelope,
   parseSMAPIFault,
   parseSearchResult,
+  parseMetadataResult,
   spotifyEnqueueItem,
   encodeServiceId,
   type SMAPIItem,
@@ -67,6 +68,39 @@ describe('parseSearchResult', () => {
       artUrl: 'https://i.scdn.co/image/album-art', // direct on mediaCollection
       isContainer: true,
     });
+  });
+});
+
+describe('parseMetadataResult', () => {
+  it("lists a playlist's tracks and keeps the container total as a number", () => {
+    const xml = `<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+  <s:Body>
+    <getMetadataResponse xmlns="http://www.sonos.com/Services/1.1">
+      <getMetadataResult>
+        <index>0</index>
+        <count>1</count>
+        <total>0142</total>
+        <mediaMetadata>
+          <id>spotify:track:abc</id>
+          <itemType>track</itemType>
+          <title>Blue in Green</title>
+          <trackMetadata><artist>Miles Davis</artist><album>Kind of Blue</album></trackMetadata>
+        </mediaMetadata>
+      </getMetadataResult>
+    </getMetadataResponse>
+  </s:Body>
+</s:Envelope>`;
+    const page = parseMetadataResult(xml);
+    expect(page.total).toBe(142); // explicit conversion; leading zero is not octal
+    expect(page.items).toEqual([
+      expect.objectContaining({ id: 'spotify:track:abc', itemType: 'track', title: 'Blue in Green', artist: 'Miles Davis', isContainer: false }),
+    ]);
+  });
+
+  it('falls back to the item count when the response has no total', () => {
+    const xml = '<Envelope><Body><getMetadataResponse><getMetadataResult></getMetadataResult></getMetadataResponse></Body></Envelope>';
+    expect(parseMetadataResult(xml)).toEqual({ items: [], total: 0 });
   });
 });
 

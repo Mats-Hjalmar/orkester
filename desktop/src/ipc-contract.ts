@@ -32,6 +32,7 @@ export const API_METHODS = [
   'startSpotifyLink',
   'pollSpotifyLink',
   'searchSpotify',
+  'browseSpotify',
   'enqueueSearchItem',
   'playSearchItem',
   'stop',

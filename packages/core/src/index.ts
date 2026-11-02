@@ -22,6 +22,7 @@ export type {
   ApiTopology,
   ApiNowPlaying,
   ApiSearchItem,
+  ApiContainerContents,
   ApiSpotifyLink,
   ApiAudioSettings,
   ApiBrowseItem,

@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   Linking,
@@ -13,13 +14,13 @@ import {
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tapCommit } from '../components/phone/haptics';
-import { Dots, Pause, Play, Plus, Search as SearchIcon, Speaker } from '../icons';
+import { ChevronRight, Dots, Pause, Play, Plus, Search as SearchIcon, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { useGroupRoute, useNav } from '../navigation';
-import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type PendingSearchOp } from '@orkester/core/state';
+import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type OpenedContainer, type PendingSearchOp } from '@orkester/core/state';
 import { accentTextOf } from '../state/selectors';
 import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 
@@ -48,13 +49,33 @@ export default function Search() {
   // discovered room when the target group has gone away.
   const roomIdForLink = g?.roomIds[0] ?? state.rooms[0]?.id ?? '';
 
-  const { link, query, setQuery, kind, setKind, results, busy, error, notice, pending, beginLink, runSearch, addToQueue, playNow } =
-    useSpotifySearch({ groupId: g?.id ?? '', roomIdForLink, groupLabel });
+  const {
+    link, query, setQuery, kind, setKind, results, busy, error, notice, pending, beginLink, runSearch, addToQueue, playNow,
+    opened, openContainer, closeContainer,
+  } = useSpotifySearch({ groupId: g?.id ?? '', roomIdForLink, groupLabel });
 
   // True once a search has come back, so "no results" is distinguishable from
   // "haven't searched yet" — the old screen rendered nothing for both.
   const [searched, setSearched] = React.useState(query.trim() !== '');
   const [expanded, setExpanded] = React.useState<string | null>(null);
+
+  // An opened playlist is a page inside this modal: entering or leaving it starts
+  // at the top with every row collapsed, and Android's back button returns to the
+  // results instead of closing the whole search.
+  const listRef = React.useRef<FlatList<ApiSearchItem>>(null);
+  const openedId = opened?.item.id ?? null;
+  React.useEffect(() => {
+    setExpanded(null);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [openedId]);
+  React.useEffect(() => {
+    if (openedId === null) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeContainer();
+      return true;
+    });
+    return () => sub.remove();
+  }, [openedId, closeContainer]);
 
   const search = (k?: typeof kind) => {
     setSearched(true);
@@ -133,7 +154,40 @@ export default function Search() {
         </View>
       )}
 
-      {link.status === 'linked' && (
+      {link.status === 'linked' && opened && (
+        <View style={{ gap: 12 }}>
+          <Pressable
+            onPress={closeContainer}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Back to search results"
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', minHeight: 36, opacity: pressed ? 0.6 : 1 })}
+          >
+            <View style={{ transform: [{ rotate: '180deg' }] }}>
+              <ChevronRight size={15} color={colors.fgMuted} />
+            </View>
+            <Text style={type.bodyMuted}>Results for “{query.trim()}”</Text>
+          </Pressable>
+          {/* The playlist itself, with the same actions as in the results. */}
+          <ResultRow
+            item={opened.item}
+            subtitle={[opened.item.artist, trackCount(opened)].filter(Boolean).join(' · ')}
+            artSize={72}
+            accent={accent}
+            accentText={accentText}
+            enabled={hasTarget}
+            pending={pending && pending.id === opened.item.id ? pending.op : null}
+            anyPending={pending !== null}
+            expanded={expanded === HERO_KEY}
+            onToggleExpand={() => setExpanded((cur) => (cur === HERO_KEY ? null : HERO_KEY))}
+            onEnqueue={(where) => void addToQueue(opened.item, where)}
+            onPlay={() => void playNow(opened.item)}
+          />
+          <View style={{ height: 1, backgroundColor: ink(0.08) }} />
+        </View>
+      )}
+
+      {link.status === 'linked' && !opened && (
         <View style={{ gap: 12 }}>
           <View
             style={{
@@ -215,7 +269,26 @@ export default function Search() {
 
   const footer = (
     <View style={{ gap: 6, paddingTop: 14 }}>
-      {link.status === 'linked' && searched && !busy && results.length === 0 && query.trim() !== '' && (
+      {opened?.status === 'loading' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18 }}>
+          <ActivityIndicator size="small" color={colors.fgMuted} />
+          <Text style={type.bodyMuted}>Loading tracks…</Text>
+        </View>
+      )}
+      {opened?.status === 'error' && (
+        <Pressable onPress={() => void openContainer(opened.item)} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 18 }}>
+          <Text style={type.bodyMuted}>Couldn’t load this playlist. Tap to retry</Text>
+        </Pressable>
+      )}
+      {opened?.status === 'ready' && opened.tracks.length === 0 && (
+        <Text style={[type.bodyMuted, { textAlign: 'center', paddingVertical: 18 }]}>This playlist has no playable tracks.</Text>
+      )}
+      {opened?.status === 'ready' && opened.total > opened.tracks.length && (
+        <Text style={[type.small, { color: colors.fgMuted }]}>
+          Showing the first {opened.tracks.length} of {opened.total} tracks. Adding the playlist adds all of them.
+        </Text>
+      )}
+      {link.status === 'linked' && !opened && searched && !busy && results.length === 0 && query.trim() !== '' && (
         <Text style={[type.bodyMuted, { textAlign: 'center', paddingVertical: 18 }]}>
           No {kind} matching “{query.trim()}”.
         </Text>
@@ -232,28 +305,34 @@ export default function Search() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <FlatList
-        data={link.status === 'linked' ? results : []}
-        keyExtractor={(r) => r.id}
+        ref={listRef}
+        data={link.status !== 'linked' ? [] : opened ? (opened.status === 'ready' ? opened.tracks : []) : results}
+        // A playlist can hold the same track twice.
+        keyExtractor={(r, i) => `${r.id}#${i}`}
         ListHeaderComponent={header}
         ListFooterComponent={footer}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: insets.top + 14, paddingHorizontal: 22, paddingBottom: 24 }}
-        renderItem={({ item }) => (
-          <ResultRow
-            item={item}
-            accent={accent}
-            accentText={accentText}
-            enabled={hasTarget}
-            pending={pending && pending.id === item.id ? pending.op : null}
-            anyPending={pending !== null}
-            expanded={expanded === item.id}
-            onToggleExpand={() => setExpanded((cur) => (cur === item.id ? null : item.id))}
-            onEnqueue={(where) => void addToQueue(item, where)}
-            onPlay={() => void playNow(item)}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          const key = `${item.id}#${index}`;
+          return (
+            <ResultRow
+              item={item}
+              accent={accent}
+              accentText={accentText}
+              enabled={hasTarget}
+              pending={pending && pending.id === item.id ? pending.op : null}
+              anyPending={pending !== null}
+              expanded={expanded === key}
+              onToggleExpand={() => setExpanded((cur) => (cur === key ? null : key))}
+              onEnqueue={(where) => void addToQueue(item, where)}
+              onPlay={() => void playNow(item)}
+              onOpen={!opened && item.browsable ? () => void openContainer(item) : undefined}
+            />
+          );
+        }}
       />
 
       {/* Context bar: what this search plays onto, and a way to stop it without
@@ -340,6 +419,8 @@ function ContextBar({
 
 function ResultRow({
   item,
+  subtitle,
+  artSize = 48,
   accent,
   accentText,
   enabled,
@@ -349,8 +430,12 @@ function ResultRow({
   onToggleExpand,
   onEnqueue,
   onPlay,
+  onOpen,
 }: {
   item: ApiSearchItem;
+  /** Overrides the secondary line. */
+  subtitle?: string;
+  artSize?: number;
   accent: string;
   accentText: string;
   enabled: boolean;
@@ -360,10 +445,12 @@ function ResultRow({
   onToggleExpand: () => void;
   onEnqueue: (where: QueuePosition) => void;
   onPlay: () => void;
+  /** Set for a browsable hit: tapping the art/title opens it. */
+  onOpen?: () => void;
 }) {
   // Secondary line: the artist/curator. Fall back to the kind only when there is
   // no artist at all (so we never show the redundant "Playlist · …").
-  const line = item.artist || capitalizeKind(item);
+  const line = subtitle ?? (item.artist || capitalizeKind(item));
   // One catalog request at a time, so the other rows dim while any is in flight.
   const dimmed = anyPending && pending === null;
   const radius = item.isContainer ? radii.sm : radii.pill;
@@ -371,28 +458,37 @@ function ResultRow({
   return (
     <View style={{ paddingVertical: 6, opacity: dimmed ? 0.45 : 1 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        {item.artUrl !== '' ? (
-          <Image
-            source={{ uri: item.artUrl }}
-            style={{ width: 48, height: 48, borderRadius: radius, backgroundColor: ink(0.06) }}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={140}
-            recyclingKey={item.id}
-          />
-        ) : (
-          <View style={{ width: 48, height: 48, borderRadius: radius, backgroundColor: ink(0.06), alignItems: 'center', justifyContent: 'center' }}>
-            <SearchIcon size={16} color={colors.fgFaint} />
+        <Pressable
+          onPress={onOpen}
+          disabled={!onOpen}
+          accessibilityRole={onOpen ? 'button' : undefined}
+          accessibilityLabel={onOpen ? `Open ${item.title}` : undefined}
+          style={({ pressed }) => ({ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.6 : 1 })}
+        >
+          {item.artUrl !== '' ? (
+            <Image
+              source={{ uri: item.artUrl }}
+              style={{ width: artSize, height: artSize, borderRadius: radius, backgroundColor: ink(0.06) }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={140}
+              recyclingKey={item.id}
+            />
+          ) : (
+            <View style={{ width: artSize, height: artSize, borderRadius: radius, backgroundColor: ink(0.06), alignItems: 'center', justifyContent: 'center' }}>
+              <SearchIcon size={16} color={colors.fgFaint} />
+            </View>
+          )}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
+              {item.title}
+            </Text>
+            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
+              {line}
+            </Text>
           </View>
-        )}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
-            {item.title}
-          </Text>
-          <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
-            {line}
-          </Text>
-        </View>
+          {onOpen && <ChevronRight size={16} color={colors.fgSubtle} />}
+        </Pressable>
         {/* Play now is the primary action; the rest live behind "more" so the row
             stays readable at phone width and those actions can carry real labels
             instead of a third ambiguous glyph. */}
@@ -496,6 +592,15 @@ function TextAction({ label, enabled, icon, onPress }: { label: string; enabled:
       <Text style={{ fontFamily: font.bodyMedium, fontSize: 12.5, color: colors.fg }}>{label}</Text>
     </Pressable>
   );
+}
+
+/** `expanded` key for the opened playlist's own row (track keys are `id#index`). */
+const HERO_KEY = 'opened-playlist';
+
+function trackCount(opened: OpenedContainer): string {
+  if (opened.status === 'loading') return 'Loading…';
+  if (opened.status === 'error') return '';
+  return `${opened.total} ${opened.total === 1 ? 'track' : 'tracks'}`;
 }
 
 function capitalizeKind(item: ApiSearchItem): string {

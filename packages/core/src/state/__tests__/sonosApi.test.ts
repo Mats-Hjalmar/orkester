@@ -272,6 +272,7 @@ describe('SonosApi.searchSpotify token refresh', () => {
     const hits = await api.searchSpotify('miles', 'tracks');
     expect(hits).toHaveLength(1);
     expect(hits[0].title).toBe('Song');
+    expect(hits[0].browsable).toBe(false); // tracks don't open
     expect(saved).toEqual([expect.objectContaining({ authToken: 'NEW-TOKEN', privateKey: 'NEW-KEY' })]);
   });
 
@@ -321,6 +322,86 @@ describe('SonosApi.searchSpotify token refresh', () => {
     const hits = await api.searchSpotify('q', 'tracks');
     expect(hits).toHaveLength(1);
     expect(saved).toEqual([expect.objectContaining({ authToken: 'NEW-TOKEN', privateKey: 'NEW-KEY' })]);
+  });
+});
+
+// --- Spotify playlist browsing --------------------------------------------
+
+/** A getMetadata page of `n` tracks numbered from `from`, for a container of `total`. */
+function metadataPage(from: number, n: number, total: number): HttpResponse {
+  let tracks = '';
+  for (let i = from; i < from + n; i++) {
+    tracks += `<mediaMetadata><id>spotify:track:t${i}</id><itemType>track</itemType><title>T${i}</title></mediaMetadata>`;
+  }
+  return {
+    status: 200,
+    headers: {},
+    body:
+      '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>' +
+      `<getMetadataResponse><getMetadataResult><index>${from}</index><count>${n}</count><total>${total}</total>${tracks}` +
+      '</getMetadataResult></getMetadataResponse></s:Body></s:Envelope>',
+  };
+}
+
+/** Answers getMetadata from a fixed-size container, recording each requested window. */
+class SmapiBrowseTransport implements HttpTransport {
+  readonly windows: { id: string; index: number; count: number }[] = [];
+  constructor(private readonly size: number) {}
+  request(req: HttpRequest): Promise<HttpResponse> {
+    const action = /#([^"]+)"/.exec(req.headers?.SOAPACTION ?? '')?.[1] ?? '';
+    if (action !== 'getMetadata') throw new Error(`unexpected SMAPI action ${action}`);
+    const body = String(req.body ?? '');
+    const id = /<id>([^<]*)<\/id>/.exec(body)?.[1] ?? '';
+    const index = Number(/<index>(\d+)<\/index>/.exec(body)?.[1]);
+    const count = Number(/<count>(\d+)<\/count>/.exec(body)?.[1]);
+    this.windows.push({ id, index, count });
+    return Promise.resolve(metadataPage(index, Math.max(0, Math.min(count, this.size - index)), this.size));
+  }
+}
+
+const PLAYLIST_HIT = {
+  id: 'spotify:playlist:37i9',
+  title: 'Jazz',
+  artist: '',
+  album: '',
+  artUrl: '',
+  isContainer: true,
+  browsable: true,
+  uri: 'x-rincon-cpcontainer:1006206cspotify%3aplaylist%3a37i9',
+  metadata: '',
+};
+
+function makeBrowseApi(size: number): { api: SonosApi; t: SmapiBrowseTransport } {
+  const t = new SmapiBrowseTransport(size);
+  const store: CredentialStore = { load: async () => AUTH, save: async () => {} };
+  const client = new SonosClient({ http: t, discovery: new MockDiscovery() });
+  return { api: new SonosApi(client, store), t };
+}
+
+describe('SonosApi.browseSpotify', () => {
+  it('pages through a playlist and returns playable tracks', async () => {
+    const { api, t } = makeBrowseApi(142);
+    const { items, total } = await api.browseSpotify(PLAYLIST_HIT);
+    expect(total).toBe(142);
+    expect(items).toHaveLength(142);
+    expect(items[0]).toMatchObject({ id: 'spotify:track:t0', title: 'T0', browsable: false });
+    expect(items[0].uri).toContain('x-sonos-spotify:spotify%3atrack%3at0');
+    expect(t.windows).toEqual([
+      { id: 'spotify:playlist:37i9', index: 0, count: 100 },
+      { id: 'spotify:playlist:37i9', index: 100, count: 100 },
+    ]);
+  });
+
+  it('caps a huge playlist but reports its real total', async () => {
+    const { api } = makeBrowseApi(10_000);
+    const { items, total } = await api.browseSpotify(PLAYLIST_HIT);
+    expect(items).toHaveLength(500);
+    expect(total).toBe(10_000);
+  });
+
+  it('refuses a hit that is not browsable', async () => {
+    const { api } = makeBrowseApi(1);
+    await expect(api.browseSpotify({ ...PLAYLIST_HIT, browsable: false })).rejects.toThrow(/can't be opened/);
   });
 });
 
