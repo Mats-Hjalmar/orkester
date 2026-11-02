@@ -134,6 +134,9 @@ function fullResponseTable(): Record<string, HttpResponse> {
       soapResponse('GetTransportInfo', '<CurrentTransportState>PLAYING</CurrentTransportState>'),
     ),
     [soapAction('GetPositionInfo')]: ok(positionInfoResponse),
+    [soapAction('GetMediaInfo')]: ok(
+      soapResponse('GetMediaInfo', '<CurrentURI>x-rincon-queue:RINCON_AAAAAAAAAAAA01400#0</CurrentURI>'),
+    ),
     [renderingAction('GetVolume')]: ok(
       soapResponse('GetVolume', '<CurrentVolume>25</CurrentVolume>'),
     ),
@@ -180,6 +183,7 @@ describe('SonosClient — full mock facade flow', () => {
       duration: '0:04:55',
       albumArtUrl: '',
       queueIndex: 0, // <Track>1</Track> -> 0-based 0
+      spotifyConnect: false,
     });
 
     // getVolume off the player.

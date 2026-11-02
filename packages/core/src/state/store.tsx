@@ -208,6 +208,7 @@ function placeholderGroup(): Group {
     repeat: false,
     muted: false,
     queueIndex: -1,
+    spotifyConnect: false,
   };
 }
 

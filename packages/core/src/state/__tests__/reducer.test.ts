@@ -21,6 +21,7 @@ const NP: ApiNowPlaying = {
   repeat: 'all',
   artUrl: '',
   queueIndex: 0,
+  spotifyConnect: false,
 };
 
 describe('reducer topology lifecycle', () => {
@@ -121,6 +122,18 @@ describe('reducer now-playing', () => {
     const before = s.groups[0].trackId;
     s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: NP });
     expect(s.groups[0].trackId).toBe(before);
+  });
+});
+
+describe('reducer Spotify Connect', () => {
+  it('nowPlaying sets the flag and a topology refresh keeps it', () => {
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: { ...NP, spotifyConnect: true } });
+    expect(s.groups[0].spotifyConnect).toBe(true);
+    s = reducer(s, { type: 'topologyReady', topology: TOPO });
+    expect(s.groups[0].spotifyConnect).toBe(true);
+    s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: NP });
+    expect(s.groups[0].spotifyConnect).toBe(false);
   });
 });
 

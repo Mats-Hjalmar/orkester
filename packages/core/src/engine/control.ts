@@ -133,6 +133,25 @@ export function getPositionInfoRequest(): ControlRequest {
   };
 }
 
+/** GetMediaInfo — reads CurrentURI, the transport's source (queue, stream, Connect). */
+export function getMediaInfoRequest(): ControlRequest {
+  return {
+    service: avTransport(),
+    action: 'GetMediaInfo',
+    args: [instanceArg()],
+    base: 'coordinator',
+  };
+}
+
+/**
+ * Spotify Connect plays through a virtual line-in (`x-sonos-vli:RINCON_…:2,spotify:…`),
+ * not the Sonos queue. Spotify tracks queued through Sonos instead show up as
+ * `x-rincon-queue:` here, so the CurrentURI tells the two apart where TrackURI can't.
+ */
+export function isSpotifyConnectUri(currentUri: string): boolean {
+  return currentUri.startsWith('x-sonos-vli:') && currentUri.includes(',spotify:');
+}
+
 /**
  * Browse — reads the coordinator's current play queue (object Q:0). ObjectID
  * Q:0 is the SAVED queue; BrowseDirectChildren returns one <item> per track.
@@ -427,6 +446,8 @@ export interface NowPlaying {
    * 1-based `Track`. Lets the UI show true "up next" and move it as you skip.
    */
   queueIndex: number;
+  /** True when the group is being cast to from the Spotify app (Spotify Connect). */
+  spotifyConnect: boolean;
 }
 
 /** Parsed metadata from a DIDL-Lite document. albumArt is the raw upnp:albumArtURI. */
@@ -617,8 +638,8 @@ export async function getTransportState(
 
 /**
  * getNowPlaying reports the coordinator's transport state plus the current
- * track's metadata and position — a two-stage call (GetTransportInfo, then
- * GetPositionInfo whose TrackMetaData is parsed through parseTrackMetadata).
+ * track's metadata and position — GetTransportInfo, then GetPositionInfo whose
+ * TrackMetaData is parsed through parseTrackMetadata, then GetMediaInfo for the source.
  */
 export async function getNowPlaying(
   transport: HttpTransport,
@@ -638,7 +659,11 @@ export async function getNowPlaying(
   const trackNo = parseInt(extractResponseArg(resp, 'Track').trim(), 10);
   const queueIndex = Number.isFinite(trackNo) && trackNo > 0 ? trackNo - 1 : -1;
 
-  return { state, title, artist, album, position, duration, albumArtUrl, queueIndex };
+  const mediaReq = getMediaInfoRequest();
+  const media = await SOAPCall(transport, coordinatorBase, mediaReq.service, mediaReq.action, mediaReq.args);
+  const spotifyConnect = isSpotifyConnectUri(extractResponseArg(media, 'CurrentURI'));
+
+  return { state, title, artist, album, position, duration, albumArtUrl, queueIndex, spotifyConnect };
 }
 
 /**
