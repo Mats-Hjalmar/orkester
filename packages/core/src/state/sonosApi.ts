@@ -19,6 +19,7 @@ import type {
   ApiNowPlaying,
   ApiQueueItem,
   ApiRoom,
+  ApiContainerContents,
   ApiSearchItem,
   ApiSpotifyLink,
   ApiTopology,
@@ -33,6 +34,7 @@ import {
   type ResolvedRoom,
   type MusicServiceInfo,
   type AppLink,
+  type SMAPIItem,
   coordinatorMember,
   groupName as engineGroupName,
   memberBaseURL,
@@ -220,6 +222,10 @@ export class SonosApi implements Api {
 
   /** How many catalog hits to request/show per search. */
   private static readonly SEARCH_LIMIT = 20;
+  /** Children requested per getMetadata page when opening a container. */
+  private static readonly BROWSE_PAGE = 100;
+  /** Most children listed for one container (keeps a 10k-track playlist bounded). */
+  private static readonly BROWSE_LIMIT = 500;
 
   async isSpotifyLinked(): Promise<boolean> {
     const auth = await this.requireCredentials().load();
@@ -270,29 +276,59 @@ export class SonosApi implements Api {
   }
 
   async searchSpotify(query: string, kind: SpotifySearchKind): Promise<ApiSearchItem[]> {
-    const store = this.requireCredentials();
-    const auth = await store.load();
-    if (auth === null) throw new NotLinkedError();
-
-    const runSearch = (a: SpotifyAuth) =>
-      this.client.searchService(
+    return this.withSpotifyAuth(async (a) => {
+      const hits = await this.client.searchService(
         { id: a.serviceId, endpoint: a.endpoint },
-        { authToken: a.authToken, privateKey: a.privateKey, householdId: a.householdId },
+        spotifyCreds(a),
         SPOTIFY_SEARCH_CATEGORY[kind],
         query,
         SonosApi.SEARCH_LIMIT,
       );
+      return toSearchItems(hits, a);
+    });
+  }
 
-    let hits;
+  async browseSpotify(item: ApiSearchItem): Promise<ApiContainerContents> {
+    if (!item.browsable) throw new Error(`"${item.title}" can't be opened`);
+    return this.withSpotifyAuth(async (a) => {
+      // Page through the container until we have it all or hit the cap. A capped
+      // listing reports the real total so the UI can say "first N of M".
+      const hits: SMAPIItem[] = [];
+      let total = Infinity;
+      while (hits.length < total && hits.length < SonosApi.BROWSE_LIMIT) {
+        const count = Math.min(SonosApi.BROWSE_PAGE, SonosApi.BROWSE_LIMIT - hits.length);
+        const page = await this.client.browseService(
+          { id: a.serviceId, endpoint: a.endpoint },
+          spotifyCreds(a),
+          item.id,
+          hits.length,
+          count,
+        );
+        hits.push(...page.items);
+        total = page.total;
+        if (page.items.length === 0) break; // a service that under-delivers must not spin
+      }
+      return { items: toSearchItems(hits, a), total: Math.max(total === Infinity ? 0 : total, hits.length) };
+    });
+  }
+
+  /**
+   * Runs an SMAPI request with the stored Spotify auth. SMAPI loginTokens expire,
+   * surfacing as a `Client.TokenRefreshRequired` fault that carries fresh
+   * credentials in its <detail>: persist them and retry ONCE. Only if the fault
+   * carries no new token, or the refreshed token is itself rejected, do we give
+   * up and prompt a re-link (NotLinkedError) — never a raw SMAPI fault. Logs
+   * avoid the fault body (it contains the live token/key); `err.detail` still
+   * holds it for an inspector if needed.
+   */
+  private async withSpotifyAuth<T>(run: (auth: SpotifyAuth) => Promise<T>): Promise<T> {
+    const store = this.requireCredentials();
+    const auth = await store.load();
+    if (auth === null) throw new NotLinkedError();
+
     try {
-      hits = await runSearch(auth);
+      return await run(auth);
     } catch (err) {
-      // SMAPI loginTokens expire, surfacing as a `Client.TokenRefreshRequired`
-      // fault that carries fresh credentials in its <detail>: persist them and
-      // retry ONCE. Only if the fault carries no new token, or the refreshed token
-      // is itself rejected, do we give up and prompt a re-link (NotLinkedError) —
-      // never a raw SMAPI fault. Logs avoid the fault body (it contains the live
-      // token/key); `err.detail` still holds it for an inspector if needed.
       if (!isSMAPIFault(err) || !err.isTokenRefresh()) throw err;
 
       if (!err.refreshedToken) {
@@ -307,7 +343,7 @@ export class SonosApi implements Api {
       };
       await store.save(refreshed);
       try {
-        hits = await runSearch(refreshed);
+        return await run(refreshed);
       } catch (retryErr) {
         if (isSMAPIFault(retryErr) && retryErr.isTokenRefresh()) {
           console.warn(`[orkester:smapi] ${retryErr.code}: refreshed token still rejected; re-link required.`);
@@ -316,28 +352,6 @@ export class SonosApi implements Api {
         throw retryErr;
       }
     }
-
-    const out: ApiSearchItem[] = [];
-    for (const h of hits) {
-      let enqueue;
-      try {
-        enqueue = spotifyEnqueueItem(h, auth.serviceId, auth.seed, auth.accountSn);
-      } catch {
-        // Skip item types we can't enqueue rather than failing the whole search.
-        continue;
-      }
-      out.push({
-        id: h.id,
-        title: h.title,
-        artist: h.artist,
-        album: h.album,
-        artUrl: h.artUrl,
-        isContainer: h.isContainer,
-        uri: enqueue.uri,
-        metadata: enqueue.metadata,
-      });
-    }
-    return out;
   }
 
   enqueueSearchItem(groupId: string, item: ApiSearchItem, where: QueuePosition = 'end'): Promise<void> {
@@ -608,6 +622,42 @@ export class SonosApi implements Api {
  */
 function isSMAPIFault(e: unknown): e is SMAPIFault {
   return e instanceof Error && e.name === 'SMAPIFault';
+}
+
+/** Spotify item types that can be opened with browseSpotify. */
+const BROWSABLE_SPOTIFY_TYPES = new Set(['playlist']);
+
+function spotifyCreds(a: SpotifyAuth) {
+  return { authToken: a.authToken, privateKey: a.privateKey, householdId: a.householdId };
+}
+
+/**
+ * Projects SMAPI hits onto ApiSearchItems with their enqueue URI/DIDL baked in.
+ * Item types we can't enqueue (e.g. a podcast inside a playlist) are skipped
+ * rather than failing the whole listing.
+ */
+function toSearchItems(hits: SMAPIItem[], auth: SpotifyAuth): ApiSearchItem[] {
+  const out: ApiSearchItem[] = [];
+  for (const h of hits) {
+    let enqueue;
+    try {
+      enqueue = spotifyEnqueueItem(h, auth.serviceId, auth.seed, auth.accountSn);
+    } catch {
+      continue;
+    }
+    out.push({
+      id: h.id,
+      title: h.title,
+      artist: h.artist,
+      album: h.album,
+      artUrl: h.artUrl,
+      isContainer: h.isContainer,
+      browsable: BROWSABLE_SPOTIFY_TYPES.has(h.itemType),
+      uri: enqueue.uri,
+      metadata: enqueue.metadata,
+    });
+  }
+  return out;
 }
 
 /** Projects an engine browse entry onto the Api shape. */

@@ -76,8 +76,10 @@ import {
   type SMAPICredentials,
   type SMAPIService,
   type SMAPIItem,
+  type SMAPIPage,
   getAppLink,
   getDeviceAuthToken,
+  getMetadata as smapiGetMetadata,
   search as smapiSearch,
 } from './smapi';
 
@@ -361,6 +363,17 @@ export class SonosClient {
     count: number,
   ): Promise<SMAPIItem[]> {
     return smapiSearch(this.http, service, creds, category, term, 0, count);
+  }
+
+  /** Lists one page of a music-service container's children (e.g. a playlist's tracks). */
+  browseService(
+    service: SMAPIService,
+    creds: SMAPICredentials,
+    id: string,
+    index: number,
+    count: number,
+  ): Promise<SMAPIPage> {
+    return smapiGetMetadata(this.http, service, creds, id, index, count);
   }
 
   /**

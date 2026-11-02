@@ -87,10 +87,26 @@ export interface ApiSearchItem {
   /** Absolute album/playlist art URL, "" if none. */
   artUrl: string;
   isContainer: boolean;
+  /**
+   * True when the hit can be opened to list its contents (browseSpotify) — today
+   * playlists. Decided by core from the service's item type, not by the UI.
+   */
+  browsable: boolean;
   /** Opaque: the Sonos enqueue/transport URI. */
   uri: string;
   /** Opaque: the DIDL-Lite metadata to enqueue alongside `uri`. */
   metadata: string;
+}
+
+/** The contents of an opened Spotify container (browseSpotify). */
+export interface ApiContainerContents {
+  /** The playable children, in service order. */
+  items: ApiSearchItem[];
+  /**
+   * The container's full size as Spotify reports it. Larger than items.length
+   * when the listing was capped (very long playlists) — the UI says so.
+   */
+  total: number;
 }
 
 /**
@@ -274,6 +290,11 @@ export interface Api {
    * Returns hits carrying opaque playback fields for enqueue/play.
    */
   searchSpotify(query: string, kind: SpotifySearchKind): Promise<ApiSearchItem[]>;
+  /**
+   * Lists a browsable search hit's contents (a playlist's tracks), each
+   * individually playable/enqueueable. THROWS (NotLinkedError) when not linked.
+   */
+  browseSpotify(item: ApiSearchItem): Promise<ApiContainerContents>;
   /**
    * Queues a search hit WITHOUT changing what is currently playing, at the
    * slot named by `where` (default 'end').

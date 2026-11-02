@@ -40,6 +40,15 @@ export type LinkState =
 /** Which per-result action is in flight, so the UI spins exactly that button. */
 export type PendingSearchOp = QueuePosition | 'play';
 
+/**
+ * A browsable hit the user has opened (a playlist), and its listing. `total` can
+ * exceed `tracks.length` when core capped a very long playlist.
+ */
+export type OpenedContainer =
+  | { item: ApiSearchItem; status: 'loading' }
+  | { item: ApiSearchItem; status: 'ready'; tracks: ApiSearchItem[]; total: number }
+  | { item: ApiSearchItem; status: 'error' };
+
 export interface SpotifySearchTarget {
   /** Group id to enqueue/play onto (desktop: selected group; mobile: active group). "" when none. */
   groupId: string;
@@ -77,6 +86,12 @@ export interface SpotifySearch {
    * Sonos round trip can't collect a backlog of enqueues.
    */
   pending: { id: string; op: PendingSearchOp } | null;
+  /** The opened playlist, or null when showing search results. */
+  opened: OpenedContainer | null;
+  /** Opens a browsable hit and loads its contents (failures land on `error`). */
+  openContainer: (item: ApiSearchItem) => Promise<void>;
+  /** Back from an opened playlist to the search results. */
+  closeContainer: () => void;
 }
 
 export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: SpotifySearchTarget): SpotifySearch {
@@ -113,11 +128,19 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     pendingRef.current = null;
     setPending(null);
   };
+  const [opened, setOpened] = useState<OpenedContainer | null>(null);
+  // Bumped on every open/close so a slow listing can't land on a newer view.
+  const openSeqRef = useRef(0);
+  const closeContainer = () => {
+    ++openSeqRef.current;
+    setOpened(null);
+  };
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchSeqRef = useRef(0);
   const resultsQueryRef = useRef(lastSearch?.query.trim() ?? '');
   const resultsKindRef = useRef<SpotifySearchKind>(lastSearch?.kind ?? 'tracks');
   const forgetSearch = () => {
+    closeContainer();
     lastSearch = null;
     resultsQueryRef.current = '';
     setResults([]);
@@ -243,6 +266,8 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   // Search as the user types, once they pause. runSearch clears this timer, so an
   // explicit search (Enter, the button, a kind chip) doesn't fire a duplicate.
   useEffect(() => {
+    // Typing a new query leaves an opened playlist for the fresh results.
+    if (query.trim() !== resultsQueryRef.current) closeContainer();
     if (query.trim() === '') {
       ++searchSeqRef.current;
       setBusy(false);
@@ -258,8 +283,32 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
   }, [query]);
 
   useEffect(() => {
+    closeContainer();
     if (query.trim() === '') lastSearch = { query: '', kind, results: [] };
   }, [kind]);
+
+  const openContainer = async (item: ApiSearchItem): Promise<void> => {
+    if (!item.browsable) return;
+    const seq = ++openSeqRef.current;
+    setError('');
+    setNotice('');
+    setOpened({ item, status: 'loading' });
+    try {
+      const { items, total } = await apiRef.current.browseSpotify(item);
+      if (seq !== openSeqRef.current) return;
+      setOpened({ item, status: 'ready', tracks: items, total });
+    } catch (e) {
+      if (seq !== openSeqRef.current) return;
+      if (e instanceof Error && e.name === 'NotLinkedError') {
+        forgetSearch();
+        setLink({ status: 'unlinked' });
+        setNotice(messageOf(e));
+        return;
+      }
+      setOpened({ item, status: 'error' });
+      setError(messageOf(e));
+    }
+  };
 
   const addToQueue = async (item: ApiSearchItem, where: QueuePosition = 'end'): Promise<void> => {
     if (pendingRef.current) return;
@@ -304,6 +353,9 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     addToQueue,
     playNow,
     pending,
+    opened,
+    openContainer,
+    closeContainer,
   };
 }
 

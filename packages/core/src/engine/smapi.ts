@@ -317,19 +317,42 @@ function mediaToItem(m: Record<string, unknown>, isContainer: boolean): SMAPIIte
 
 /** parseSearchResult flattens a search response into SMAPIItems. Exported for tests. */
 export function parseSearchResult(body: string): SMAPIItem[] {
+  return parseMediaList(body, 'searchResult').items;
+}
+
+/** One page of a container's children, plus the container's full size. */
+export interface SMAPIPage {
+  items: SMAPIItem[];
+  /** The container's total child count as the service reports it (may exceed items.length). */
+  total: number;
+}
+
+/**
+ * parseMetadataResult flattens a getMetadata response (a container's children —
+ * same mediaMetadata/mediaCollection shape as a search result) into one page.
+ * Exported for tests.
+ */
+export function parseMetadataResult(body: string): SMAPIPage {
+  return parseMediaList(body, 'getMetadataResult');
+}
+
+function parseMediaList(body: string, resultKey: string): SMAPIPage {
   const parsed = makeParser().parse(body) as Record<string, unknown>;
-  // Depth: Envelope > Body > searchResponse > searchResult. removeNSPrefix
-  // strips the s:/ns prefixes, so locate searchResult by walking.
-  const result = findKey(parsed, 'searchResult') as Record<string, unknown> | undefined;
-  if (!result) return [];
-  const out: SMAPIItem[] = [];
+  // Depth: Envelope > Body > <action>Response > <resultKey>. removeNSPrefix
+  // strips the s:/ns prefixes, so locate the result by walking.
+  const result = findKey(parsed, resultKey) as Record<string, unknown> | undefined;
+  if (!result) return { items: [], total: 0 };
+  const items: SMAPIItem[] = [];
   for (const m of asArray(result.mediaMetadata)) {
-    out.push(mediaToItem(m as Record<string, unknown>, false));
+    items.push(mediaToItem(m as Record<string, unknown>, false));
   }
   for (const c of asArray(result.mediaCollection)) {
-    out.push(mediaToItem(c as Record<string, unknown>, true));
+    items.push(mediaToItem(c as Record<string, unknown>, true));
   }
-  return out;
+  // parseTagValue is off, so <total> is a string; a missing/garbled total falls
+  // back to what we actually got rather than inventing a size.
+  const total = Number.parseInt(textOf(result.total).trim(), 10);
+  return { items, total: Number.isFinite(total) ? total : items.length };
 }
 
 function findKey(node: unknown, name: string): unknown {
@@ -374,6 +397,28 @@ export async function search(
     `</search>`;
   const resp = await smapiCall(transport, svc.endpoint, creds, 'search', body);
   return parseSearchResult(resp);
+}
+
+/**
+ * getMetadata lists the children of a container (e.g. a playlist's tracks)
+ * starting at index, up to count. Requires device-link credentials.
+ */
+export async function getMetadata(
+  transport: HttpTransport,
+  svc: SMAPIService,
+  creds: SMAPICredentials,
+  id: string,
+  index: number,
+  count: number,
+): Promise<SMAPIPage> {
+  const body =
+    `<getMetadata xmlns="${SMAPI_NAMESPACE}">` +
+    `<id>${escapeXMLText(id)}</id>` +
+    `<index>${index}</index>` +
+    `<count>${count}</count>` +
+    `</getMetadata>`;
+  const resp = await smapiCall(transport, svc.endpoint, creds, 'getMetadata', body);
+  return parseMetadataResult(resp);
 }
 
 // --- result -> enqueue conversion (ported from smapi_didl.go) ---------------

@@ -30,7 +30,7 @@ import {
 } from './reducer';
 import { createSingleFlight } from './singleFlight';
 import { createVolumeWriter } from './volumeWrite';
-import type { Api, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
+import type { Api, ApiContainerContents, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
 import type { QueuePosition, RepeatMode } from '../engine';
 
 const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun' };
@@ -133,6 +133,8 @@ export interface Store {
   pollSpotifyLink: () => Promise<boolean>;
   /** Searches the Spotify catalog (THROWS NotLinkedError when not yet linked). */
   searchSpotify: (query: string, kind: SpotifySearchKind) => Promise<ApiSearchItem[]>;
+  /** Lists a browsable hit's contents, e.g. a playlist's tracks (THROWS NotLinkedError). */
+  browseSpotify: (item: ApiSearchItem) => Promise<ApiContainerContents>;
   /** Queues a hit without changing playback, at `where` (default the end), then
    * re-reads the queue. */
   enqueueSearchItem: (gid: string, item: ApiSearchItem, where?: QueuePosition) => Promise<void>;
@@ -792,6 +794,7 @@ export function StoreProvider({
       startSpotifyLink: (roomId: string) => api.startSpotifyLink(roomId),
       pollSpotifyLink: () => api.pollSpotifyLink(),
       searchSpotify: (query: string, kind: SpotifySearchKind) => api.searchSpotify(query, kind),
+      browseSpotify: (item: ApiSearchItem) => api.browseSpotify(item),
       enqueueSearchItem: async (gid: string, item: ApiSearchItem, where: QueuePosition = 'end') => {
         if (gid === '') throw new Error('no group selected to add to');
         await api.enqueueSearchItem(gid, item, where);

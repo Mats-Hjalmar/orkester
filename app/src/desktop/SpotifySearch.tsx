@@ -5,7 +5,7 @@ import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type PendingSearchOp } from '@orkester/core/state';
+import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type OpenedContainer, type PendingSearchOp } from '@orkester/core/state';
 import { accentTextOf } from '../state/selectors';
 import type { Group } from '../state/types';
 import type { ApiSearchItem, QueuePosition } from '@orkester/core';
@@ -48,8 +48,10 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
 
   const groupLabel = group ? group.roomIds.map(roomName).join(' · ') || 'this group' : 'this group';
 
-  const { link, query, setQuery, kind, setKind, results, busy, error, notice, beginLink, runSearch, addToQueue, playNow, pending } =
-    useSpotifySearch({ groupId: group?.id ?? '', roomIdForLink: group?.roomIds[0] ?? '', groupLabel });
+  const {
+    link, query, setQuery, kind, setKind, results, busy, error, notice, beginLink, runSearch, addToQueue, playNow, pending,
+    opened, openContainer, closeContainer,
+  } = useSpotifySearch({ groupId: group?.id ?? '', roomIdForLink: group?.roomIds[0] ?? '', groupLabel });
 
   // Errors go to the window-level toast instead of the bottom of the results.
   React.useEffect(() => {
@@ -103,6 +105,11 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   }, [linked, progress]);
 
   const scrollRef = React.useRef<ScrollView>(null);
+  // Opening a playlist (or backing out of one) is a new page: start it at the top.
+  const openedId = opened?.item.id ?? null;
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [openedId]);
   const headerRef = React.useRef<View>(null);
   React.useEffect(() => {
     const header = headerRef.current as unknown as HTMLElement | null;
@@ -189,21 +196,35 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
               <Text style={type.small}>Plays on {groupLabel}</Text>
             </View>
 
-            {/* Results. */}
-            <View style={{ gap: 4 }}>
-              {results.map((r) => (
-                <ResultRow
-                  key={r.id}
-                  item={r}
-                  accent={accent}
-                  accentText={accentText}
-                  pendingOp={pending && pending.id === r.id ? pending.op : null}
-                  anyPending={pending !== null}
-                  onEnqueue={(where) => void addToQueue(r, where)}
-                  onPlay={() => void playNow(r)}
-                />
-              ))}
-            </View>
+            {opened ? (
+              <PlaylistView
+                opened={opened}
+                accent={accent}
+                accentText={accentText}
+                pending={pending}
+                onBack={closeContainer}
+                onRetry={() => void openContainer(opened.item)}
+                onEnqueue={(item, where) => void addToQueue(item, where)}
+                onPlay={(item) => void playNow(item)}
+              />
+            ) : (
+              /* Results. */
+              <View style={{ gap: 4 }}>
+                {results.map((r) => (
+                  <ResultRow
+                    key={r.id}
+                    item={r}
+                    accent={accent}
+                    accentText={accentText}
+                    pendingOp={pending && pending.id === r.id ? pending.op : null}
+                    anyPending={pending !== null}
+                    onEnqueue={(where) => void addToQueue(r, where)}
+                    onPlay={() => void playNow(r)}
+                    onOpen={r.browsable ? () => void openContainer(r) : undefined}
+                  />
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -392,26 +413,134 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
   );
 }
 
+/**
+ * An opened playlist: a header row that acts on the whole playlist (same three
+ * actions as in the results), then every track, each individually queueable.
+ */
+function PlaylistView({
+  opened,
+  accent,
+  accentText,
+  pending,
+  onBack,
+  onRetry,
+  onEnqueue,
+  onPlay,
+}: {
+  opened: OpenedContainer;
+  accent: string;
+  accentText: string;
+  pending: { id: string; op: PendingSearchOp } | null;
+  onBack: () => void;
+  onRetry: () => void;
+  onEnqueue: (item: ApiSearchItem, where: QueuePosition) => void;
+  onPlay: (item: ApiSearchItem) => void;
+}) {
+  const { item } = opened;
+  const pendingFor = (id: string) => (pending && pending.id === id ? pending.op : null);
+  const count =
+    opened.status === 'ready'
+      ? `${opened.total} ${opened.total === 1 ? 'track' : 'tracks'}`
+      : opened.status === 'loading'
+        ? 'Loading tracks…'
+        : 'Couldn’t load tracks';
+  return (
+    <View style={{ gap: 12 }}>
+      <Pressable
+        onPress={onBack}
+        accessibilityLabel="Back to search results"
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', opacity: pressed ? 0.6 : 1 })}
+      >
+        <View style={{ transform: [{ rotate: '180deg' }] }}>
+          <ChevronRight size={14} color={colors.fgMuted} />
+        </View>
+        <Text style={type.bodyMuted}>Results</Text>
+      </Pressable>
+
+      <ResultRow
+        item={item}
+        subtitle={[item.artist, count].filter(Boolean).join(' · ')}
+        artSize={72}
+        accent={accent}
+        accentText={accentText}
+        pendingOp={pendingFor(item.id)}
+        anyPending={pending !== null}
+        onEnqueue={(where) => onEnqueue(item, where)}
+        onPlay={() => onPlay(item)}
+      />
+
+      <View style={{ height: 1, backgroundColor: ink(0.08), marginHorizontal: 10 }} />
+
+      {opened.status === 'loading' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10 }}>
+          <ActivityIndicator size="small" color={colors.fgMuted} />
+          <Text style={type.bodyMuted}>Loading tracks…</Text>
+        </View>
+      )}
+
+      {opened.status === 'error' && (
+        <Pressable onPress={onRetry} style={({ pressed }) => ({ alignSelf: 'flex-start', paddingHorizontal: 10, opacity: pressed ? 0.6 : 1 })}>
+          <Text style={type.bodyMuted}>Couldn’t load this playlist. Try again</Text>
+        </Pressable>
+      )}
+
+      {opened.status === 'ready' && (
+        <View style={{ gap: 4 }}>
+          {opened.tracks.length === 0 && (
+            <Text style={[type.bodyMuted, { paddingHorizontal: 10 }]}>This playlist has no playable tracks.</Text>
+          )}
+          {opened.tracks.map((t, i) => (
+            <ResultRow
+              // A playlist can hold the same track twice.
+              key={`${t.id}#${i}`}
+              item={t}
+              accent={accent}
+              accentText={accentText}
+              pendingOp={pendingFor(t.id)}
+              anyPending={pending !== null}
+              onEnqueue={(where) => onEnqueue(t, where)}
+              onPlay={() => onPlay(t)}
+            />
+          ))}
+          {opened.total > opened.tracks.length && (
+            <Text style={[type.small, { color: colors.fgMuted, paddingHorizontal: 10, paddingTop: 6 }]}>
+              Showing the first {opened.tracks.length} of {opened.total} tracks. Adding the playlist adds all of them.
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function ResultRow({
   item,
+  subtitle,
+  artSize = 44,
   accent,
   accentText,
   pendingOp,
   anyPending,
   onEnqueue,
   onPlay,
+  onOpen,
 }: {
   item: ApiSearchItem;
+  /** Overrides the secondary line. */
+  subtitle?: string;
+  artSize?: number;
   accent: string;
   accentText: string;
   pendingOp: PendingSearchOp | null;
   anyPending: boolean;
   onEnqueue: (where: QueuePosition) => void;
   onPlay: () => void;
+  /** Set for a browsable hit: clicking the art/title opens it. */
+  onOpen?: () => void;
 }) {
   // Secondary line: the artist/curator. Fall back to the kind only when there is
   // no artist at all (so we never show the redundant "Playlist · …").
-  const line = item.artist || capitalizeKind(item);
+  const line = subtitle ?? (item.artist || capitalizeKind(item));
   const [hovered, setHovered] = React.useState(false);
   return (
     <View
@@ -427,33 +556,46 @@ function ResultRow({
         backgroundColor: hovered ? ink(0.04) : 'transparent',
       }}
     >
-      {item.artUrl !== '' ? (
-        <Image
-          source={{ uri: item.artUrl }}
-          style={{ width: 44, height: 44, borderRadius: item.isContainer ? radii.sm : radii.pill, backgroundColor: ink(0.06) }}
-        />
-      ) : (
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: item.isContainer ? radii.sm : radii.pill,
-            backgroundColor: ink(0.06),
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Search size={16} color={colors.fgFaint} />
+      <Pressable
+        onPress={onOpen}
+        disabled={!onOpen}
+        accessibilityRole={onOpen ? 'button' : undefined}
+        accessibilityLabel={onOpen ? `Open ${item.title}` : undefined}
+        style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12, cursor: onOpen ? 'pointer' : 'auto' } as object}
+      >
+        {item.artUrl !== '' ? (
+          <Image
+            source={{ uri: item.artUrl }}
+            style={{ width: artSize, height: artSize, borderRadius: item.isContainer ? radii.sm : radii.pill, backgroundColor: ink(0.06) }}
+          />
+        ) : (
+          <View
+            style={{
+              width: artSize,
+              height: artSize,
+              borderRadius: item.isContainer ? radii.sm : radii.pill,
+              backgroundColor: ink(0.06),
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Search size={16} color={colors.fgFaint} />
+          </View>
+        )}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
+            {item.title}
+          </Text>
+          <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
+            {line}
+          </Text>
         </View>
-      )}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
-          {item.title}
-        </Text>
-        <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
-          {line}
-        </Text>
-      </View>
+        {onOpen && (
+          <View style={{ opacity: hovered ? 1 : 0.5 }}>
+            <ChevronRight size={16} color={colors.fgMuted} />
+          </View>
+        )}
+      </Pressable>
       {/* Three explicit actions: append to the queue, insert after the current
           track, or play now (which REPLACES the queue). One
           catalog request runs at a time; the rest dim while it does. */}
