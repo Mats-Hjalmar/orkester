@@ -58,6 +58,8 @@ export interface ApiNowPlaying {
   artUrl: string;
   /** 0-based index of the current track in the queue, or -1 if not a queue. */
   queueIndex: number;
+  /** True when the group is being cast to from the Spotify app (Spotify Connect). */
+  spotifyConnect: boolean;
 }
 
 /** One track in a group's play queue. */

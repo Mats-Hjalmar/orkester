@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import CoverArt from './CoverArt';
+import SpotifyConnectBadge from './SpotifyConnectBadge';
 import TrackBar from './TrackBar';
 import { tapCommit, tapSelection } from './phone/haptics';
 import { ChevronRight, Pause, Play, VolumeHigh } from '../icons';
@@ -56,6 +57,7 @@ export default function RoomGroupCard({ group }: { group: Group }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
             <Text numberOfLines={1} style={[type.title, { flexShrink: 1 }]}>{groupName(group)}</Text>
             {group.isPlaying && <View style={{ width: 6, height: 6, borderRadius: radii.pill, backgroundColor: accent }} />}
+            {group.spotifyConnect && <SpotifyConnectBadge />}
           </View>
           <Text numberOfLines={1} style={[type.small, { marginTop: 2, color: colors.fgSubtle }]}>{playingText}</Text>
           {group.roomIds.length > 1 && (

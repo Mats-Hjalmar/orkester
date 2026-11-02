@@ -48,6 +48,7 @@ class ScriptedTransport implements HttpTransport {
   readonly requests: HttpRequest[] = [];
   /** Per-action override so a test can make one action fail/return a value. */
   failAction: string | null = null;
+  currentUri = 'x-rincon-queue:RINCON_AAAA01400#0';
 
   request(req: HttpRequest): Promise<HttpResponse> {
     this.requests.push(req);
@@ -63,6 +64,8 @@ class ScriptedTransport implements HttpTransport {
         return ok('<CurrentTransportState>PLAYING</CurrentTransportState>');
       case 'GetPositionInfo':
         return ok(`<Track>1</Track><TrackDuration>0:04:55</TrackDuration><TrackMetaData>${escapeXMLText(DIDL)}</TrackMetaData><RelTime>0:01:23</RelTime>`);
+      case 'GetMediaInfo':
+        return ok(`<CurrentURI>${escapeXMLText(this.currentUri)}</CurrentURI>`);
       case 'GetTransportSettings':
         return ok('<PlayMode>SHUFFLE_NOREPEAT</PlayMode>');
       case 'GetVolume':
@@ -120,7 +123,16 @@ describe('SonosApi.getNowPlaying', () => {
       repeat: 'none',
       artUrl: '', // the scripted DIDL carries no albumArtURI
       queueIndex: 0, // <Track>1</Track> -> 0-based 0
+      spotifyConnect: false,
     });
+  });
+
+  it('flags Spotify Connect from the virtual line-in CurrentURI', async () => {
+    const t = new ScriptedTransport();
+    t.currentUri = 'x-sonos-vli:RINCON_AAAA01400:2,spotify:e934941535d7b182815bf99a1fd9c6be';
+    const api = makeApi(t);
+    await api.loadTopology();
+    expect((await api.getNowPlaying('g1')).spotifyConnect).toBe(true);
   });
 
   it('routes the now-playing call to the COORDINATOR base (.10), not a member', async () => {

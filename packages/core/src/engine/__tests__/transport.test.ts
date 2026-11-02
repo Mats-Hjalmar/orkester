@@ -210,7 +210,8 @@ describe('control.getNowPlaying', () => {
       '<RelTime>0:01:23</RelTime>' +
       '</u:GetPositionInfoResponse></s:Body></s:Envelope>';
 
-    const t = new RecordingTransport([ok(transportInfo), ok(positionInfo)]);
+    const mediaInfo = soapResponse('GetMediaInfo', '<CurrentURI>x-rincon-queue:RINCON_X01400#0</CurrentURI>');
+    const t = new RecordingTransport([ok(transportInfo), ok(positionInfo), ok(mediaInfo)]);
 
     const np = await control.getNowPlaying(t, BASE);
 
@@ -223,8 +224,19 @@ describe('control.getNowPlaying', () => {
       duration: '0:04:55',
       albumArtUrl: '',
       queueIndex: 2, // <Track>3</Track> -> 0-based 2
+      spotifyConnect: false,
     });
-    expect(t.requests).toHaveLength(2);
+    expect(t.requests).toHaveLength(3);
+  });
+});
+
+describe('control.isSpotifyConnectUri', () => {
+  it('matches only the Spotify virtual line-in', () => {
+    expect(control.isSpotifyConnectUri('x-sonos-vli:RINCON_X01400:2,spotify:e934941535d7b182815bf99a1fd9c6be')).toBe(true);
+    expect(control.isSpotifyConnectUri('x-sonos-vli:RINCON_X01400:1,airplay:abc')).toBe(false);
+    expect(control.isSpotifyConnectUri('x-rincon-queue:RINCON_X01400#0')).toBe(false);
+    expect(control.isSpotifyConnectUri('x-sonos-spotify:spotify%3atrack%3a1?sid=9&flags=8224&sn=1')).toBe(false);
+    expect(control.isSpotifyConnectUri('')).toBe(false);
   });
 });
 

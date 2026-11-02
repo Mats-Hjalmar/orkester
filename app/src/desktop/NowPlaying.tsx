@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import SpeakerChip from '../components/SpeakerChip';
+import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
 import { ProgressRow, VolumeRow } from './controls';
@@ -221,7 +222,8 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
   // of the first up-next item (drag/reorder maps local -> absolute through it).
   const fullQueue = queueFor(g.id);
   const qStart = g.queueIndex >= 0 ? g.queueIndex + 1 : 0;
-  const upNext = fullQueue.slice(qStart);
+  // Under Spotify Connect the Sonos queue isn't what plays next — hide it.
+  const upNext = g.spotifyConnect ? [] : fullQueue.slice(qStart);
   // A group with a loaded queue is controllable even when it reports no
   // now-playing metadata — Play resumes the queue.
   const controllable = !idle || fullQueue.length > 0;
@@ -278,6 +280,7 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
             <Text style={type.eyebrow}>{here}</Text>
+            {g.spotifyConnect && <SpotifyConnectBadge />}
           </View>
 
           {/* Nothing playing and nothing queued → no title, no transport, just a

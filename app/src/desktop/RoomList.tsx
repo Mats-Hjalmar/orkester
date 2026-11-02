@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
+import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
 import { ChevronRight, Pause, Play } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
@@ -57,6 +58,7 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
           <Text numberOfLines={expanded ? undefined : 1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg, flex: 1 }}>
             {label}
           </Text>
+          {group.spotifyConnect && <SpotifyConnectBadge />}
           {group.isPlaying && <View style={{ width: 6, height: 6, borderRadius: radii.pill, backgroundColor: accent }} />}
           {multi && (
             <Pressable

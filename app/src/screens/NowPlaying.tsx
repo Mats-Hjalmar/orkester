@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import CoverArt from '../components/CoverArt';
+import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
 import TrackBar from '../components/TrackBar';
 import TransportRow from '../components/TransportRow';
 import QueueList from '../components/phone/QueueList';
@@ -150,7 +151,8 @@ export default function NowPlaying() {
   // reorder/play map local -> absolute through it.
   const fullQueue = queueFor(g.id);
   const qStart = g.queueIndex >= 0 ? g.queueIndex + 1 : 0;
-  const upNext = fullQueue.slice(qStart);
+  // Under Spotify Connect the Sonos queue isn't what plays next — hide it.
+  const upNext = g.spotifyConnect ? [] : fullQueue.slice(qStart);
 
   // A group with a loaded queue is controllable even with no now-playing metadata —
   // Play resumes the queue. With neither there is nothing to transport, so we offer
@@ -183,6 +185,7 @@ export default function NowPlaying() {
       {/* Title / artist / album only when the speaker reports them — never a
           fabricated label. */}
       <View style={{ marginTop: 24 }}>
+        {g.spotifyConnect && <View style={{ marginBottom: 10 }}><SpotifyConnectBadge /></View>}
         {!!tr.title && (
           <Text
             maxFontSizeMultiplier={DISPLAY_SCALE_CAP}

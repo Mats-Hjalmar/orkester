@@ -129,6 +129,7 @@ export class SonosApi implements Api {
       repeat: settings.repeat,
       artUrl: np.albumArtUrl,
       queueIndex: np.queueIndex,
+      spotifyConnect: np.spotifyConnect,
     };
   }
 

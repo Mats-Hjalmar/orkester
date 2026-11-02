@@ -52,6 +52,8 @@ export interface Group {
   muted: boolean;
   /** 0-based index of the current track within the queue, or -1 if not a queue. */
   queueIndex: number;
+  /** True when the group is being cast to from the Spotify app (Spotify Connect). */
+  spotifyConnect: boolean;
 }
 
 export interface Config {

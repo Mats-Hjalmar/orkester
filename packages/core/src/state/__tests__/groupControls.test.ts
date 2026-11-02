@@ -16,7 +16,7 @@ function makeFakeApi(): Api {
   const grp = (id: string) => groups.find((g) => g.id === id)!;
   const np = (id: string): ApiNowPlaying => {
     const g = grp(id);
-    return { isPlaying: g.isPlaying, title: '', artist: '', album: '', positionSeconds: 0, durationSeconds: 0, shuffle: g.shuffle, repeat: g.repeat, artUrl: '', queueIndex: 0 };
+    return { isPlaying: g.isPlaying, title: '', artist: '', album: '', positionSeconds: 0, durationSeconds: 0, shuffle: g.shuffle, repeat: g.repeat, artUrl: '', queueIndex: 0, spotifyConnect: false };
   };
   const fake = {
     async loadTopology(): Promise<ApiTopology> {
