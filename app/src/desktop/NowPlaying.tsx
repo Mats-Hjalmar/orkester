@@ -1,17 +1,15 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
-import SpeakerChip from '../components/SpeakerChip';
 import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
-import { ProgressRow, VolumeRow } from './controls';
-import { ChevronRight, Dots, Grip, Next, Pause, Play, Prev, Queue, QueueBottom, QueueTop, Repeat, Shuffle, Speaker, Trash } from '../icons';
+import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { accentTextOf, chipsFor, groupCount } from '../state/selectors';
+import { groupCount } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
@@ -162,16 +160,18 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
   );
 }
 
+const COVER = 374;
+const PAD = 44;
+
 // The FOCUSED Now Playing for ONE group. It takes the group (and, on narrow
 // layouts, an optional onBack) rather than reading any global active-group
 // singleton — every control here is routed through groupControls(group.id), so
 // it drives exactly this group. In the desktop master–detail the list is always
 // present, so onBack is omitted and no back button renders.
-export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?: Group; onBack?: () => void; onSearch?: () => void }) {
+export default function DesktopNowPlaying({ group, onBack }: { group?: Group; onBack?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, config, groupControls, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
+  const { state, getTrack, roomName, config, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
   const status = state.topologyStatus;
   const connected = status === 'ready' && state.groups.length > 0;
 
@@ -212,10 +212,8 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
 
   const g = group;
   const tr = getTrack(g.trackId);
-  const chips = chipsFor(store, g);
   const idle = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const here = g.roomIds.length ? `${roomName(g.roomIds[0])} ${groupCount(g)}`.trim() : 'this group';
-  const ctrl = groupControls(g.id);
   // "Up next" = the queue AFTER the currently-playing track, so the top of the
   // list is genuinely the next song and skipping advances it off the top. The
   // current track is already shown big above. qStart is the absolute queue index
@@ -224,125 +222,62 @@ export default function DesktopNowPlaying({ group, onBack, onSearch }: { group?:
   const qStart = g.queueIndex >= 0 ? g.queueIndex + 1 : 0;
   // Under Spotify Connect the Sonos queue isn't what plays next — hide it.
   const upNext = g.spotifyConnect ? [] : fullQueue.slice(qStart);
-  // A group with a loaded queue is controllable even when it reports no
-  // now-playing metadata — Play resumes the queue.
-  const controllable = !idle || fullQueue.length > 0;
-  const pending = store.transportPending(g.id);
-  const busy = pending !== null;
   const queueBusy = store.queuePending(g.id);
-  const spinning = (op: typeof pending, size: number) =>
-    pending === op ? <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={colors.fg} /></View> : null;
 
+  // Transport, volume and grouping live in the MiniPlayer; this column is the
+  // track and its queue. Fixed width so the search column beside it gets the rest.
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ width: COVER + 2 * PAD, flex: 'none' as any }}>
       {onBack && <BackButton onPress={onBack} />}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', gap: 44, padding: 44, paddingTop: 44 }} showsVerticalScrollIndicator={false}>
-        {/* cover */}
-        <View style={{ width: 374 }}>
-          <CoverArt size={374} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg} artUrl={idle ? undefined : tr.artUrl}>
-            {idle && (
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <Speaker size={64} color="rgba(26,24,20,0.35)" />
-              </View>
-            )}
-          </CoverArt>
-
-          {/* The coordinator's queue, directly below the artwork. Hidden when
-              empty (some streaming sources play without a queue) — no placeholder. */}
-          {upNext.length > 0 && (
-            <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
-                <Queue size={16} color={colors.fgSubtle} />
-                <Text style={[type.eyebrow, { flex: 1 }]}>Up next · {upNext.length}</Text>
-                <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-                  {queueBusy ? (
-                    <ActivityIndicator size="small" color={colors.fgMuted} />
-                  ) : (
-                    <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
-                  )}
-                </Pressable>
-              </View>
-              <QueueList
-                items={upNext}
-                motif={config.coverMotif}
-                accent={accent}
-                isCurrent={() => false}
-                onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
-                onPlay={(index) => playQueueIndex(g.id, qStart + index)}
-                onRemove={(index) => removeQueueItem(g.id, qStart + index)}
-              />
-            </>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: PAD }} showsVerticalScrollIndicator={false}>
+        <CoverArt size={COVER} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg} artUrl={idle ? undefined : tr.artUrl}>
+          {idle && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+              <Speaker size={64} color="rgba(26,24,20,0.35)" />
+            </View>
           )}
+        </CoverArt>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24 }}>
+          <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
+          <Text style={type.eyebrow}>{here}</Text>
+          {g.spotifyConnect && <SpotifyConnectBadge />}
         </View>
+        {/* Title only when the speaker reports one — no fabricated label. */}
+        {!idle && !!tr.title && (
+          <Text testID="np-title" style={[type.displayXL, { marginTop: 10 }]}>{tr.title}</Text>
+        )}
+        {!idle && !!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 16, color: colors.fgMuted, marginTop: 6 }}>{tr.artist}</Text>}
+        {!idle && !!tr.album && (
+          <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 10 }}>{tr.album}</Text>
+        )}
 
-        {/* details */}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
-            <Text style={type.eyebrow}>{here}</Text>
-            {g.spotifyConnect && <SpotifyConnectBadge />}
-          </View>
-
-          {/* Nothing playing and nothing queued → no title, no transport, just a
-              way to put music on this group. */}
-          {!controllable && onSearch && (
-            <Pressable
-              onPress={onSearch}
-              style={({ pressed }) => ({ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, paddingHorizontal: 18, marginTop: 22, borderRadius: radii.pill, backgroundColor: accent, opacity: pressed ? 0.8 : 1 })}
-            >
-              <Play size={15} fill={accentText} />
-              <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: accentText }}>Play something here</Text>
-            </Pressable>
-          )}
-
-          {controllable && (
-            <>
-              {/* Title only when the speaker reports one — no fabricated label. */}
-              {!!tr.title && (
-                <Text testID="np-title" style={{ fontFamily: font.display, fontSize: 56, lineHeight: 58, letterSpacing: -1.1, color: colors.fg, marginTop: 14 }}>{tr.title}</Text>
-              )}
-              {!!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 19, color: colors.fgMuted, marginTop: 10 }}>{tr.artist}</Text>}
-              {!!tr.album && (
-                <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 18 }}>{tr.album}</Text>
-              )}
-              {/* Inline transport for THIS group. */}
-              <View style={{ marginTop: 30, gap: 14, maxWidth: 560 }}>
-                {/* One transport request at a time: the control that fired shows a
-                    spinner, the rest dim, and further clicks are dropped by the store. */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 26, opacity: busy ? 0.55 : 1 }}>
-                  <Pressable onPress={() => ctrl.setShuffle(!g.shuffle)} hitSlop={8}>
-                    {spinning('shuffle', 20) ?? <Shuffle size={20} color={g.shuffle ? colors.fg : colors.fgSubtle} />}
-                  </Pressable>
-                  <Pressable onPress={ctrl.prev} hitSlop={8}>
-                    {spinning('prev', 24) ?? <Prev size={24} fill={colors.fg} />}
-                  </Pressable>
-                  <Pressable onPress={ctrl.togglePlay} style={{ width: 56, height: 56, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', boxShadow: shadow.sm } as any}>
-                    {pending === 'play' || pending === 'pause' ? (
-                      <ActivityIndicator size="small" color={accentText} />
-                    ) : g.isPlaying ? (
-                      <Pause size={22} fill={accentText} />
-                    ) : (
-                      <Play size={22} fill={accentText} />
-                    )}
-                  </Pressable>
-                  <Pressable onPress={ctrl.next} hitSlop={8}>
-                    {spinning('next', 24) ?? <Next size={24} fill={colors.fg} />}
-                  </Pressable>
-                  <Pressable onPress={() => ctrl.setRepeat(!g.repeat)} hitSlop={8}>
-                    {spinning('repeat', 20) ?? <Repeat size={20} color={g.repeat ? colors.fg : colors.fgSubtle} />}
-                  </Pressable>
-                </View>
-                <ProgressRow group={g} />
-                <VolumeRow group={g} />
-              </View>
-            </>
-          )}
-
-          <Text style={[type.eyebrow, { marginTop: 34, marginBottom: 11 }]}>Speakers — tap to group</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-            {chips.map((c) => <SpeakerChip key={c.id} chip={c} showIcon />)}
-          </View>
-        </View>
+        {/* The coordinator's queue. Hidden when empty (some streaming sources
+            play without a queue) — no placeholder. */}
+        {upNext.length > 0 && (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
+              <Queue size={16} color={colors.fgSubtle} />
+              <Text style={[type.eyebrow, { flex: 1 }]}>Up next · {upNext.length}</Text>
+              <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+                {queueBusy ? (
+                  <ActivityIndicator size="small" color={colors.fgMuted} />
+                ) : (
+                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+                )}
+              </Pressable>
+            </View>
+            <QueueList
+              items={upNext}
+              motif={config.coverMotif}
+              accent={accent}
+              isCurrent={() => false}
+              onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
+              onPlay={(index) => playQueueIndex(g.id, qStart + index)}
+              onRemove={(index) => removeQueueItem(g.id, qStart + index)}
+            />
+          </>
+        )}
       </ScrollView>
     </View>
   );

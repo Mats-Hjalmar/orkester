@@ -19,7 +19,6 @@ import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 const KINDS = SPOTIFY_SEARCH_KINDS;
 
 const PAD = 28;
-const BACK_ROW_H = 18;
 const TITLE_ROW_H = 24;
 const GAP = 18;
 const SEARCH_H = 46;
@@ -27,21 +26,12 @@ const CHIPS_GAP = 12;
 const CHIP_H = 30;
 const PAD_BOTTOM = 12;
 const DOCKED_TOP = 20;
-const BACK_BTN = 36;
-const SEARCH_TOP = PAD + BACK_ROW_H + GAP + TITLE_ROW_H + GAP;
-const SEARCH_TOP_FOLDED = PAD + BACK_ROW_H + GAP;
+const SEARCH_TOP = PAD + TITLE_ROW_H + GAP;
 const COLLAPSE = SEARCH_TOP - DOCKED_TOP;
-const FOLDED = (SEARCH_TOP - SEARCH_TOP_FOLDED) / COLLAPSE;
 const HEADER_H = SEARCH_TOP + SEARCH_H + CHIPS_GAP + CHIP_H + PAD_BOTTOM;
-const LINK_HEADER_H = PAD + BACK_ROW_H + GAP + TITLE_ROW_H;
-const BACK_TOP = PAD + BACK_ROW_H / 2 - BACK_BTN / 2;
-const BACK_TOP_FOLDED = SEARCH_TOP_FOLDED + (SEARCH_H - BACK_BTN) / 2;
-const BACK_TOP_DOCKED = DOCKED_TOP + (SEARCH_H - BACK_BTN) / 2;
-const CHEVRON_INSET = (BACK_BTN - 16) / 2;
-const LABEL_GONE = FOLDED * 0.6;
-const LABEL_MAX_W = 600;
+const LINK_HEADER_H = PAD + TITLE_ROW_H;
 
-export default function SpotifySearch({ group, onClose }: { group?: Group; onClose?: () => void }) {
+export default function SpotifySearch({ group }: { group?: Group }) {
   const { roomName, config, reportError } = useStore();
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
@@ -85,23 +75,16 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
     () => (linked ? scrollY.interpolate({ inputRange: [0, COLLAPSE], outputRange: [0, 1], extrapolate: 'clamp' }) : new Animated.Value(0)),
     [linked, scrollY],
   );
-  const { headerH, searchTop, chipsTop, backTop, backLeft, labelOpacity, labelMaxW, ringOpacity, searchLeft, titleOpacity, titleScale, titleLift, hairline } = React.useMemo(() => {
-    const at = (outputRange: number[]) =>
-      progress.interpolate({ inputRange: outputRange.length === 3 ? [0, FOLDED, 1] : [0, 1], outputRange });
+  const { headerH, searchTop, chipsTop, titleOpacity, titleScale, titleLift, hairline } = React.useMemo(() => {
+    const at = (outputRange: number[]) => progress.interpolate({ inputRange: [0, 1], outputRange });
     const headerH = linked ? at([HEADER_H, HEADER_H - COLLAPSE]) : LINK_HEADER_H;
-    const searchTop = at([SEARCH_TOP, SEARCH_TOP_FOLDED, DOCKED_TOP]);
-    const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, SEARCH_TOP_FOLDED + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
-    const backTop = at([BACK_TOP, BACK_TOP_FOLDED, BACK_TOP_DOCKED]);
-    const backLeft = at([PAD - CHEVRON_INSET, PAD, PAD]);
-    const labelOpacity = progress.interpolate({ inputRange: [0, LABEL_GONE], outputRange: [1, 0], extrapolate: 'clamp' });
-    const labelMaxW = progress.interpolate({ inputRange: [LABEL_GONE - 0.001, LABEL_GONE], outputRange: [LABEL_MAX_W, 0], extrapolate: 'clamp' });
-    const ringOpacity = progress.interpolate({ inputRange: [FOLDED * 0.5, FOLDED], outputRange: [0, 1], extrapolate: 'clamp' });
-    const searchLeft = progress.interpolate({ inputRange: [FOLDED * 0.4, FOLDED], outputRange: [PAD, PAD + BACK_BTN + 10], extrapolate: 'clamp' });
-    const titleOpacity = progress.interpolate({ inputRange: [0, FOLDED * 0.7], outputRange: [1, 0], extrapolate: 'clamp' });
-    const titleScale = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [1, 0.92], extrapolate: 'clamp' });
-    const titleLift = progress.interpolate({ inputRange: [0, FOLDED], outputRange: [0, -8], extrapolate: 'clamp' });
+    const searchTop = at([SEARCH_TOP, DOCKED_TOP]);
+    const chipsTop = at([SEARCH_TOP + SEARCH_H + CHIPS_GAP, DOCKED_TOP + SEARCH_H + CHIPS_GAP]);
+    const titleOpacity = progress.interpolate({ inputRange: [0, 0.7], outputRange: [1, 0], extrapolate: 'clamp' });
+    const titleScale = at([1, 0.92]);
+    const titleLift = at([0, -8]);
     const hairline = progress.interpolate({ inputRange: [0.85, 1], outputRange: [0, 1], extrapolate: 'clamp' });
-    return { headerH, searchTop, chipsTop, backTop, backLeft, labelOpacity, labelMaxW, ringOpacity, searchLeft, titleOpacity, titleScale, titleLift, hairline };
+    return { headerH, searchTop, chipsTop, titleOpacity, titleScale, titleLift, hairline };
   }, [linked, progress]);
 
   const scrollRef = React.useRef<ScrollView>(null);
@@ -238,7 +221,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
         <Animated.View
           style={{
             position: 'absolute',
-            top: SEARCH_TOP_FOLDED,
+            top: PAD,
             left: PAD,
             height: TITLE_ROW_H,
             flexDirection: 'row',
@@ -255,7 +238,7 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
 
         {linked && (
           <>
-            <Animated.View style={{ position: 'absolute', top: searchTop, left: searchLeft, right: PAD }}>
+            <Animated.View style={{ position: 'absolute', top: searchTop, left: PAD, right: PAD }}>
               <View
                 style={{
                   flexDirection: 'row',
@@ -278,7 +261,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
                   placeholder="Artists, tracks, albums, playlists…"
                   placeholderTextColor={colors.fgSubtle}
                   returnKeyType="search"
-                  autoFocus
                   style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg, outlineStyle: 'none' } as object}
                 />
                 <Animated.View
@@ -364,45 +346,6 @@ export default function SpotifySearch({ group, onClose }: { group?: Group; onClo
               </View>
             </Animated.View>
           </>
-        )}
-
-        {onClose && (
-          <Animated.View style={{ position: 'absolute', top: backTop, left: backLeft }}>
-            <Pressable
-              onPress={onClose}
-              accessibilityLabel={`Back to ${groupLabel}`}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', height: BACK_BTN, opacity: pressed ? 0.6 : 1 })}
-            >
-              {({ hovered }: { pressed: boolean; hovered?: boolean }) => (
-                <>
-                  <View style={{ width: BACK_BTN, height: BACK_BTN, alignItems: 'center', justifyContent: 'center' }}>
-                    <Animated.View
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        borderRadius: radii.pill,
-                        borderWidth: 1,
-                        borderColor: ink(0.12),
-                        backgroundColor: hovered ? ink(0.06) : colors.bgPaper,
-                        opacity: ringOpacity,
-                      }}
-                    />
-                    <View style={{ transform: [{ rotate: '180deg' }] }}>
-                      <ChevronRight size={16} color={colors.fgMuted} />
-                    </View>
-                  </View>
-                  <Animated.View style={{ marginLeft: 6 - CHEVRON_INSET, maxWidth: labelMaxW, overflow: 'hidden' }}>
-                    <Animated.Text numberOfLines={1} style={[type.bodyMuted, { opacity: labelOpacity }]}>
-                      Back to {groupLabel}
-                    </Animated.Text>
-                  </Animated.View>
-                </>
-              )}
-            </Pressable>
-          </Animated.View>
         )}
 
         <Animated.View

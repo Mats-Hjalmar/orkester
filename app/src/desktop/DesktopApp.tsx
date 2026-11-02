@@ -7,7 +7,7 @@ import SpotifySearch from './SpotifySearch';
 import MiniPlayer from './MiniPlayer';
 import GroupPanel from './GroupPanel';
 import ErrorToast from './ErrorToast';
-import { colors } from '../theme/tokens';
+import { colors, ink } from '../theme/tokens';
 import { useStore } from '../state/store';
 import { readLastSelection, writeLastSelection } from './lastSelection';
 import { groupForRooms } from '../state/selectors';
@@ -23,10 +23,6 @@ import { groupForRooms } from '../state/selectors';
 export default function DesktopApp() {
   const { state, focusGroup } = useStore();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  // The right pane shows either the selected group's Now Playing or, when the
-  // user opens it from the TopBar, the Spotify catalog search (which plays onto
-  // whichever group is selected in the left rail).
-  const [searchOpen, setSearchOpen] = React.useState(false);
   const [groupsOpen, setGroupsOpen] = React.useState(false);
   const closeGroups = React.useCallback(() => setGroupsOpen(false), []);
 
@@ -57,16 +53,22 @@ export default function DesktopApp() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <TopBar searchOpen={searchOpen} onToggleSearch={() => setSearchOpen((v) => !v)} />
+      <TopBar />
       <View style={{ flex: 1, minHeight: 0, flexDirection: 'row' }}>
         <RoomList selectedId={effectiveId} onSelect={onSelect} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          {searchOpen ? (
-            <SpotifySearch group={selectedGroup} onClose={() => setSearchOpen(false)} />
-          ) : (
-            <DesktopNowPlaying group={selectedGroup} onSearch={() => setSearchOpen(true)} />
-          )}
-        </View>
+        {/* Search plays onto the selected group, so it only shows once there is one. */}
+        {selectedGroup ? (
+          <>
+            <DesktopNowPlaying group={selectedGroup} />
+            <View style={{ flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: ink(0.07) }}>
+              <SpotifySearch group={selectedGroup} />
+            </View>
+          </>
+        ) : (
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <DesktopNowPlaying group={selectedGroup} />
+          </View>
+        )}
       </View>
       {selectedGroup && (
         <MiniPlayer group={selectedGroup} groupsOpen={groupsOpen} onToggleGroups={() => setGroupsOpen((v) => !v)} />

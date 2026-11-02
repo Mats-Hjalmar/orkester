@@ -13,7 +13,7 @@ import { ProgressRow, Spinner, VolumeRow } from './controls';
 export const MINI_PLAYER_H = 84;
 
 // Pinned to the bottom of the window so the selected group's track, transport and
-// volume stay in reach while the right pane shows something else (e.g. search).
+// volume stay in reach; the Now Playing column above shows only the track and queue.
 // The speakers button opens the grouping panel, which DesktopApp renders as an
 // overlay above this bar.
 export default function MiniPlayer({ group, groupsOpen, onToggleGroups }: { group: Group; groupsOpen: boolean; onToggleGroups: () => void }) {
