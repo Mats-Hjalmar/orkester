@@ -4,8 +4,9 @@ import TopBar from './TopBar';
 import RoomList from './RoomList';
 import DesktopNowPlaying from './NowPlaying';
 import SpotifySearch from './SpotifySearch';
-import MiniPlayer from './MiniPlayer';
+import MiniPlayer, { type MiniPanel } from './MiniPlayer';
 import GroupPanel from './GroupPanel';
+import SpeakerVolumes from './SpeakerVolumes';
 import ErrorToast from './ErrorToast';
 import { colors, ink } from '../theme/tokens';
 import { useStore } from '../state/store';
@@ -23,8 +24,9 @@ import { groupForRooms } from '../state/selectors';
 export default function DesktopApp() {
   const { state, focusGroup } = useStore();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [groupsOpen, setGroupsOpen] = React.useState(false);
-  const closeGroups = React.useCallback(() => setGroupsOpen(false), []);
+  const [panel, setPanel] = React.useState<MiniPanel | null>(null);
+  const closePanel = React.useCallback(() => setPanel(null), []);
+  const togglePanel = (p: MiniPanel) => setPanel((open) => (open === p ? null : p));
 
   // Resolve the selection fresh from topology each render. With no live selection
   // — first launch, or the selected group vanished (ungrouped / dropped) — fall
@@ -71,9 +73,11 @@ export default function DesktopApp() {
         )}
       </View>
       {selectedGroup && (
-        <MiniPlayer group={selectedGroup} groupsOpen={groupsOpen} onToggleGroups={() => setGroupsOpen((v) => !v)} />
+        <MiniPlayer group={selectedGroup} panel={panel} onTogglePanel={togglePanel} />
       )}
-      {selectedGroup && groupsOpen && <GroupPanel group={selectedGroup} onClose={closeGroups} />}
+      {selectedGroup && panel === 'groups' && <GroupPanel group={selectedGroup} onClose={closePanel} />}
+      {/* Hidden while the group is a single speaker, like its toggle. */}
+      {selectedGroup && panel === 'volumes' && selectedGroup.roomIds.length > 1 && <SpeakerVolumes group={selectedGroup} onClose={closePanel} />}
       <ErrorToast />
     </View>
   );

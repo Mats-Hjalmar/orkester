@@ -12,11 +12,18 @@ import { ProgressRow, Spinner, VolumeRow } from './controls';
 
 export const MINI_PLAYER_H = 84;
 
+export type MiniPanel = 'groups' | 'volumes';
+
+// Both sides share one size rule so the transport stays centered, and grow with the
+// window so the volume slider isn't squeezed by the buttons beside it.
+const SIDE = { flex: 1, minWidth: 280, maxWidth: 420, flexDirection: 'row', alignItems: 'center' } as const;
+
 // Pinned to the bottom of the window so the selected group's track, transport and
 // volume stay in reach; the Now Playing column above shows only the track and queue.
-// The speakers button opens the grouping panel, which DesktopApp renders as an
-// overlay above this bar.
-export default function MiniPlayer({ group, groupsOpen, onToggleGroups }: { group: Group; groupsOpen: boolean; onToggleGroups: () => void }) {
+// The speakers button opens the grouping panel and, for a multi-speaker group, the
+// chevron by the volume opens each speaker's level; DesktopApp renders whichever
+// is open as an overlay above this bar.
+export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Group; panel: MiniPanel | null; onTogglePanel: (p: MiniPanel) => void }) {
   const store = useStore();
   const { config, getTrack, groupName, groupControls, queueFor } = store;
   const accent = config.accentColor;
@@ -27,10 +34,12 @@ export default function MiniPlayer({ group, groupsOpen, onToggleGroups }: { grou
   const controllable = !idle || queueFor(group.id).length > 0;
   const ctrl = groupControls(group.id);
   const pending = store.transportPending(group.id);
+  const groupsOpen = panel === 'groups';
+  const volumesOpen = panel === 'volumes';
 
   return (
     <View style={{ height: MINI_PLAYER_H, flexDirection: 'row', alignItems: 'center', gap: 24, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: ink(0.07), backgroundColor: colors.bgPaper }}>
-      <View style={{ width: 280, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={[SIDE, { gap: 12 }]}>
         <CoverArt size={52} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={idle ? undefined : tr.artUrl} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: idle ? colors.fgMuted : colors.fg }}>
@@ -63,13 +72,31 @@ export default function MiniPlayer({ group, groupsOpen, onToggleGroups }: { grou
         <ProgressRow group={group} />
       </View>
 
-      <View style={{ width: 280, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        <View style={{ flex: 1 }}>
+      <View style={[SIDE, { gap: 16 }]}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <VolumeRow group={group} />
+          {group.roomIds.length > 1 && (
+            <Pressable
+              testID="mini-volumes-toggle"
+              onPress={() => onTogglePanel('volumes')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Each speaker's volume"
+              style={({ pressed }) => ({
+                width: 24, height: 24, borderRadius: radii.pill, alignItems: 'center', justifyContent: 'center',
+                backgroundColor: volumesOpen ? colors.fg : 'transparent',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <View style={{ transform: [{ rotate: volumesOpen ? '0deg' : '180deg' }] }}>
+                <ChevronDown size={14} color={volumesOpen ? colors.bgPaper : colors.fgSubtle} />
+              </View>
+            </Pressable>
+          )}
         </View>
         <Pressable
           testID="mini-groups-toggle"
-          onPress={onToggleGroups}
+          onPress={() => onTogglePanel('groups')}
           style={({ pressed }) => ({
             flexDirection: 'row', alignItems: 'center', gap: 6,
             maxWidth: 150, height: 34, paddingHorizontal: 12, borderRadius: radii.pill,
