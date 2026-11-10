@@ -8,12 +8,12 @@ import type { Group } from '../state/types';
 import { LevelRow } from './controls';
 import Popover from './Popover';
 
-// Each member speaker's own level and mute, popped up above the mini player's
-// group volume.
-export default function SpeakerVolumes({ group, onClose }: { group: Group; onClose: () => void }) {
+// Each member speaker's own level and mute, popped up centered over the mini
+// player's group volume.
+export default function SpeakerVolumes({ group, centerRight, onClose }: { group: Group; centerRight: number; onClose: () => void }) {
   const store = useStore();
   return (
-    <Popover testID="speaker-volumes" onClose={onClose}>
+    <Popover testID="speaker-volumes" centerRight={centerRight} onClose={onClose}>
       <Text style={[type.eyebrow, { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }]}>Each speaker</Text>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12, gap: 12 }} showsVerticalScrollIndicator={false}>
         {group.roomIds.map((roomId) => {

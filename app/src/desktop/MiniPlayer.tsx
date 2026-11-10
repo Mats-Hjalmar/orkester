@@ -25,13 +25,19 @@ const TRANSPORT_MIN_W = 300;
 const TOP_ROW_H = 38;
 const SLIDER_ROW_H = 20;
 const ROW_GAP = 6;
+const PAD_X = 20;
+const SIDE_GAP = 16;
 
 // Pinned to the bottom of the window so the selected group's track, transport and
 // volume stay in reach; the Now Playing column above shows only the track and queue.
 // The speakers button opens the grouping panel and, for a multi-speaker group, the
 // chevron by the volume opens each speaker's level; DesktopApp renders whichever
 // is open as an overlay above this bar.
-export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Group; panel: MiniPanel | null; onTogglePanel: (p: MiniPanel) => void }) {
+// `onVolumesCenter` reports the volume toggle's center, measured from the bar's
+// right edge, so the speaker volumes can pop up over it.
+export default function MiniPlayer({ group, panel, onTogglePanel, onVolumesCenter }: {
+  group: Group; panel: MiniPanel | null; onTogglePanel: (p: MiniPanel) => void; onVolumesCenter: (right: number) => void;
+}) {
   const store = useStore();
   const { config, getTrack, groupName, groupControls, queueFor } = store;
   const accent = config.accentColor;
@@ -45,9 +51,16 @@ export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Gro
   const groupsOpen = panel === 'groups';
   const volumesOpen = panel === 'volumes';
   const multi = group.roomIds.length > 1;
+  // The right side is packed to the bar's right edge, so the toggle's center sits
+  // the padding, the groups button and the gap in from it, plus half its own width.
+  const [toggleW, setToggleW] = React.useState(0);
+  const [groupsW, setGroupsW] = React.useState(0);
+  React.useEffect(() => {
+    onVolumesCenter(PAD_X + groupsW + SIDE_GAP + toggleW / 2);
+  }, [toggleW, groupsW, onVolumesCenter]);
 
   return (
-    <View style={{ height: MINI_PLAYER_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: ink(0.07), backgroundColor: colors.bgPaper }}>
+    <View style={{ height: MINI_PLAYER_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: PAD_X, borderTopWidth: 1, borderTopColor: ink(0.07), backgroundColor: colors.bgPaper }}>
       <View style={[SIDE, { gap: 12 }]}>
         <CoverArt size={52} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={idle ? undefined : tr.artUrl} />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -83,10 +96,11 @@ export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Gro
         </View>
       </View>
 
-      <View style={[SIDE, { gap: 16, justifyContent: 'flex-end' }]}>
+      <View style={[SIDE, { gap: SIDE_GAP, justifyContent: 'flex-end' }]}>
         <Pressable
           testID="mini-volumes-toggle"
           onPress={() => onTogglePanel('volumes')}
+          onLayout={(e) => setToggleW(e.nativeEvent.layout.width)}
           disabled={!multi}
           accessibilityRole={multi ? 'button' : undefined}
           accessibilityLabel={multi ? "Each speaker's volume" : undefined}
@@ -111,6 +125,7 @@ export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Gro
         <Pressable
           testID="mini-groups-toggle"
           onPress={() => onTogglePanel('groups')}
+          onLayout={(e) => setGroupsW(e.nativeEvent.layout.width)}
           style={({ pressed }) => ({
             flexDirection: 'row', alignItems: 'center', gap: 6,
             maxWidth: 150, height: 34, paddingHorizontal: 12, borderRadius: radii.pill,

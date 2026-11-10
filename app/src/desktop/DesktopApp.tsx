@@ -27,6 +27,7 @@ export default function DesktopApp() {
   const [panel, setPanel] = React.useState<MiniPanel | null>(null);
   const closePanel = React.useCallback(() => setPanel(null), []);
   const togglePanel = (p: MiniPanel) => setPanel((open) => (open === p ? null : p));
+  const [volumesCenter, setVolumesCenter] = React.useState(0);
 
   // Resolve the selection fresh from topology each render. With no live selection
   // — first launch, or the selected group vanished (ungrouped / dropped) — fall
@@ -73,11 +74,11 @@ export default function DesktopApp() {
         )}
       </View>
       {selectedGroup && (
-        <MiniPlayer group={selectedGroup} panel={panel} onTogglePanel={togglePanel} />
+        <MiniPlayer group={selectedGroup} panel={panel} onTogglePanel={togglePanel} onVolumesCenter={setVolumesCenter} />
       )}
       {selectedGroup && panel === 'groups' && <GroupPanel group={selectedGroup} onClose={closePanel} />}
       {/* Hidden while the group is a single speaker, like its toggle. */}
-      {selectedGroup && panel === 'volumes' && selectedGroup.roomIds.length > 1 && <SpeakerVolumes group={selectedGroup} onClose={closePanel} />}
+      {selectedGroup && panel === 'volumes' && selectedGroup.roomIds.length > 1 && <SpeakerVolumes group={selectedGroup} centerRight={volumesCenter} onClose={closePanel} />}
       <ErrorToast />
     </View>
   );
