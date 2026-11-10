@@ -8,7 +8,10 @@
 // The Api is the ONLY per-runtime difference: the StoreProvider drives the same
 // reducer regardless of which Api it was handed.
 
-import type { AlarmPlayMode, AlarmRecurrence, EQType, QueuePosition, RepeatMode } from '../engine';
+import type { AlarmPlayMode, AlarmRecurrence, ArtUrls, EQType, QueuePosition, RepeatMode } from '../engine';
+
+/** A cover in the sizes the UI picks between. */
+export type ApiArt = ArtUrls;
 
 export type { AlarmPlayMode, AlarmRecurrence, EQType };
 
@@ -239,6 +242,12 @@ export interface Api {
 
   // --- per active group (routed to its coordinator) ---
   getNowPlaying(groupId: string): Promise<ApiNowPlaying>;
+  /**
+   * Sized URLs for an `artUrl` from now-playing or the queue: Spotify covers come
+   * from Spotify's CDN, anything else comes back unchanged in both sizes. THROWS
+   * when a Spotify cover can't be looked up; the original `artUrl` still works.
+   */
+  resolveArt(artUrl: string): Promise<ApiArt>;
   /** Reads the group coordinator's current play queue, in order. */
   getQueue(groupId: string): Promise<ApiQueueItem[]>;
   /** Removes every track from the group's queue. */

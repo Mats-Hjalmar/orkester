@@ -43,7 +43,7 @@ export default function QueueRow({
 
   const body = (
     <>
-      <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} />
+      <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} large={current} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ fontFamily: current ? font.bodySemiBold : font.bodyMedium, fontSize: 14, color: fg }}>{title}</Text>
         {!!item.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: muted, marginTop: 1 }}>{item.artist}</Text>}

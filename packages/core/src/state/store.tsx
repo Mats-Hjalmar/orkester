@@ -31,7 +31,7 @@ import {
 } from './reducer';
 import { createSingleFlight } from './singleFlight';
 import { createVolumeWriter } from './volumeWrite';
-import type { Api, ApiContainerContents, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
+import type { Api, ApiArt, ApiContainerContents, ApiSearchItem, ApiSpotifyLink, SpotifySearchKind } from '../api';
 import type { QueuePosition, RepeatMode } from '../engine';
 
 const DEFAULT_CONFIG: Config = { accentColor: '#E4F289', coverMotif: 'sun' };
@@ -127,6 +127,8 @@ export interface Store {
   removeQueueItem: (gid: string, index: number) => void;
   /** Plays the group's queue entry at `index` (0-based), then re-reads state. */
   playQueueIndex: (gid: string, index: number) => void;
+  /** Sized URLs for a track's `artUrl` (THROWS when a Spotify cover can't be looked up). */
+  resolveArt: (artUrl: string) => Promise<ApiArt>;
   // --- Spotify catalog search (imperative; the search panel owns its results) ---
   /** True once a Spotify token is saved (device-linked). */
   isSpotifyLinked: () => Promise<boolean>;
@@ -795,6 +797,7 @@ export function StoreProvider({
       // Spotify search is imperative request/response (not polled state): the
       // panel calls these and holds its own result list. Errors PROPAGATE so the
       // panel can show "not linked" / failures (no silent swallow).
+      resolveArt: (artUrl: string) => api.resolveArt(artUrl),
       isSpotifyLinked: () => api.isSpotifyLinked(),
       startSpotifyLink: (roomId: string) => api.startSpotifyLink(roomId),
       pollSpotifyLink: () => api.pollSpotifyLink(),

@@ -20,6 +20,7 @@
 import type { DiscoveryTransport, HttpTransport, SSDPResult } from '../sonos';
 import { SonosDevice, type AlarmClockCreateAlarmRequest } from '@orkester/sonos-api';
 import { HTTPPort } from './device';
+import { fetchSpotifyTrackArt, type ArtUrls } from './art';
 import {
   type Household,
   type Member,
@@ -228,6 +229,11 @@ export class SonosClient {
   /** Reads the coordinator's current play queue (in order). */
   getQueue(room: ResolvedRoom): Promise<QueueTrack[]> {
     return controlGetQueue(this.http, this.coordinatorBase(room));
+  }
+
+  /** Looks up a Spotify track's cover on Spotify's CDN (THROWS when unresolvable). */
+  fetchSpotifyTrackArt(trackId: string): Promise<ArtUrls> {
+    return fetchSpotifyTrackArt(this.http, trackId);
   }
 
   /** Empties the coordinator's queue. */
