@@ -97,31 +97,36 @@ export default function MiniPlayer({ group, panel, onTogglePanel, onVolumesCente
       </View>
 
       <View style={[SIDE, { gap: SIDE_GAP, justifyContent: 'flex-end' }]}>
-        <Pressable
-          testID="mini-volumes-toggle"
-          onPress={() => onTogglePanel('volumes')}
+        <View
           onLayout={(e) => setToggleW(e.nativeEvent.layout.width)}
-          disabled={!multi}
-          accessibilityRole={multi ? 'button' : undefined}
-          accessibilityLabel={multi ? "Each speaker's volume" : undefined}
-          style={({ hovered }: any) => ({
-            flex: 1, maxWidth: 180, gap: ROW_GAP, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.md,
-            backgroundColor: volumesOpen ? ink(0.06) : multi && hovered ? ink(0.03) : 'transparent',
-          })}
+          style={{ flex: 1, maxWidth: 180, gap: ROW_GAP, paddingHorizontal: 8, paddingVertical: 4 }}
         >
-          <View style={{ height: TOP_ROW_H, alignItems: 'center', justifyContent: 'center' }}>
+          {/* The toggle is a backdrop behind the volume rather than its parent: on web a
+              click inside a Pressable (a mute, a slider click, the end of a drag) bubbles
+              up to its onPress, and only clicks beside the controls should open the
+              speaker volumes. */}
+          <Pressable
+            testID="mini-volumes-toggle"
+            onPress={() => onTogglePanel('volumes')}
+            disabled={!multi}
+            accessibilityRole={multi ? 'button' : undefined}
+            accessibilityLabel={multi ? "Each speaker's volume" : undefined}
+            style={({ hovered }: any) => ({
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: radii.md,
+              backgroundColor: volumesOpen ? ink(0.06) : multi && hovered ? ink(0.03) : 'transparent',
+            })}
+          />
+          <View style={{ height: TOP_ROW_H, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             {multi && (
               <View style={{ transform: [{ rotate: volumesOpen ? '0deg' : '180deg' }] }}>
                 <ChevronDown size={14} color={volumesOpen ? colors.fg : colors.fgSubtle} />
               </View>
             )}
           </View>
-          {/* Claims clicks the slider ignores (it only grabs near its thumb), so a
-              stray click on the track doesn't open the speaker volumes. */}
-          <View onStartShouldSetResponder={() => true} style={{ height: SLIDER_ROW_H, flexDirection: 'row', alignItems: 'center', cursor: 'default' } as any}>
+          <View style={{ height: SLIDER_ROW_H, flexDirection: 'row', alignItems: 'center' }}>
             <VolumeRow group={group} />
           </View>
-        </Pressable>
+        </View>
         <Pressable
           testID="mini-groups-toggle"
           onPress={() => onTogglePanel('groups')}
