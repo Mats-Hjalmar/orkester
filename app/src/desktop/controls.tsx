@@ -35,6 +35,28 @@ export function ProgressRow({ group }: { group: Group }) {
   );
 }
 
+// A mute button + volume slider, for a whole group or one speaker.
+export function LevelRow({ label, volume, muted, muting, settling, onToggleMute, onScrub }: {
+  label: string;
+  volume: number;
+  muted: boolean;
+  muting: boolean;
+  settling: boolean;
+  onToggleMute: () => void;
+  onScrub: (frac: number) => void;
+}) {
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Pressable onPress={onToggleMute} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${muted ? 'Unmute' : 'Mute'} ${label}`}>
+        {muting ? (
+          <Spinner size={19} />
+        ) : muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
+      </Pressable>
+      <TrackBar value={(muted ? 0 : volume) / 100} onScrub={onScrub} label={`${label} volume`} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={settling} style={{ flex: 1 }} />
+    </View>
+  );
+}
+
 // Group mute + volume. Hidden until every member has a real volume reading.
 export function VolumeRow({ group }: { group: Group }) {
   const store = useStore();
@@ -42,13 +64,14 @@ export function VolumeRow({ group }: { group: Group }) {
   if (groupVolume === null) return null;
   const ctrl = store.groupControls(group.id);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <Pressable onPress={ctrl.toggleMute} hitSlop={8}>
-        {store.transportPending(group.id) === 'mute' ? (
-          <Spinner size={19} />
-        ) : group.muted ? <VolumeLow size={19} color={colors.fg} /> : <VolumeHigh size={19} color={colors.fg} />}
-      </Pressable>
-      <TrackBar value={(group.muted ? 0 : groupVolume) / 100} onScrub={ctrl.setVolume} trackColor={ink(0.12)} fillColor={colors.fg} height={4} thumb grabThumbOnly loading={store.volumeSettling(group)} style={{ flex: 1 }} />
-    </View>
+    <LevelRow
+      label={store.groupName(group)}
+      volume={groupVolume}
+      muted={group.muted}
+      muting={store.transportPending(group.id) === 'mute'}
+      settling={store.volumeSettling(group)}
+      onToggleMute={ctrl.toggleMute}
+      onScrub={ctrl.setVolume}
+    />
   );
 }
