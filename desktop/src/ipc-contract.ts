@@ -12,6 +12,7 @@ export const API_METHODS = [
   'refreshTopology',
   'getNowPlaying',
   'getQueue',
+  'resolveArt',
   'clearQueue',
   'reorderQueue',
   'playQueueIndex',

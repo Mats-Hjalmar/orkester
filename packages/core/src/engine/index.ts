@@ -181,6 +181,9 @@ export {
   type SMAPIPage,
 } from './smapi';
 
+// Sized album art (Spotify CDN instead of the speaker's slow /getaa proxy).
+export { spotifyTrackIdFromArtUrl, sizedCdnArt, fetchSpotifyTrackArt, type ArtUrls } from './art';
+
 // SSDP discovery parsing (the byte-level protocol; UDP socket lives in ../node).
 export {
   zonePlayerST,

@@ -28,6 +28,7 @@ export type {
   ApiBrowseItem,
   ApiBrowseResult,
   ApiAlarm,
+  ApiArt,
   SpotifySearchKind,
 } from './api';
 

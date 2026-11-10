@@ -12,6 +12,7 @@
 import type {
   Api,
   ApiAlarm,
+  ApiArt,
   ApiAudioSettings,
   ApiBrowseItem,
   ApiBrowseResult,
@@ -41,6 +42,8 @@ import {
   parseRelTime,
   rooms as engineRooms,
   serviceSeed,
+  sizedCdnArt,
+  spotifyTrackIdFromArtUrl,
   spotifyEnqueueItem,
   NotLinkedError,
   SMAPIFault,
@@ -80,6 +83,8 @@ export class SonosApi implements Api {
   private groupIndex = new Map<string, SonosGroupT>();
   /** Persists the Spotify token; undefined disables the Spotify methods. */
   private readonly credentials: CredentialStore | undefined;
+  /** Cover lookups per Spotify track id; a rejected lookup is dropped so it can be retried. */
+  private artByTrack = new Map<string, Promise<ApiArt>>();
   /** In-progress device link (set by startSpotifyLink, consumed by pollSpotifyLink). */
   private pendingLink:
     | { service: MusicServiceInfo; householdId: string; link: AppLink }
@@ -133,6 +138,20 @@ export class SonosApi implements Api {
       queueIndex: np.queueIndex,
       spotifyConnect: np.spotifyConnect,
     };
+  }
+
+  resolveArt(artUrl: string): Promise<ApiArt> {
+    const cdn = sizedCdnArt(artUrl);
+    if (cdn) return Promise.resolve(cdn);
+    const trackId = spotifyTrackIdFromArtUrl(artUrl);
+    if (!trackId) return Promise.resolve({ small: artUrl, large: artUrl });
+    let art = this.artByTrack.get(trackId);
+    if (!art) {
+      art = this.client.fetchSpotifyTrackArt(trackId);
+      this.artByTrack.set(trackId, art);
+      art.catch(() => this.artByTrack.delete(trackId));
+    }
+    return art;
   }
 
   async getQueue(groupId: string): Promise<ApiQueueItem[]> {

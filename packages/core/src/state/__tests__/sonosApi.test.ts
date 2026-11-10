@@ -488,3 +488,51 @@ describe('SonosApi topology room/group coverage', () => {
     expect(topo.groups.find((g) => g.roomIds.join() === 'bedroom')).toBeDefined();
   });
 });
+
+describe('SonosApi.resolveArt', () => {
+  const HASH = '81f6e9d86f64a4a4e5c319c8';
+  const GETAA = 'http://192.168.1.10:1400/getaa?s=1&u=x-sonos-spotify%3aspotify%253atrack%253a4axCvAhvcO8m5qJeLMa3dg%3fsid%3d9';
+  const SIZED = {
+    small: `https://i.scdn.co/image/ab67616d00001e02${HASH}`,
+    large: `https://i.scdn.co/image/ab67616d0000b273${HASH}`,
+  };
+
+  class OEmbedTransport implements HttpTransport {
+    readonly requests: HttpRequest[] = [];
+    status = 200;
+    request(req: HttpRequest): Promise<HttpResponse> {
+      this.requests.push(req);
+      const body = JSON.stringify({ thumbnail_url: SIZED.small });
+      return Promise.resolve({ status: this.status, headers: {}, body });
+    }
+  }
+
+  function makeArtApi(): { api: SonosApi; transport: OEmbedTransport } {
+    const transport = new OEmbedTransport();
+    return { api: new SonosApi(new SonosClient({ http: transport, discovery: new MockDiscovery() })), transport };
+  }
+
+  it('looks a Spotify track up once, however often it is asked for', async () => {
+    const { api, transport } = makeArtApi();
+    const [a, b] = await Promise.all([api.resolveArt(GETAA), api.resolveArt(GETAA)]);
+    expect(await api.resolveArt(GETAA)).toEqual(SIZED);
+    expect([a, b]).toEqual([SIZED, SIZED]);
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it('retries a lookup that failed', async () => {
+    const { api, transport } = makeArtApi();
+    transport.status = 503;
+    await expect(api.resolveArt(GETAA)).rejects.toThrow('503');
+    transport.status = 200;
+    expect(await api.resolveArt(GETAA)).toEqual(SIZED);
+    expect(transport.requests).toHaveLength(2);
+  });
+
+  it('sizes a CDN URL and passes other art through, without a request', async () => {
+    const { api, transport } = makeArtApi();
+    expect(await api.resolveArt(SIZED.large)).toEqual(SIZED);
+    expect(await api.resolveArt('https://logo.cdn/x.png')).toEqual({ small: 'https://logo.cdn/x.png', large: 'https://logo.cdn/x.png' });
+    expect(transport.requests).toHaveLength(0);
+  });
+});
