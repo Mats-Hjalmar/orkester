@@ -1,15 +1,16 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
+import ScrollIndicator from './ScrollIndicator';
 import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { groupCount } from '../state/selectors';
+import { accentTextOf, groupCount } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
@@ -50,11 +51,14 @@ const QUEUE_ROW_H = 52;
 //
 // Each row also has a menu (dots button or right-click) for the moves that are
 // tedious by drag: play now, play next, move to end, remove.
-function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemove }: {
+//
+// The list is the WHOLE queue: rows before `currentIndex` have already played and
+// are faded; the current row is filled with the accent.
+function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRemove }: {
   items: QueueItem[];
   motif: Motif;
   accent: string;
-  isCurrent: (q: QueueItem) => boolean;
+  currentIndex: number;
   onReorder: (from: number, to: number) => void;
   onPlay: (index: number) => void;
   onRemove: (index: number) => void;
@@ -65,11 +69,15 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
     setMenuIndex(index);
     void showContextMenu([
       { label: 'Play now', icon: <Play size={16} />, onPress: () => onPlay(index) },
-      { label: 'Play next', icon: <QueueTop size={16} />, onPress: () => onReorder(index, 0), enabled: index > 0 },
+      { label: 'Play next', icon: <QueueTop size={16} />, onPress: () => onReorder(index, nextSlot(index)), enabled: index !== currentIndex && nextSlot(index) !== index },
       { label: 'Move to end of queue', icon: <QueueBottom size={16} />, onPress: () => onReorder(index, items.length - 1), enabled: index < items.length - 1 },
       { label: 'Remove from queue', icon: <Trash size={16} />, onPress: () => onRemove(index) },
     ]).finally(() => setMenuIndex(null));
   };
+  // reorderQueue's `to` is the FINAL position, so a track moved down from above
+  // the current one lands on the current slot (the current track shifts up).
+  const accentText = accentTextOf(accent);
+  const nextSlot = (index: number) => (index < currentIndex ? currentIndex : currentIndex + 1);
   const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
   const dragRef = useRef(drag);
   dragRef.current = drag;
@@ -82,6 +90,7 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
     <View style={{ userSelect: 'none' } as any}>
       {items.map((item, index) => {
         const isDragged = drag?.from === index;
+        const isCurrent = index === currentIndex;
         let translateY = 0;
         if (drag) {
           const to = targetOf(drag.from, drag.dy);
@@ -148,11 +157,11 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
             // The negative margin lets the tint extend past the content without shifting it.
             style={{
               height: QUEUE_ROW_H, justifyContent: 'center', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: radii.md,
-              backgroundColor: isDragged || menuIndex === index ? colors.bgCream : hovered === index ? ink(0.03) : 'transparent',
-              transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : 1,
+              backgroundColor: isCurrent ? accent : isDragged || menuIndex === index ? colors.bgCream : hovered === index ? ink(0.03) : 'transparent',
+              transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : index < currentIndex ? 0.5 : 1,
             }}
           >
-            <QueueRow item={item} motif={motif} fg={colors.fg} muted={colors.fgMuted} accent={accent} current={isCurrent(item)} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
+            <QueueRow item={item} motif={motif} fg={isCurrent ? accentText : colors.fg} muted={isCurrent ? accentText : colors.fgMuted} current={isCurrent} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
           </View>
         );
       })}
@@ -160,15 +169,21 @@ function QueueList({ items, motif, accent, isCurrent, onReorder, onPlay, onRemov
   );
 }
 
-const COVER = 374;
+const COLUMN_W = 462;
+const HERO_COVER = 96;
 const PAD = 44;
+const PAD_LEFT = 24;
+// Narrower than PAD: just enough to hold the queue's scroll bar beside the rows.
+const PAD_RIGHT = 28;
+const SCROLLBAR_RIGHT = 10;
 
 // The FOCUSED Now Playing for ONE group. It takes the group (and, on narrow
 // layouts, an optional onBack) rather than reading any global active-group
 // singleton — every control here is routed through groupControls(group.id), so
 // it drives exactly this group. In the desktop master–detail the list is always
-// present, so onBack is omitted and no back button renders.
-export default function DesktopNowPlaying({ group, onBack }: { group?: Group; onBack?: () => void }) {
+// present, so onBack is omitted and no back button renders. `onShowArt` asks the
+// app to open the full-size cover, which it draws above every column.
+export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?: Group; onBack?: () => void; onShowArt?: () => void }) {
   const store = useStore();
   const { state, getTrack, roomName, config, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
   const accent = config.accentColor;
@@ -214,71 +229,123 @@ export default function DesktopNowPlaying({ group, onBack }: { group?: Group; on
   const tr = getTrack(g.trackId);
   const idle = g.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const here = g.roomIds.length ? `${roomName(g.roomIds[0])} ${groupCount(g)}`.trim() : 'this group';
-  // "Up next" = the queue AFTER the currently-playing track, so the top of the
-  // list is genuinely the next song and skipping advances it off the top. The
-  // current track is already shown big above. qStart is the absolute queue index
-  // of the first up-next item (drag/reorder maps local -> absolute through it).
-  const fullQueue = queueFor(g.id);
-  const qStart = g.queueIndex >= 0 ? g.queueIndex + 1 : 0;
   // Under Spotify Connect the Sonos queue isn't what plays next — hide it.
-  const upNext = g.spotifyConnect ? [] : fullQueue.slice(qStart);
+  const queue = g.spotifyConnect ? [] : queueFor(g.id);
   const queueBusy = store.queuePending(g.id);
 
   // Transport, volume and grouping live in the MiniPlayer; this column is the
   // track and its queue. Fixed width so the search column beside it gets the rest.
   return (
-    <View style={{ width: COVER + 2 * PAD, flex: 'none' as any }}>
+    <View style={{ width: COLUMN_W, flex: 'none' as any }}>
       {onBack && <BackButton onPress={onBack} />}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: PAD }} showsVerticalScrollIndicator={false}>
-        <CoverArt size={COVER} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={24} shadow={shadow.lg} artUrl={idle ? undefined : tr.artUrl}>
-          {idle && (
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-              <Speaker size={64} color="rgba(26,24,20,0.35)" />
+      <View style={{ paddingTop: PAD, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+          <Pressable
+            onPress={onShowArt}
+            disabled={idle || !onShowArt}
+            accessibilityRole="button"
+            accessibilityLabel="Show album art"
+            style={{ cursor: idle || !onShowArt ? 'default' : 'zoom-in' } as any}
+          >
+            <CoverArt size={HERO_COVER} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} shadow={shadow.md} artUrl={idle ? undefined : tr.artUrl}>
+              {idle && (
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                  <Speaker size={32} color="rgba(26,24,20,0.35)" />
+                </View>
+              )}
+            </CoverArt>
+          </Pressable>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
+              <Text numberOfLines={1} style={[type.eyebrow, { flexShrink: 1 }]}>{here}</Text>
+              {g.spotifyConnect && <SpotifyConnectBadge />}
             </View>
-          )}
-        </CoverArt>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24 }}>
-          <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
-          <Text style={type.eyebrow}>{here}</Text>
-          {g.spotifyConnect && <SpotifyConnectBadge />}
+            {/* Title only when the speaker reports one — no fabricated label. */}
+            {!idle && !!tr.title && (
+              <Text testID="np-title" numberOfLines={2} style={[type.displaySm, { marginTop: 6 }]}>{tr.title}</Text>
+            )}
+            {!idle && !!tr.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 14, color: colors.fgMuted, marginTop: 4 }}>{tr.artist}</Text>}
+            {!idle && !!tr.album && (
+              <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>{tr.album}</Text>
+            )}
+          </View>
         </View>
-        {/* Title only when the speaker reports one — no fabricated label. */}
-        {!idle && !!tr.title && (
-          <Text testID="np-title" style={[type.displayXL, { marginTop: 10 }]}>{tr.title}</Text>
-        )}
-        {!idle && !!tr.artist && <Text style={{ fontFamily: font.body, fontSize: 16, color: colors.fgMuted, marginTop: 6 }}>{tr.artist}</Text>}
-        {!idle && !!tr.album && (
-          <Text style={{ fontFamily: font.body, fontSize: 13, color: colors.fg, marginTop: 10 }}>{tr.album}</Text>
-        )}
 
-        {/* The coordinator's queue. Hidden when empty (some streaming sources
-            play without a queue) — no placeholder. */}
-        {upNext.length > 0 && (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
-              <Queue size={16} color={colors.fgSubtle} />
-              <Text style={[type.eyebrow, { flex: 1 }]}>Up next · {upNext.length}</Text>
-              <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-                {queueBusy ? (
-                  <ActivityIndicator size="small" color={colors.fgMuted} />
-                ) : (
-                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
-                )}
-              </Pressable>
-            </View>
-            <QueueList
-              items={upNext}
-              motif={config.coverMotif}
-              accent={accent}
-              isCurrent={() => false}
-              onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
-              onPlay={(index) => playQueueIndex(g.id, qStart + index)}
-              onRemove={(index) => removeQueueItem(g.id, qStart + index)}
-            />
-          </>
+        {queue.length > 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
+            <Queue size={16} color={colors.fgSubtle} />
+            <Text style={[type.eyebrow, { flex: 1 }]}>Queue · {queue.length}</Text>
+            <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+              {queueBusy ? (
+                <ActivityIndicator size="small" color={colors.fgMuted} />
+              ) : (
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+              )}
+            </Pressable>
+          </View>
         )}
+      </View>
+
+      {/* The coordinator's queue. Hidden when empty (some streaming sources
+          play without a queue) — no placeholder. */}
+      {queue.length > 0 && (
+        <QueueScroll groupId={g.id} currentIndex={g.queueIndex} count={queue.length} accent={accent}>
+          <QueueList
+            items={queue}
+            motif={config.coverMotif}
+            accent={accent}
+            currentIndex={g.queueIndex}
+            onReorder={(from, to) => reorderQueue(g.id, from, to)}
+            onPlay={(index) => playQueueIndex(g.id, index)}
+            onRemove={(index) => removeQueueItem(g.id, index)}
+          />
+        </QueueScroll>
+      )}
+    </View>
+  );
+}
+
+// Keeps the current track at the top of the viewport, so the played tracks sit
+// just above it — reachable by scrolling back. Re-aligns when the track or group
+// changes; the jump is instant for a new group and animated for a track change.
+// The scroll indicator sits in the right-hand padding and marks the current row.
+function QueueScroll({ groupId, currentIndex, count, accent, children }: { groupId: string; currentIndex: number; count: number; accent: string; children: React.ReactNode }) {
+  const ref = useRef<ScrollView>(null);
+  const lastGroup = useRef(groupId);
+  const hasQueue = count > 0;
+  const [viewport, setViewport] = useState(0);
+  const [content, setContent] = useState(0);
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {
+    if (!hasQueue) return;
+    const animated = lastGroup.current === groupId;
+    lastGroup.current = groupId;
+    ref.current?.scrollTo({ y: Math.max(0, currentIndex) * QUEUE_ROW_H, animated });
+  }, [groupId, currentIndex, hasQueue]);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        ref={ref}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT, paddingBottom: PAD }}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => setOffset(e.nativeEvent.contentOffset.y)}
+        onLayout={(e) => setViewport(e.nativeEvent.layout.height)}
+        onContentSizeChange={(_, h) => setContent(h)}
+      >
+        {children}
       </ScrollView>
+      <ScrollIndicator
+        viewport={viewport}
+        content={content}
+        offset={offset}
+        right={SCROLLBAR_RIGHT}
+        marker={currentIndex >= 0 ? { y: (currentIndex + 0.5) * QUEUE_ROW_H, color: accent } : undefined}
+        onScrollTo={(y) => ref.current?.scrollTo({ y, animated: false })}
+      />
     </View>
   );
 }
