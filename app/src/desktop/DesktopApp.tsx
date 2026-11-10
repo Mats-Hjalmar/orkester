@@ -8,6 +8,7 @@ import MiniPlayer, { type MiniPanel } from './MiniPlayer';
 import GroupPanel from './GroupPanel';
 import SpeakerVolumes from './SpeakerVolumes';
 import ErrorToast from './ErrorToast';
+import ArtOverlay from './ArtOverlay';
 import { colors, ink } from '../theme/tokens';
 import { useStore } from '../state/store';
 import { readLastSelection, writeLastSelection } from './lastSelection';
@@ -28,6 +29,8 @@ export default function DesktopApp() {
   const closePanel = React.useCallback(() => setPanel(null), []);
   const togglePanel = (p: MiniPanel) => setPanel((open) => (open === p ? null : p));
   const [volumesCenter, setVolumesCenter] = React.useState(0);
+  const [artOpen, setArtOpen] = React.useState(false);
+  const closeArt = React.useCallback(() => setArtOpen(false), []);
 
   // Resolve the selection fresh from topology each render. With no live selection
   // — first launch, or the selected group vanished (ungrouped / dropped) — fall
@@ -62,7 +65,7 @@ export default function DesktopApp() {
         {/* Search plays onto the selected group, so it only shows once there is one. */}
         {selectedGroup ? (
           <>
-            <DesktopNowPlaying group={selectedGroup} />
+            <DesktopNowPlaying group={selectedGroup} onShowArt={() => setArtOpen(true)} />
             <View style={{ flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: ink(0.07) }}>
               <SpotifySearch group={selectedGroup} />
             </View>
@@ -72,6 +75,9 @@ export default function DesktopApp() {
             <DesktopNowPlaying group={selectedGroup} />
           </View>
         )}
+        {/* Last child of the content row, so it covers every column but leaves the
+            mini player below free to control playback. */}
+        {selectedGroup && <ArtOverlay group={selectedGroup} open={artOpen} onClose={closeArt} />}
       </View>
       {selectedGroup && (
         <MiniPlayer group={selectedGroup} panel={panel} onTogglePanel={togglePanel} onVolumesCenter={setVolumesCenter} />
