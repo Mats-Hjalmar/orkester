@@ -14,9 +14,17 @@ export const MINI_PLAYER_H = 84;
 
 export type MiniPanel = 'groups' | 'volumes';
 
-// Both sides share one size rule so the transport stays centered, and grow with the
-// window so the volume slider isn't squeezed by the buttons beside it.
-const SIDE = { flex: 1, minWidth: 280, maxWidth: 420, flexDirection: 'row', alignItems: 'center' } as const;
+// Both sides share one size rule so the transport stays centered; any extra window
+// width goes to the transport's position slider. On a narrow window the sides give
+// way before the transport drops below its minimum.
+const SIDE = { width: 320, flexShrink: 1, minWidth: 240, flexDirection: 'row', alignItems: 'center' } as const;
+const TRANSPORT_MIN_W = 300;
+// The transport's two rows (buttons over position) and the volume's two rows
+// (speaker-volumes toggle over level) share heights so the level slider lines up
+// with the position slider.
+const TOP_ROW_H = 38;
+const SLIDER_ROW_H = 20;
+const ROW_GAP = 6;
 
 // Pinned to the bottom of the window so the selected group's track, transport and
 // volume stay in reach; the Now Playing column above shows only the track and queue.
@@ -36,9 +44,10 @@ export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Gro
   const pending = store.transportPending(group.id);
   const groupsOpen = panel === 'groups';
   const volumesOpen = panel === 'volumes';
+  const multi = group.roomIds.length > 1;
 
   return (
-    <View style={{ height: MINI_PLAYER_H, flexDirection: 'row', alignItems: 'center', gap: 24, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: ink(0.07), backgroundColor: colors.bgPaper }}>
+    <View style={{ height: MINI_PLAYER_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: ink(0.07), backgroundColor: colors.bgPaper }}>
       <View style={[SIDE, { gap: 12 }]}>
         <CoverArt size={52} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={idle ? undefined : tr.artUrl} />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -51,8 +60,8 @@ export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Gro
         </View>
       </View>
 
-      <View style={{ flex: 1, minWidth: 0, gap: 6, opacity: controllable ? 1 : 0.4, pointerEvents: controllable ? 'auto' : 'none' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, opacity: pending !== null ? 0.55 : 1 }}>
+      <View style={{ flex: 1, minWidth: TRANSPORT_MIN_W, gap: ROW_GAP, opacity: controllable ? 1 : 0.4, pointerEvents: controllable ? 'auto' : 'none' }}>
+        <View style={{ height: TOP_ROW_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, opacity: pending !== null ? 0.55 : 1 }}>
           <Pressable onPress={ctrl.prev} hitSlop={8}>
             {pending === 'prev' ? <Spinner size={18} /> : <Prev size={18} fill={colors.fg} />}
           </Pressable>
@@ -69,31 +78,36 @@ export default function MiniPlayer({ group, panel, onTogglePanel }: { group: Gro
             {pending === 'next' ? <Spinner size={18} /> : <Next size={18} fill={colors.fg} />}
           </Pressable>
         </View>
-        <ProgressRow group={group} />
+        <View style={{ height: SLIDER_ROW_H, justifyContent: 'center' }}>
+          <ProgressRow group={group} />
+        </View>
       </View>
 
-      <View style={[SIDE, { gap: 16 }]}>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <VolumeRow group={group} />
-          {group.roomIds.length > 1 && (
-            <Pressable
-              testID="mini-volumes-toggle"
-              onPress={() => onTogglePanel('volumes')}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Each speaker's volume"
-              style={({ pressed }) => ({
-                width: 24, height: 24, borderRadius: radii.pill, alignItems: 'center', justifyContent: 'center',
-                backgroundColor: volumesOpen ? colors.fg : 'transparent',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
+      <View style={[SIDE, { gap: 16, justifyContent: 'flex-end' }]}>
+        <Pressable
+          testID="mini-volumes-toggle"
+          onPress={() => onTogglePanel('volumes')}
+          disabled={!multi}
+          accessibilityRole={multi ? 'button' : undefined}
+          accessibilityLabel={multi ? "Each speaker's volume" : undefined}
+          style={({ hovered }: any) => ({
+            flex: 1, maxWidth: 180, gap: ROW_GAP, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.md,
+            backgroundColor: volumesOpen ? ink(0.06) : multi && hovered ? ink(0.03) : 'transparent',
+          })}
+        >
+          <View style={{ height: TOP_ROW_H, alignItems: 'center', justifyContent: 'center' }}>
+            {multi && (
               <View style={{ transform: [{ rotate: volumesOpen ? '0deg' : '180deg' }] }}>
-                <ChevronDown size={14} color={volumesOpen ? colors.bgPaper : colors.fgSubtle} />
+                <ChevronDown size={14} color={volumesOpen ? colors.fg : colors.fgSubtle} />
               </View>
-            </Pressable>
-          )}
-        </View>
+            )}
+          </View>
+          {/* Claims clicks the slider ignores (it only grabs near its thumb), so a
+              stray click on the track doesn't open the speaker volumes. */}
+          <View onStartShouldSetResponder={() => true} style={{ height: SLIDER_ROW_H, flexDirection: 'row', alignItems: 'center', cursor: 'default' } as any}>
+            <VolumeRow group={group} />
+          </View>
+        </Pressable>
         <Pressable
           testID="mini-groups-toggle"
           onPress={() => onTogglePanel('groups')}
