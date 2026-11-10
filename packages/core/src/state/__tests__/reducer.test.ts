@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLACEHOLDER_TRACK_ID, initialState, placeholderTrack, reducer } from '../reducer';
+import { PLACEHOLDER_TRACK_ID, initialState, isGroupMuted, placeholderTrack, reducer } from '../reducer';
 import type { ApiNowPlaying, ApiTopology } from '../../api';
 
 const TOPO: ApiTopology = {
@@ -158,11 +158,10 @@ describe('reducer atomic groupSnapshot', () => {
     expect(s.roomVol.living).toBe(40);
     expect(s.roomVol.kitchen).toBe(55);
     expect(s.roomMute.living).toBe(false);
-    // group.muted is reconciled here (polls never set it): not all muted -> false
-    expect(g.muted).toBe(false);
+    expect(isGroupMuted(s, g)).toBe(false);
   });
 
-  it('group.muted is true only when EVERY member is muted', () => {
+  it('a group is muted only when EVERY member is muted', () => {
     let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
     s = reducer(s, {
       type: 'groupSnapshot',
@@ -173,7 +172,12 @@ describe('reducer atomic groupSnapshot', () => {
         { roomId: 'kitchen', volume: 55, muted: true },
       ],
     });
-    expect(s.groups[0].muted).toBe(true);
+    expect(isGroupMuted(s, s.groups[0])).toBe(true);
+    // A later per-room change (mute toggle or poll) is reflected without a new snapshot.
+    s = reducer(s, { type: 'roomMute', roomId: 'kitchen', muted: false });
+    expect(isGroupMuted(s, s.groups[0])).toBe(false);
+    s = reducer(s, { type: 'setRoomMuteOptimistic', roomId: 'kitchen', muted: true });
+    expect(isGroupMuted(s, s.groups[0])).toBe(true);
   });
 });
 

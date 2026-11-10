@@ -27,6 +27,7 @@ export default function Speakers() {
     groupById,
     roomName,
     groupVol,
+    groupMuted,
     volumeSettling,
     setGroupVol,
     roomVolume,
@@ -79,7 +80,7 @@ export default function Speakers() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <VolumeHigh size={20} color={colors.fgMuted} />
             <TrackBar
-              value={(g.muted ? 0 : groupVolume) / 100}
+              value={(groupMuted(g) ? 0 : groupVolume) / 100}
               onScrub={(f) => setGroupVol(g.id, f)}
               onCommit={tapSelection}
               label="Group volume"

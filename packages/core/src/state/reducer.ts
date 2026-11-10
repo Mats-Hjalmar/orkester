@@ -58,6 +58,12 @@ export function initialState(): State {
   };
 }
 
+// Derived from the members' mutes rather than stored on the group, so it follows
+// every per-speaker mute change, poll and regroup.
+export function isGroupMuted(s: State, g: Group): boolean {
+  return g.roomIds.length > 0 && g.roomIds.every((r) => !!s.roomMute[r]);
+}
+
 /**
  * True only when a group is GENUINELY idle: not playing AND no metadata at all.
  * A group that IS playing but reports sparse/empty metadata (some streaming DIDL
@@ -163,7 +169,6 @@ export function reducer(s: State, a: Action): State {
           progress: prior?.progress ?? 0,
           shuffle: prior?.shuffle ?? false,
           repeat: prior?.repeat ?? false,
-          muted: prior?.muted ?? false,
           queueIndex: prior?.queueIndex ?? -1,
           spotifyConnect: prior?.spotifyConnect ?? false,
         };
@@ -195,19 +200,15 @@ export function reducer(s: State, a: Action): State {
 
     case 'groupSnapshot': {
       // All-or-nothing: now-playing + every member's volume/mute applied in ONE
-      // pass, so the detail pane never paints a half-loaded room. group.muted is
-      // reconciled here (the per-room mute poll never touched it) = all members
-      // muted.
+      // pass, so the detail pane never paints a half-loaded room.
       const id = trackIdFor(a.groupId, a.np);
       const track = trackFromNowPlaying(id, a.np);
-      const allMuted = a.rooms.length > 0 && a.rooms.every((r) => r.muted);
       const groups = patchGroup(s, a.groupId, {
         trackId: id,
         isPlaying: a.np.isPlaying,
         progress: a.np.positionSeconds,
         shuffle: a.np.shuffle,
         repeat: a.np.repeat !== 'none',
-        muted: allMuted,
         queueIndex: a.np.queueIndex,
         spotifyConnect: a.np.spotifyConnect,
       });

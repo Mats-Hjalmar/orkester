@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reducer, initialState, type State } from '../reducer';
+import { reducer, initialState, isGroupMuted, type State } from '../reducer';
 import type { Api, ApiNowPlaying, ApiTopology } from '../../api';
 import type { RepeatMode } from '../../engine';
 
@@ -152,9 +152,9 @@ describe('per-room volume + mute isolation', () => {
 
     expect(s.roomMute[first]).toBe(true);
     expect(s.roomMute[second]).toBeUndefined();
-    // The GROUP is only muted when every member is (groupSnapshot derives it), so
-    // one muted member must not read as a muted group.
-    expect(s.groups.find((g) => g.id === g1.id)!.muted).toBe(false);
+    // The GROUP is only muted when every member is, so one muted member must not
+    // read as a muted group.
+    expect(isGroupMuted(s, s.groups.find((g) => g.id === g1.id)!)).toBe(false);
   });
 
   it('reverting a failed mute restores the real value from the speaker', async () => {

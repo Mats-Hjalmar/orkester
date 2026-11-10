@@ -21,7 +21,7 @@ import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 export default function RoomGroupCard({ group }: { group: Group }) {
   const store = useStore();
   const nav = useNav();
-  const { config, getTrack, groupName, roomName, groupVol, volumeSettling, focusGroup, setGroupVol, groupControls, transportPending, queueFor } = store;
+  const { config, getTrack, groupName, roomName, groupVol, groupMuted, volumeSettling, focusGroup, setGroupVol, groupControls, transportPending, queueFor } = store;
   const tr = getTrack(group.trackId);
   const accent = config.accentColor;
   const accentText = accentTextOf(accent);
@@ -96,7 +96,7 @@ export default function RoomGroupCard({ group }: { group: Group }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
           <VolumeHigh size={16} color={colors.fgMuted} />
           <TrackBar
-            value={(group.muted ? 0 : groupVolume) / 100}
+            value={(groupMuted(group) ? 0 : groupVolume) / 100}
             onScrub={(f) => setGroupVol(group.id, f)}
             onCommit={tapSelection}
             label={`${groupName(group)} volume`}

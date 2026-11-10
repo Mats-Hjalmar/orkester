@@ -25,6 +25,7 @@ import {
   type State,
   PLACEHOLDER_TRACK_ID,
   initialState,
+  isGroupMuted,
   placeholderTrack,
   reducer,
 } from './reducer';
@@ -104,6 +105,8 @@ export interface Store {
   /** The group's volume (0–100), or null when not backed by a real reading from
    * every member speaker. null means hide the control — never show a guessed slider. */
   groupVol: (g: Group) => number | null;
+  /** True when every member speaker is muted. */
+  groupMuted: (g: Group) => boolean;
   /** True while a volume change for any member speaker is being written/applied
    * (drives the loading spinner on the slider thumb). */
   volumeSettling: (g: Group) => boolean;
@@ -208,7 +211,6 @@ function placeholderGroup(): Group {
     progress: 0,
     shuffle: false,
     repeat: false,
-    muted: false,
     queueIndex: -1,
     spotifyConnect: false,
   };
@@ -585,6 +587,8 @@ export function StoreProvider({
       );
     };
 
+    const groupMuted = (g: Group): boolean => isGroupMuted(state, g);
+
     const setVolForRooms = (roomIds: string[], frac: number) => {
       const v = Math.max(0, Math.min(100, Math.round(frac * 100)));
       for (const roomId of roomIds) {
@@ -661,7 +665,7 @@ export function StoreProvider({
         toggleMute: () => {
           if (g.id === '') return;
           touch();
-          const next = !g.muted;
+          const next = !groupMuted(g);
           inFlight.current.run(slot, 'mute', async () => {
             await Promise.all(
               g.roomIds.map((roomId) =>
@@ -717,6 +721,7 @@ export function StoreProvider({
       roomName,
       groupName,
       groupVol,
+      groupMuted,
       volumeSettling: (g: Group) => g.roomIds.some((r) => volSettling[r]),
       roomVolume: (roomId: string) => state.roomVol[roomId] ?? null,
       roomMuted: (roomId: string) => !!state.roomMute[roomId],
@@ -833,7 +838,7 @@ export function StoreProvider({
 
       setRoomVolume: (roomId: string, frac: number) => setVolForRooms([roomId], frac),
 
-      // Per-speaker mute, independent of the group's derived `muted`. Optimistic
+      // Per-speaker mute; the group reads as muted once every member is. Optimistic
       // like the group toggle, reverting off a real read.
       toggleRoomMute: (roomId: string) => {
         const muted = !state.roomMute[roomId];

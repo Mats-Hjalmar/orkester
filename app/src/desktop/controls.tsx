@@ -67,7 +67,7 @@ export function VolumeRow({ group }: { group: Group }) {
     <LevelRow
       label={store.groupName(group)}
       volume={groupVolume}
-      muted={group.muted}
+      muted={store.groupMuted(group)}
       muting={store.transportPending(group.id) === 'mute'}
       settling={store.volumeSettling(group)}
       onToggleMute={ctrl.toggleMute}

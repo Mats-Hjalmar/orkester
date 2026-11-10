@@ -79,6 +79,7 @@ export default function NowPlaying() {
     getTrack,
     roomName,
     groupVol,
+    groupMuted,
     volumeSettling,
     config,
     focusGroup,
@@ -145,6 +146,7 @@ export default function NowPlaying() {
   const pending = transportPending(g.id);
   const prog = progressOf(g, tr);
   const groupVolume = groupVol(g); // 0–100, or null when no real reading yet
+  const muted = groupMuted(g);
 
   // "Up next" = the queue AFTER the currently-playing track (the current one is
   // shown big above). qStart is the absolute index of the first up-next item, so
@@ -260,20 +262,20 @@ export default function NowPlaying() {
                 }}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel={g.muted ? 'Unmute' : 'Mute'}
-                accessibilityState={{ selected: g.muted }}
+                accessibilityLabel={muted ? 'Unmute' : 'Mute'}
+                accessibilityState={{ selected: muted }}
                 style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
               >
                 {pending === 'mute' ? (
                   <ActivityIndicator size="small" color={colors.fg} />
-                ) : g.muted ? (
+                ) : muted ? (
                   <VolumeLow size={20} color={colors.fg} />
                 ) : (
                   <VolumeHigh size={20} color={colors.fg} />
                 )}
               </Pressable>
               <TrackBar
-                value={(g.muted ? 0 : groupVolume) / 100}
+                value={(muted ? 0 : groupVolume) / 100}
                 onScrub={(f) => store.setGroupVol(g.id, f)}
                 onCommit={tapSelection}
                 label="Group volume"
