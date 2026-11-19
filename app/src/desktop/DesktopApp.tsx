@@ -9,6 +9,8 @@ import GroupPanel from './GroupPanel';
 import SpeakerVolumes from './SpeakerVolumes';
 import ErrorToast from './ErrorToast';
 import ArtOverlay from './ArtOverlay';
+import SettingsModal from './SettingsModal';
+import { useSettings, type LoadedSettings } from './settings';
 import { colors, ink } from '../theme/tokens';
 import { useStore } from '../state/store';
 import { readLastSelection, writeLastSelection } from './lastSelection';
@@ -22,8 +24,12 @@ import { groupForRooms } from '../state/selectors';
 // Selection is LOCAL desktop state (a selected groupId). `focusGroup(gid)` tells
 // the store to ATOMICALLY load that group and then poll it at the fast cadence;
 // the phone addresses groups the same way, by id, through a route param.
-export default function DesktopApp() {
+export default function DesktopApp({ settings: loadedSettings }: { settings: LoadedSettings }) {
   const { state, focusGroup } = useStore();
+  const settings = useSettings(loadedSettings);
+  // Opens by itself when settings.json failed to load, so the error is seen.
+  const [settingsOpen, setSettingsOpen] = React.useState(loadedSettings.loadError !== null);
+  const closeSettings = React.useCallback(() => setSettingsOpen(false), []);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [panel, setPanel] = React.useState<MiniPanel | null>(null);
   const closePanel = React.useCallback(() => setPanel(null), []);
@@ -59,7 +65,7 @@ export default function DesktopApp() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <TopBar />
+      <TopBar onOpenSettings={() => setSettingsOpen(true)} />
       <View style={{ flex: 1, minHeight: 0, flexDirection: 'row' }}>
         <RoomList selectedId={effectiveId} onSelect={onSelect} />
         {/* Search plays onto the selected group, so it only shows once there is one. */}
@@ -85,6 +91,7 @@ export default function DesktopApp() {
       {selectedGroup && panel === 'groups' && <GroupPanel group={selectedGroup} onClose={closePanel} />}
       {/* Hidden while the group is a single speaker, like its toggle. */}
       {selectedGroup && panel === 'volumes' && selectedGroup.roomIds.length > 1 && <SpeakerVolumes group={selectedGroup} centerRight={volumesCenter} onClose={closePanel} />}
+      {settingsOpen && <SettingsModal state={settings} onClose={closeSettings} />}
       <ErrorToast />
     </View>
   );

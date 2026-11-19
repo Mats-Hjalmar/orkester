@@ -34,9 +34,11 @@ writing any Expo/RN code. Don't rely on memory of older Expo APIs.
   "this group is gone" state when it vanishes. The old store-level active-group
   fallback silently retargeted open screens at other rooms — see
   `findings/mobile-ui.md`.
-- **Re-export facades.** `src/theme/tokens.ts` and `src/state/{store,types}.ts` are
-  thin re-exports of `@orkester/core`; the source of truth is core. `src/state/
-  selectors.ts` is the app-only exception (UI helpers with no core equivalent).
+- **Re-export facades.** `src/theme/tokens.native.ts` and `src/state/{store,types}.ts`
+  are thin re-exports of `@orkester/core`; the source of truth is core. The desktop
+  `src/theme/tokens.ts` maps the same colour tokens to CSS variables so the theme can
+  switch at runtime. `src/state/selectors.ts` is the app-only exception (UI
+  helpers with no core equivalent).
 - **In-process engine, no mock.** The app runs the real engine via `src/native/`
   (both platforms enabled). There is no mock/demo Api — with no speakers the UI must
   show an empty/error state. Surface a Local-Network-denied state too; never silently

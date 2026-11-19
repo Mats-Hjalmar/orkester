@@ -51,5 +51,8 @@ export const space = {
   s10: 40,
 } as const;
 
+// The desktop top bar, which on macOS is also the window's title bar.
+export const TOP_BAR_HEIGHT = 60;
+
 // The phone frame the mockup was designed at.
 export const FRAME = { width: 390, height: 844 } as const;

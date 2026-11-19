@@ -94,3 +94,15 @@ export interface ContextMenuItem {
 
 /** Pops a native menu at the cursor; resolves with the chosen item's index, or null. */
 export const SHOW_CONTEXT_MENU_CHANNEL = 'orkester-shell:showContextMenu';
+
+/** Resolves with settings.json + every themes/*.json; rejects naming the bad file and the problem. */
+export const LOAD_SETTINGS_CHANNEL = 'orkester-shell:loadSettings';
+
+/** (stored settings) — validates and writes settings.json only, and applies its appearance to the native chrome. */
+export const SAVE_SETTINGS_CHANNEL = 'orkester-shell:saveSettings';
+
+/** (name, theme) — writes themes/<name>.json only. */
+export const SAVE_THEME_CHANNEL = 'orkester-shell:saveTheme';
+
+/** (name) — removes themes/<name>.json. */
+export const DELETE_THEME_CHANNEL = 'orkester-shell:deleteTheme';

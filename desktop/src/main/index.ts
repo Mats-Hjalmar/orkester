@@ -12,12 +12,31 @@
 // SonosApi instance keeps the topology id-maps warm across calls.
 
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme } from 'electron';
 import { SonosClient } from '@orkester/core';
 import { SonosApi } from '@orkester/core/state';
-import { NodeHttpTransport, NodeDiscoveryTransport, NodeCredentialStore } from '@orkester/core/node';
+import {
+  NodeHttpTransport,
+  NodeDiscoveryTransport,
+  NodeCredentialStore,
+  deleteTheme,
+  loadSettings,
+  saveSettings,
+  saveTheme,
+} from '@orkester/core/node';
+import { DEFAULT_SETTINGS, TOP_BAR_HEIGHT, resolveTheme, type Settings, type StoredSettings, type Theme } from '@orkester/core/theme';
 import type { Api } from '@orkester/core';
-import { API_METHODS, SHOW_CONTEXT_MENU_CHANNEL, channelFor, type ApiMethod, type ContextMenuItem } from '../ipc-contract';
+import {
+  API_METHODS,
+  DELETE_THEME_CHANNEL,
+  LOAD_SETTINGS_CHANNEL,
+  SAVE_SETTINGS_CHANNEL,
+  SAVE_THEME_CHANNEL,
+  SHOW_CONTEXT_MENU_CHANNEL,
+  channelFor,
+  type ApiMethod,
+  type ContextMenuItem,
+} from '../ipc-contract';
 
 // One engine, one Api, for the whole app lifetime. The NodeCredentialStore backs
 // Spotify search with ~/.config/orkester/auth.json — the same token the CLI's
@@ -75,7 +94,39 @@ function registerShellHandlers(): void {
       });
     }),
   );
+  ipcMain.handle(LOAD_SETTINGS_CHANNEL, () => loadSettings());
+  ipcMain.handle(SAVE_SETTINGS_CHANNEL, (_event, settings: StoredSettings) => {
+    saveSettings(settings);
+    nativeTheme.themeSource = settings.appearance;
+  });
+  ipcMain.handle(SAVE_THEME_CHANNEL, (_event, name: string, theme: Theme) => saveTheme(name, theme));
+  ipcMain.handle(DELETE_THEME_CHANNEL, (_event, name: string) => deleteTheme(name));
 }
+
+/**
+ * Points the native chrome (menus, traffic lights) at the saved appearance and
+ * returns the resolved theme's background, painted before the renderer loads.
+ */
+function applySavedAppearance(): string {
+  let settings: Settings;
+  try {
+    settings = loadSettings();
+  } catch {
+    // The renderer loads settings too and shows this error; until then the
+    // defaults, which follow the system, are enough.
+    settings = DEFAULT_SETTINGS;
+  }
+  nativeTheme.themeSource = settings.appearance;
+  return resolveTheme(settings, nativeTheme.shouldUseDarkColors).colors.bg;
+}
+
+// On macOS the app's own top bar is the title bar, so the theme paints it. The
+// traffic lights (about 16px tall) are centred in it; TopBar.tsx's
+// MAC_TRAFFIC_LIGHT_INSET keeps the wordmark clear of them.
+const MAC_TITLE_BAR: Electron.BrowserWindowConstructorOptions =
+  process.platform === 'darwin'
+    ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: Math.round((TOP_BAR_HEIGHT - 16) / 2) } }
+    : {};
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -83,8 +134,9 @@ function createWindow(): void {
     height: 820,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#F2EFE8',
+    backgroundColor: applySavedAppearance(),
     title: 'Orkester',
+    ...MAC_TITLE_BAR,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

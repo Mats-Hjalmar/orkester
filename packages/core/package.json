@@ -13,9 +13,9 @@
       "require": "./dist/index.cjs"
     },
     "./theme": {
-      "types": "./dist/theme/tokens.d.ts",
-      "import": "./dist/theme/tokens.js",
-      "require": "./dist/theme/tokens.cjs"
+      "types": "./dist/theme/index.d.ts",
+      "import": "./dist/theme/index.js",
+      "require": "./dist/theme/index.cjs"
     },
     "./sonos": {
       "types": "./dist/sonos/index.d.ts",

@@ -1,4 +1,4 @@
-import { colors } from '../theme/tokens';
+import { colors, ink } from '../theme/tokens';
 import { ChipModel } from '../components/SpeakerChip';
 import { Group } from './types';
 import { Store } from './store';
@@ -27,7 +27,7 @@ export function chipsFor(store: Store, g: Group): ChipModel[] {
       tag: otherGroup ? 'in ' + groupName(otherGroup) : '',
       bg: member ? accent : 'transparent',
       fg: member ? accentText : other ? colors.fgMuted : colors.fg,
-      border: member ? accent : 'rgba(26,24,20,0.18)',
+      border: member ? accent : ink(0.18),
       busy: groupingPending(r.id) !== null,
       onPress: () => toggleRoomInGroup(g.id, r.id),
     };

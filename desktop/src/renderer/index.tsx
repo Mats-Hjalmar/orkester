@@ -11,17 +11,22 @@ import { createRoot } from 'react-dom/client';
 import { StoreProvider } from '@orkester/core/state';
 // The desktop UI, owned by the app package — imported, never edited.
 import DesktopApp from '@app/desktop/DesktopApp';
+import { loadSettings } from '@app/desktop/settings';
+import { colors } from '@app/theme/tokens';
 import { getIpcApi } from './ipcApi';
 
 const api = getIpcApi();
+// Applies the theme's CSS variables, so the first frame is already in its colours.
+const settings = await loadSettings();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('renderer root element missing');
 
 createRoot(container).render(
   <React.StrictMode>
-    <StoreProvider api={api}>
-      <DesktopApp />
+    {/* The store's default accent is a literal; the CSS-variable one follows the theme. */}
+    <StoreProvider api={api} config={{ accentColor: colors.accent }}>
+      <DesktopApp settings={settings} />
     </StoreProvider>
   </React.StrictMode>,
 );

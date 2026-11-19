@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { colors, radii, shadow } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
+import { NO_DRAG } from './shell';
 
 const VISIBLE_MS = 6000;
 const SLIDE_MS = 220;
@@ -44,6 +45,7 @@ export default function ErrorToast() {
           testID="error-toast"
           onPress={dismissError}
           style={{
+            ...NO_DRAG,
             paddingHorizontal: 20,
             paddingVertical: 12,
             backgroundColor: colors.danger,

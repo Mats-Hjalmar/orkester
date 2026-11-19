@@ -12,6 +12,7 @@ import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { accentTextOf, groupCount } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
+import { ON_ACCENT_SECONDARY_OPACITY } from '@orkester/core/theme';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
 
@@ -99,6 +100,8 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
           else if (drag.from > to && index < drag.from && index >= to) translateY = QUEUE_ROW_H;
         }
 
+        const trailingIcon = isCurrent ? { color: accentText, opacity: ON_ACCENT_SECONDARY_OPACITY } : { color: colors.fgSubtle, opacity: 1 };
+
         const handle = (
           <View
             // RN ViewProps types currentTarget as a host ref; under react-native-web
@@ -125,9 +128,9 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
             }}
             onPointerCancel={() => setDrag(null)}
             // grab cursor + no text-select/scroll-gesture stealing the drag.
-            style={{ padding: 6, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
+            style={{ padding: 6, opacity: trailingIcon.opacity, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
           >
-            <Grip size={16} color={colors.fgSubtle} />
+            <Grip size={16} color={trailingIcon.color} />
           </View>
         );
 
@@ -138,8 +141,8 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
             hitSlop={4}
             style={({ pressed }) => ({ padding: 4, opacity: pressed ? 0.5 : 1 })}
           >
-            <View style={{ transform: [{ rotate: '90deg' }] }}>
-              <Dots size={16} color={colors.fgSubtle} />
+            <View style={{ opacity: trailingIcon.opacity, transform: [{ rotate: '90deg' }] }}>
+              <Dots size={16} color={trailingIcon.color} />
             </View>
           </Pressable>
         );
@@ -249,8 +252,9 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
           >
             <CoverArt size={HERO_COVER} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} shadow={shadow.md} artUrl={idle ? undefined : tr.artUrl}>
               {idle && (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-                  <Speaker size={32} color="rgba(26,24,20,0.35)" />
+                // bgDeep, not ink: the idle cover is a fixed light pastel, so the glyph must stay dark in every theme.
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
+                  <Speaker size={32} color={colors.bgDeep} />
                 </View>
               )}
             </CoverArt>
