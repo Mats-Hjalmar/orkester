@@ -12,3 +12,4 @@ export {
   makeDatagramHandler,
   multicastInterfaceAddresses,
 } from './discoveryTransport';
+export { loadSettings, saveSettings, saveTheme, deleteTheme, settingsPath, themesDir, themePath } from './settingsStore';

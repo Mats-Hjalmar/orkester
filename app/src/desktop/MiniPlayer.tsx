@@ -5,7 +5,7 @@ import { ChevronDown, Next, Pause, Play, Prev, Speaker } from '../icons';
 import { colors, ink, radii } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { accentTextOf } from '../state/selectors';
+import { onPrimaryOf } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group } from '../state/types';
 import { ProgressRow, Spinner, VolumeRow } from './controls';
@@ -41,7 +41,7 @@ export default function MiniPlayer({ group, panel, onTogglePanel, onVolumesCente
   const store = useStore();
   const { config, getTrack, groupName, groupControls, queueFor } = store;
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
   const tr = getTrack(group.trackId);
   const idle = tr.id === PLACEHOLDER_TRACK_ID;
   // Same rule as the full Now Playing: a loaded queue is playable even without metadata.
@@ -60,15 +60,15 @@ export default function MiniPlayer({ group, panel, onTogglePanel, onVolumesCente
   }, [toggleW, groupsW, onVolumesCenter]);
 
   return (
-    <View style={{ height: MINI_PLAYER_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: PAD_X, borderTopWidth: 1, borderTopColor: ink(0.07), backgroundColor: colors.bgPaper }}>
+    <View style={{ height: MINI_PLAYER_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: PAD_X, borderTopWidth: 1, borderTopColor: ink(0.07), backgroundColor: colors.surface }}>
       <View style={[SIDE, { gap: 12 }]}>
         <CoverArt size={52} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={idle ? undefined : tr.artUrl} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: idle ? colors.fgMuted : colors.fg }}>
+          <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: idle ? colors.textSecondary : colors.text }}>
             {idle || !tr.title ? 'Nothing playing' : tr.title}
           </Text>
           {!idle && !!tr.artist && (
-            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>{tr.artist}</Text>
+            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{tr.artist}</Text>
           )}
         </View>
       </View>
@@ -76,19 +76,19 @@ export default function MiniPlayer({ group, panel, onTogglePanel, onVolumesCente
       <View style={{ flex: 1, minWidth: TRANSPORT_MIN_W, gap: ROW_GAP, opacity: controllable ? 1 : 0.4, pointerEvents: controllable ? 'auto' : 'none' }}>
         <View style={{ height: TOP_ROW_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, opacity: pending !== null ? 0.55 : 1 }}>
           <Pressable onPress={ctrl.prev} hitSlop={8}>
-            {pending === 'prev' ? <Spinner size={18} /> : <Prev size={18} fill={colors.fg} />}
+            {pending === 'prev' ? <Spinner size={18} /> : <Prev size={18} fill={colors.text} />}
           </Pressable>
           <Pressable onPress={ctrl.togglePlay} style={{ width: 38, height: 38, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
             {pending === 'play' || pending === 'pause' ? (
-              <Spinner size={16} color={accentText} />
+              <Spinner size={16} color={onPrimary} />
             ) : group.isPlaying ? (
-              <Pause size={16} fill={accentText} />
+              <Pause size={16} fill={onPrimary} />
             ) : (
-              <Play size={16} fill={accentText} />
+              <Play size={16} fill={onPrimary} />
             )}
           </Pressable>
           <Pressable onPress={ctrl.next} hitSlop={8}>
-            {pending === 'next' ? <Spinner size={18} /> : <Next size={18} fill={colors.fg} />}
+            {pending === 'next' ? <Spinner size={18} /> : <Next size={18} fill={colors.text} />}
           </Pressable>
         </View>
         <View style={{ height: SLIDER_ROW_H, justifyContent: 'center' }}>
@@ -119,7 +119,7 @@ export default function MiniPlayer({ group, panel, onTogglePanel, onVolumesCente
           <View style={{ height: TOP_ROW_H, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             {multi && (
               <View style={{ transform: [{ rotate: volumesOpen ? '0deg' : '180deg' }] }}>
-                <ChevronDown size={14} color={volumesOpen ? colors.fg : colors.fgSubtle} />
+                <ChevronDown size={14} color={volumesOpen ? colors.text : colors.textTertiary} />
               </View>
             )}
           </View>
@@ -135,16 +135,16 @@ export default function MiniPlayer({ group, panel, onTogglePanel, onVolumesCente
             flexDirection: 'row', alignItems: 'center', gap: 6,
             maxWidth: 150, height: 34, paddingHorizontal: 12, borderRadius: radii.pill,
             borderWidth: 1, borderColor: groupsOpen ? 'transparent' : ink(0.12),
-            backgroundColor: groupsOpen ? colors.fg : colors.bg,
+            backgroundColor: groupsOpen ? colors.text : colors.background,
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Speaker size={15} color={groupsOpen ? colors.bgPaper : colors.fg} />
-          <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: font.bodyMedium, fontSize: 12.5, color: groupsOpen ? colors.bgPaper : colors.fg }}>
+          <Speaker size={15} color={groupsOpen ? colors.surface : colors.text} />
+          <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: font.bodyMedium, fontSize: 12.5, color: groupsOpen ? colors.surface : colors.text }}>
             {groupName(group)}
           </Text>
           <View style={{ transform: [{ rotate: groupsOpen ? '0deg' : '180deg' }] }}>
-            <ChevronDown size={14} color={groupsOpen ? colors.bgPaper : colors.fgSubtle} />
+            <ChevronDown size={14} color={groupsOpen ? colors.surface : colors.textTertiary} />
           </View>
         </Pressable>
       </View>

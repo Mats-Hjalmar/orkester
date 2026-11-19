@@ -27,7 +27,7 @@ function placed(width: number, fg: string, accent: string): string {
 const svg = (body: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">${body}</svg>`;
 
-const fullBleed = `<rect width="${SIZE}" height="${SIZE}" fill="${colors.bgDeep}"/>${placed(ICON_MARK_WIDTH, colors.bgPaper, colors.accent)}`;
+const fullBleed = `<rect width="${SIZE}" height="${SIZE}" fill="${colors.logoBackground}"/>${placed(ICON_MARK_WIDTH, colors.logoForeground, colors.primary)}`;
 
 // macOS doesn't mask icons: the squircle tile and its padding are part of the
 // artwork (Apple's grid: 824px tile on a 1024px canvas).
@@ -37,7 +37,7 @@ const tile = (shadow: boolean) => {
   const filter = shadow
     ? `<defs><filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/></filter></defs>`
     : '';
-  return `${filter}<rect x="${o}" y="${o}" width="${TILE}" height="${TILE}" rx="185" fill="${colors.bgDeep}"${shadow ? ' filter="url(#s)"' : ''}/>${placed(TILE * 0.62, colors.bgPaper, colors.accent)}`;
+  return `${filter}<rect x="${o}" y="${o}" width="${TILE}" height="${TILE}" rx="185" fill="${colors.logoBackground}"${shadow ? ' filter="url(#s)"' : ''}/>${placed(TILE * 0.62, colors.logoForeground, colors.primary)}`;
 };
 
 // Android adaptive icons keep only the centre 66% safe zone visible.
@@ -45,7 +45,7 @@ const ANDROID_MARK = 430;
 
 const outputs: Record<string, string> = {
   'app/assets/icon.png': svg(fullBleed),
-  'app/assets/adaptive-icon.png': svg(placed(ANDROID_MARK, colors.bgPaper, colors.accent)),
+  'app/assets/adaptive-icon.png': svg(placed(ANDROID_MARK, colors.logoForeground, colors.primary)),
   'app/assets/monochrome-icon.png': svg(placed(ANDROID_MARK, '#FFFFFF', '#FFFFFF')),
   'app/assets/splash-icon.png': svg(tile(false)),
   'desktop/build/icon.png': svg(tile(true)),

@@ -6,12 +6,13 @@ import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
 import ScrollIndicator from './ScrollIndicator';
 import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
-import { colors, ink, radii, shadow } from '../theme/tokens';
+import { colors, FIXED_DARK, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { accentTextOf, groupCount } from '../state/selectors';
+import { onPrimaryOf, groupCount } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
+import { ON_PRIMARY_SECONDARY_OPACITY } from '@orkester/core/theme';
 import type { Group, QueueItem } from '../state/types';
 import type { Motif } from '../state/types';
 
@@ -29,11 +30,11 @@ function Centered({ children }: { children: React.ReactNode }) {
 // A small back affordance to return to the rooms grid. Reuses the chevron motif.
 function BackButton({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, marginLeft: 32, marginTop: 24, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.12), backgroundColor: colors.bgPaper, opacity: pressed ? 0.7 : 1 })}>
+    <Pressable onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, marginLeft: 32, marginTop: 24, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.12), backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 })}>
       <View style={{ transform: [{ rotate: '180deg' }] }}>
-        <ChevronRight size={16} color={colors.fg} />
+        <ChevronRight size={16} color={colors.text} />
       </View>
-      <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>Rooms</Text>
+      <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.text }}>Rooms</Text>
     </Pressable>
   );
 }
@@ -76,7 +77,7 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
   };
   // reorderQueue's `to` is the FINAL position, so a track moved down from above
   // the current one lands on the current slot (the current track shifts up).
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
   const nextSlot = (index: number) => (index < currentIndex ? currentIndex : currentIndex + 1);
   const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
   const dragRef = useRef(drag);
@@ -98,6 +99,8 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
           else if (drag.from < to && index > drag.from && index <= to) translateY = -QUEUE_ROW_H;
           else if (drag.from > to && index < drag.from && index >= to) translateY = QUEUE_ROW_H;
         }
+
+        const trailingIcon = isCurrent ? { color: onPrimary, opacity: ON_PRIMARY_SECONDARY_OPACITY } : { color: colors.textTertiary, opacity: 1 };
 
         const handle = (
           <View
@@ -125,9 +128,9 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
             }}
             onPointerCancel={() => setDrag(null)}
             // grab cursor + no text-select/scroll-gesture stealing the drag.
-            style={{ padding: 6, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
+            style={{ padding: 6, opacity: trailingIcon.opacity, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
           >
-            <Grip size={16} color={colors.fgSubtle} />
+            <Grip size={16} color={trailingIcon.color} />
           </View>
         );
 
@@ -138,8 +141,8 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
             hitSlop={4}
             style={({ pressed }) => ({ padding: 4, opacity: pressed ? 0.5 : 1 })}
           >
-            <View style={{ transform: [{ rotate: '90deg' }] }}>
-              <Dots size={16} color={colors.fgSubtle} />
+            <View style={{ opacity: trailingIcon.opacity, transform: [{ rotate: '90deg' }] }}>
+              <Dots size={16} color={trailingIcon.color} />
             </View>
           </Pressable>
         );
@@ -157,11 +160,11 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
             // The negative margin lets the tint extend past the content without shifting it.
             style={{
               height: QUEUE_ROW_H, justifyContent: 'center', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: radii.md,
-              backgroundColor: isCurrent ? accent : isDragged || menuIndex === index ? colors.bgCream : hovered === index ? ink(0.03) : 'transparent',
+              backgroundColor: isCurrent ? accent : isDragged || menuIndex === index ? ink(0.06) : hovered === index ? ink(0.03) : 'transparent',
               transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : index < currentIndex ? 0.5 : 1,
             }}
           >
-            <QueueRow item={item} motif={motif} fg={isCurrent ? accentText : colors.fg} muted={isCurrent ? accentText : colors.fgMuted} current={isCurrent} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
+            <QueueRow item={item} motif={motif} fg={isCurrent ? onPrimary : colors.text} muted={isCurrent ? onPrimary : colors.textSecondary} current={isCurrent} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
           </View>
         );
       })}
@@ -197,8 +200,8 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
       <View style={{ flex: 1 }}>
         {onBack && <BackButton onPress={onBack} />}
         <Centered>
-          <View style={{ width: 64, height: 64, borderRadius: radii.pill, backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), alignItems: 'center', justifyContent: 'center' }}>
-            <Speaker size={30} color={colors.fgMuted} />
+          <View style={{ width: 64, height: 64, borderRadius: radii.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: ink(0.1), alignItems: 'center', justifyContent: 'center' }}>
+            <Speaker size={30} color={colors.textSecondary} />
           </View>
           <Text style={[type.displaySm, { textAlign: 'center' }]}>{heading}</Text>
           {status === 'loading' || status === 'idle' ? (
@@ -217,7 +220,7 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
                   {state.topologyError}
                 </Text>
               )}
-              <Text style={[type.small, { textAlign: 'center', color: colors.fgSubtle }]}>Retrying automatically…</Text>
+              <Text style={[type.small, { textAlign: 'center', color: colors.textTertiary }]}>Retrying automatically…</Text>
             </>
           )}
         </Centered>
@@ -249,15 +252,16 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
           >
             <CoverArt size={HERO_COVER} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} shadow={shadow.md} artUrl={idle ? undefined : tr.artUrl}>
               {idle && (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-                  <Speaker size={32} color="rgba(26,24,20,0.35)" />
+                // FIXED_DARK, not ink: the idle cover is a fixed light pastel, so the glyph must stay dark in every theme.
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
+                  <Speaker size={32} color={FIXED_DARK} />
                 </View>
               )}
             </CoverArt>
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.fgFaint : accent }} />
+              <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: idle ? colors.textHint : accent }} />
               <Text numberOfLines={1} style={[type.eyebrow, { flexShrink: 1 }]}>{here}</Text>
               {g.spotifyConnect && <SpotifyConnectBadge />}
             </View>
@@ -265,22 +269,22 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
             {!idle && !!tr.title && (
               <Text testID="np-title" numberOfLines={2} style={[type.displaySm, { marginTop: 6 }]}>{tr.title}</Text>
             )}
-            {!idle && !!tr.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 14, color: colors.fgMuted, marginTop: 4 }}>{tr.artist}</Text>}
+            {!idle && !!tr.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>{tr.artist}</Text>}
             {!idle && !!tr.album && (
-              <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>{tr.album}</Text>
+              <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{tr.album}</Text>
             )}
           </View>
         </View>
 
         {queue.length > 0 && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 8 }}>
-            <Queue size={16} color={colors.fgSubtle} />
+            <Queue size={16} color={colors.textTertiary} />
             <Text style={[type.eyebrow, { flex: 1 }]}>Queue · {queue.length}</Text>
             <Pressable onPress={() => clearQueue(g.id)} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
               {queueBusy ? (
-                <ActivityIndicator size="small" color={colors.fgMuted} />
+                <ActivityIndicator size="small" color={colors.textSecondary} />
               ) : (
-                <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.textSecondary }}>Clear</Text>
               )}
             </Pressable>
           </View>

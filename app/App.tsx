@@ -35,7 +35,7 @@ function MobileNav() {
   return (
     <Stack.Navigator
       initialRouteName="Rooms"
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
     >
       <Stack.Screen name="Rooms" component={Rooms} />
       <Stack.Screen name="Room" component={NowPlaying} />
@@ -76,7 +76,7 @@ function PollingGate() {
 function MobileApp() {
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
         <PollingGate />
         <NavigationContainer>
           <MobileNav />
@@ -120,7 +120,7 @@ export default function App() {
 
   // Gate on fonts so nothing flashes in a system fallback before the brand
   // faces load.
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
 
   return (
     <StoreProvider api={api}>

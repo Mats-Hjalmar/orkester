@@ -10,7 +10,7 @@ import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { useStore } from '../state/store';
 import { useNav } from '../navigation';
-import { accentTextOf } from '../state/selectors';
+import { onPrimaryOf } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 
 // A group row on the rooms-first list: cover, name, what it's playing, an inline
@@ -24,7 +24,7 @@ export default function RoomGroupCard({ group }: { group: Group }) {
   const { config, getTrack, groupName, roomName, groupVol, groupMuted, volumeSettling, focusGroup, setGroupVol, groupControls, transportPending, queueFor } = store;
   const tr = getTrack(group.trackId);
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
   const nothing = tr.id === PLACEHOLDER_TRACK_ID;
   // A group with a queue is controllable even when it reports no now-playing
   // metadata — Play resumes the queue. One with neither has nothing to start.
@@ -49,7 +49,7 @@ export default function RoomGroupCard({ group }: { group: Group }) {
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={`Open ${groupName(group)}`}
-      style={({ pressed }) => ({ backgroundColor: colors.bgPaper, borderWidth: 1, borderColor: ink(0.1), borderRadius: 20, padding: 16, opacity: pressed ? 0.85 : 1 })}
+      style={({ pressed }) => ({ backgroundColor: colors.surface, borderWidth: 1, borderColor: ink(0.1), borderRadius: 20, padding: 16, opacity: pressed ? 0.85 : 1 })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
         <CoverArt size={48} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={nothing ? undefined : tr.artUrl} />
@@ -59,9 +59,9 @@ export default function RoomGroupCard({ group }: { group: Group }) {
             {group.isPlaying && <View style={{ width: 6, height: 6, borderRadius: radii.pill, backgroundColor: accent }} />}
             {group.spotifyConnect && <SpotifyConnectBadge />}
           </View>
-          <Text numberOfLines={1} style={[type.small, { marginTop: 2, color: colors.fgSubtle }]}>{playingText}</Text>
+          <Text numberOfLines={1} style={[type.small, { marginTop: 2, color: colors.textTertiary }]}>{playingText}</Text>
           {group.roomIds.length > 1 && (
-            <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.fgFaint }]}>{roomsLine}</Text>
+            <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.textHint }]}>{roomsLine}</Text>
           )}
         </View>
         {controllable ? (
@@ -77,15 +77,15 @@ export default function RoomGroupCard({ group }: { group: Group }) {
             style={{ width: 44, height: 44, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}
           >
             {pending === 'play' || pending === 'pause' ? (
-              <ActivityIndicator size="small" color={accentText} />
+              <ActivityIndicator size="small" color={onPrimary} />
             ) : group.isPlaying ? (
-              <Pause size={16} fill={accentText} />
+              <Pause size={16} fill={onPrimary} />
             ) : (
-              <Play size={16} fill={accentText} />
+              <Play size={16} fill={onPrimary} />
             )}
           </Pressable>
         ) : (
-          <ChevronRight size={20} color={colors.fgSubtle} />
+          <ChevronRight size={20} color={colors.textTertiary} />
         )}
       </View>
 
@@ -94,14 +94,14 @@ export default function RoomGroupCard({ group }: { group: Group }) {
           drag — moving a guessed slider writes an absolute volume and can jump to max. */}
       {groupVolume !== null && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
-          <VolumeHigh size={16} color={colors.fgMuted} />
+          <VolumeHigh size={16} color={colors.textSecondary} />
           <TrackBar
             value={(groupMuted(group) ? 0 : groupVolume) / 100}
             onScrub={(f) => setGroupVol(group.id, f)}
             onCommit={tapSelection}
             label={`${groupName(group)} volume`}
             trackColor={ink(0.1)}
-            fillColor={colors.fg}
+            fillColor={colors.text}
             height={5}
             thumb
             grabThumbOnly

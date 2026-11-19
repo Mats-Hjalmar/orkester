@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import { colors, ink, radii, shadow } from '../theme/tokens';
 import { MINI_PLAYER_H } from './MiniPlayer';
+import { NO_DRAG } from './shell';
 
 const WIDTH = 300;
 const EDGE = 20;
@@ -17,13 +18,13 @@ export default function Popover({ testID, onClose, centerRight, children }: { te
   }, [onClose]);
 
   return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+    <View style={{ ...NO_DRAG, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
       <Pressable testID={`${testID}-backdrop`} onPress={onClose} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, cursor: 'default' } as any} />
       <View
         testID={testID}
         style={{
           position: 'absolute', right: centerRight === undefined ? EDGE : Math.max(EDGE, centerRight - WIDTH / 2), bottom: MINI_PLAYER_H + 8, width: WIDTH, maxHeight: 420,
-          borderRadius: radii.lg, borderWidth: 1, borderColor: ink(0.1), backgroundColor: colors.bgPaper,
+          borderRadius: radii.lg, borderWidth: 1, borderColor: ink(0.1), backgroundColor: colors.surface,
           boxShadow: shadow.md,
         } as any}
       >

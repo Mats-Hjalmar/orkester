@@ -43,9 +43,9 @@ export default function Speakers() {
 
   if (!g) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 }}>
-        <Speaker size={28} color={colors.fgSubtle} />
-        <Text style={{ fontFamily: font.bodySemiBold, fontSize: 15, color: colors.fg, textAlign: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 }}>
+        <Speaker size={28} color={colors.textTertiary} />
+        <Text style={{ fontFamily: font.bodySemiBold, fontSize: 15, color: colors.text, textAlign: 'center' }}>
           This group is gone
         </Text>
         <Text style={[type.bodyMuted, { textAlign: 'center' }]}>
@@ -62,7 +62,7 @@ export default function Speakers() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bg }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ paddingTop: 18, paddingHorizontal: 22, paddingBottom: insets.bottom + 28, gap: 18 }}
       showsVerticalScrollIndicator={false}
     >
@@ -78,14 +78,14 @@ export default function Speakers() {
         <View style={{ gap: 8 }}>
           {multi && <Text style={type.eyebrow}>All together</Text>}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <VolumeHigh size={20} color={colors.fgMuted} />
+            <VolumeHigh size={20} color={colors.textSecondary} />
             <TrackBar
               value={(groupMuted(g) ? 0 : groupVolume) / 100}
               onScrub={(f) => setGroupVol(g.id, f)}
               onCommit={tapSelection}
               label="Group volume"
               trackColor={ink(0.12)}
-              fillColor={colors.fg}
+              fillColor={colors.text}
               height={5}
               thumb
               grabThumbOnly
@@ -155,12 +155,12 @@ function SpeakerLevel({
 }) {
   return (
     <View style={{ paddingVertical: 6, opacity: busy ? 0.6 : 1 }}>
-      <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>
+      <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.text }}>
         {name}
       </Text>
       {volume === null ? (
         // No real reading for this speaker yet — no slider to guess at.
-        <Text style={[type.small, { marginTop: 4, color: colors.fgFaint }]}>Reading level…</Text>
+        <Text style={[type.small, { marginTop: 4, color: colors.textHint }]}>Reading level…</Text>
       ) : (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
           <Pressable
@@ -172,11 +172,11 @@ function SpeakerLevel({
             style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
           >
             {muting ? (
-              <ActivityIndicator size="small" color={colors.fg} />
+              <ActivityIndicator size="small" color={colors.text} />
             ) : muted ? (
-              <VolumeLow size={18} color={colors.fgMuted} />
+              <VolumeLow size={18} color={colors.textSecondary} />
             ) : (
-              <VolumeHigh size={18} color={colors.fg} />
+              <VolumeHigh size={18} color={colors.text} />
             )}
           </Pressable>
           <TrackBar
@@ -185,7 +185,7 @@ function SpeakerLevel({
             onCommit={tapSelection}
             label={`${name} volume`}
             trackColor={ink(0.12)}
-            fillColor={colors.fg}
+            fillColor={colors.text}
             height={5}
             thumb
             grabThumbOnly

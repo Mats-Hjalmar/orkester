@@ -22,10 +22,10 @@ const stroke = (size: number, color: string, sw = 1.75) => ({
 
 // The app icon, drawn live: the orkester mark on its dark rounded tile.
 export function OrkesterMark({ size = 24 }: { size?: number }) {
-  const tone = (t: MarkTone) => (t === 'fg' ? colors.bgPaper : colors.accent);
+  const tone = (t: MarkTone) => (t === 'fg' ? colors.logoForeground : colors.primary);
   return (
     <Svg width={size} height={size} viewBox="0 0 1024 1024">
-      <Rect width={1024} height={1024} rx={225} fill={colors.bgDeep} />
+      <Rect width={1024} height={1024} rx={225} fill={colors.logoBackground} />
       <G transform={markTransform(1024, ICON_MARK_WIDTH)}>
         {MARK_SHAPES.map((s, i) => {
           switch (s.kind) {
@@ -45,7 +45,7 @@ export function OrkesterMark({ size = 24 }: { size?: number }) {
   );
 }
 
-export function ChevronDown({ size = 24, color = '#1A1814' }: IconProps) {
+export function ChevronDown({ size = 24, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color, 1.9)}>
       <Path d="M6 9l6 6 6-6" />
@@ -53,7 +53,7 @@ export function ChevronDown({ size = 24, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function ChevronRight({ size = 20, color = '#1A1814' }: IconProps) {
+export function ChevronRight({ size = 20, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M9 6l6 6-6 6" />
@@ -61,7 +61,7 @@ export function ChevronRight({ size = 20, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Play({ size = 24, fill = '#1A1814' }: IconProps) {
+export function Play({ size = 24, fill = colors.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill}>
       <Path d="M8 5v14l11-7z" />
@@ -69,7 +69,7 @@ export function Play({ size = 24, fill = '#1A1814' }: IconProps) {
   );
 }
 
-export function Pause({ size = 24, fill = '#1A1814' }: IconProps) {
+export function Pause({ size = 24, fill = colors.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill}>
       <Rect x={6.5} y={5} width={3.8} height={14} rx={1.4} />
@@ -78,7 +78,7 @@ export function Pause({ size = 24, fill = '#1A1814' }: IconProps) {
   );
 }
 
-export function Prev({ size = 28, fill = '#1A1814' }: IconProps) {
+export function Prev({ size = 28, fill = colors.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill}>
       <Path d="M7 5h2.2v14H7zM20 5L9.5 12 20 19z" />
@@ -86,7 +86,7 @@ export function Prev({ size = 28, fill = '#1A1814' }: IconProps) {
   );
 }
 
-export function Next({ size = 28, fill = '#1A1814' }: IconProps) {
+export function Next({ size = 28, fill = colors.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill}>
       <Path d="M17 5h-2.2v14H17zM4 5l10.5 7L4 19z" />
@@ -94,7 +94,7 @@ export function Next({ size = 28, fill = '#1A1814' }: IconProps) {
   );
 }
 
-export function Shuffle({ size = 22, color = '#1A1814' }: IconProps) {
+export function Shuffle({ size = 22, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M16 3h5v5" />
@@ -106,7 +106,7 @@ export function Shuffle({ size = 22, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Repeat({ size = 22, color = '#1A1814' }: IconProps) {
+export function Repeat({ size = 22, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M17 2l4 4-4 4" />
@@ -117,7 +117,7 @@ export function Repeat({ size = 22, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Speaker({ size = 18, color = '#1A1814' }: IconProps) {
+export function Speaker({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color, 1.6)}>
       <Rect x={6.5} y={3} width={11} height={18} rx={3} />
@@ -127,7 +127,7 @@ export function Speaker({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Search({ size = 22, color = '#1A1814' }: IconProps) {
+export function Search({ size = 22, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Circle cx={11} cy={11} r={7} />
@@ -136,7 +136,7 @@ export function Search({ size = 22, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function VolumeLow({ size = 18, color = '#1A1814' }: IconProps) {
+export function VolumeLow({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M11 5L6 9H2v6h4l5 4z" />
@@ -144,7 +144,7 @@ export function VolumeLow({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function VolumeHigh({ size = 20, color = '#1A1814' }: IconProps) {
+export function VolumeHigh({ size = 20, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M11 5L6 9H2v6h4l5 4z" />
@@ -154,7 +154,7 @@ export function VolumeHigh({ size = 20, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Dots({ size = 22, color = '#1A1814' }: IconProps) {
+export function Dots({ size = 22, color = colors.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
       <Circle cx={5} cy={12} r={1.6} />
@@ -164,7 +164,7 @@ export function Dots({ size = 22, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Queue({ size = 20, color = '#1A1814' }: IconProps) {
+export function Queue({ size = 20, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M4 6h11M4 12h11M4 18h7" />
@@ -174,7 +174,7 @@ export function Queue({ size = 20, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function QueueTop({ size = 20, color = '#1A1814' }: IconProps) {
+export function QueueTop({ size = 20, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M4 6h16M4 12h9M4 18h9" />
@@ -183,7 +183,7 @@ export function QueueTop({ size = 20, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function QueueBottom({ size = 20, color = '#1A1814' }: IconProps) {
+export function QueueBottom({ size = 20, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M4 6h9M4 12h9M4 18h16" />
@@ -192,7 +192,7 @@ export function QueueBottom({ size = 20, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Trash({ size = 18, color = '#1A1814' }: IconProps) {
+export function Trash({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M4 7h16M9 7V4.5h6V7M6 7l1 12.5h10L18 7M10 11v5.5M14 11v5.5" />
@@ -200,7 +200,7 @@ export function Trash({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
+export function Plus({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M12 5v14M5 12h14" />
@@ -208,7 +208,7 @@ export function Plus({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Close({ size = 18, color = '#1A1814' }: IconProps) {
+export function Close({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M6 6l12 12M18 6L6 18" />
@@ -216,7 +216,7 @@ export function Close({ size = 18, color = '#1A1814' }: IconProps) {
   );
 }
 
-export function Check({ size = 18, color = '#1A1814' }: IconProps) {
+export function Check({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color, 2.25)}>
       <Path d="M5 12.5l4.5 4.5L19 7.5" />
@@ -225,7 +225,7 @@ export function Check({ size = 18, color = '#1A1814' }: IconProps) {
 }
 
 // Drag handle — six dots (2×3). Grab to reorder a queue row.
-export function Grip({ size = 18, color = '#1A1814' }: IconProps) {
+export function Grip({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
       <Circle cx={9} cy={6} r={1.5} />
@@ -240,11 +240,47 @@ export function Grip({ size = 18, color = '#1A1814' }: IconProps) {
 
 // Circular refresh — two arrows chasing round, with arrowheads. Used by the
 // manual "reconnect" button (the Sonos connection can drift).
-export function Refresh({ size = 18, color = '#1A1814' }: IconProps) {
+export function Refresh({ size = 18, color = colors.text }: IconProps) {
   return (
     <Svg {...stroke(size, color)}>
       <Path d="M21 12a9 9 0 11-2.64-6.36" />
       <Path d="M21 3v5h-5" />
+    </Svg>
+  );
+}
+
+// Settings gear (Feather's "settings" glyph).
+export function Cog({ size = 18, color = colors.text }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Circle cx={12} cy={12} r={3} />
+      <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </Svg>
+  );
+}
+
+export function Sun({ size = 18, color = colors.text }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Circle cx={12} cy={12} r={4.5} />
+      <Path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" />
+    </Svg>
+  );
+}
+
+export function Moon({ size = 18, color = colors.text }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </Svg>
+  );
+}
+
+export function Monitor({ size = 18, color = colors.text }: IconProps) {
+  return (
+    <Svg {...stroke(size, color)}>
+      <Rect x={2} y={3} width={20} height={14} rx={2} />
+      <Path d="M8 21h8M12 17v4" />
     </Svg>
   );
 }

@@ -2,28 +2,26 @@
 // in-page popup because only the OS can draw a menu past the window's edge (and
 // keep it on-screen) — an HTML menu is clipped to the window.
 
-import type { ReactElement } from 'react';
+import { cloneElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import type { IconProps } from '../icons';
+import { orkesterShell } from './shell';
 
 export interface ContextMenuAction {
   label: string;
   onPress: () => void;
   enabled?: boolean;
   /** An icon element from `../icons`, sized for a menu (16). Its colour is ignored: macOS tints it. */
-  icon?: ReactElement;
+  icon?: ReactElement<IconProps>;
 }
 
-declare global {
-  interface Window {
-    orkesterShell?: {
-      showContextMenu: (items: { label: string; enabled?: boolean; icon?: string }[]) => Promise<number | null>;
-    };
-  }
-}
+// CSS variables (the theme colours) don't resolve inside an SVG decoded by an
+// <img>, so the icon is drawn in a literal colour; only its alpha matters.
+const MENU_ICON_COLOR = '#000000';
 
 // Main can't rasterize SVG, so draw the icon here and hand over a 2x PNG.
-async function iconToPng(icon: ReactElement): Promise<string> {
-  const markup = renderToStaticMarkup(icon);
+async function iconToPng(icon: ReactElement<IconProps>): Promise<string> {
+  const markup = renderToStaticMarkup(cloneElement(icon, { color: MENU_ICON_COLOR, fill: MENU_ICON_COLOR }));
   // An <img> only decodes SVG that declares its namespace.
   const svg = markup.includes('xmlns=') ? markup : markup.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
   const img = new Image();
@@ -38,8 +36,7 @@ async function iconToPng(icon: ReactElement): Promise<string> {
 
 /** Pops a native menu at the cursor and runs the chosen action, if any. */
 export async function showContextMenu(actions: ContextMenuAction[]): Promise<void> {
-  const shell = window.orkesterShell;
-  if (!shell) throw new Error('window.orkesterShell is missing — the Electron preload did not run');
+  const shell = orkesterShell();
   const items = await Promise.all(actions.map(async ({ label, enabled, icon }) => ({
     label,
     enabled,

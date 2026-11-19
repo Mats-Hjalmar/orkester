@@ -1,7 +1,7 @@
 // @orkester/core — shared, RN-free building blocks.
 // Theme tokens are VALUE re-exports; everything else is types-only.
 
-export { colors, ink, paper, radii, shadow, space, FRAME } from './theme/tokens';
+export { colors, ink, radii, shadow, space, FRAME } from './theme/tokens';
 
 export type {
   HttpRequest,

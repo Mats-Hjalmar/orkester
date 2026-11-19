@@ -37,7 +37,7 @@ const RN_ENTRIES = [
   'engine/index.ts',
   'api/index.ts',
   'state/index.ts',
-  'theme/tokens.ts',
+  'theme/index.ts',
   // @orkester/sonos-api is bundled into the engine, so its source is RN-facing too.
   '../../sonos-api/src/index.ts',
 ];

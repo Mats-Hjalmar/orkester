@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: [
     'src/index.ts',
-    'src/theme/tokens.ts',
+    'src/theme/index.ts',
     'src/sonos/index.ts',
     // Pure Sonos protocol engine (RN-safe; consumes injected transports).
     'src/engine/index.ts',

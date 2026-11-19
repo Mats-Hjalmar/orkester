@@ -34,7 +34,7 @@ export default function Rooms() {
             <OrkesterMark size={30} />
             <Text maxFontSizeMultiplier={1.6} style={[type.wordmark, { fontSize: 30 }]}>orkester</Text>
           </View>
-          <Text numberOfLines={1} style={[type.small, { marginTop: 4, color: colors.fgSubtle }]}>
+          <Text numberOfLines={1} style={[type.small, { marginTop: 4, color: colors.textTertiary }]}>
             {subtitle}
           </Text>
         </View>
@@ -53,11 +53,11 @@ export default function Rooms() {
             borderRadius: radii.pill,
             borderWidth: 1,
             borderColor: ink(0.12),
-            backgroundColor: colors.bgPaper,
+            backgroundColor: colors.surface,
             opacity: refreshing ? 0.6 : pressed ? 0.7 : 1,
           })}
         >
-          {refreshing ? <ActivityIndicator size="small" color={colors.fgMuted} /> : <Refresh size={18} color={colors.fg} />}
+          {refreshing ? <ActivityIndicator size="small" color={colors.textSecondary} /> : <Refresh size={18} color={colors.text} />}
         </Pressable>
       </View>
 
@@ -71,7 +71,7 @@ export default function Rooms() {
           {groups.map((g) => (
             <RoomGroupCard key={g.id} group={g} />
           ))}
-          <Text style={[type.small, { color: colors.fgFaint, marginTop: 2 }]}>
+          <Text style={[type.small, { color: colors.textHint, marginTop: 2 }]}>
             Each group plays its own thing. Tap one to control it.
           </Text>
         </View>

@@ -1,12 +1,12 @@
-import { colors } from '../theme/tokens';
+import { colors, ink } from '../theme/tokens';
 import { ChipModel } from '../components/SpeakerChip';
 import { Group } from './types';
 import { Store } from './store';
 
 // Text colour that sits on the accent fill: dark-on-lime by default, otherwise
-// the standard ink (matches the mockup's accentText rule).
-export function accentTextOf(accent: string): string {
-  return accent === colors.accent ? colors.accentText : colors.fg;
+// the standard ink (matches the mockup's onPrimary rule).
+export function onPrimaryOf(accent: string): string {
+  return accent === colors.primary ? colors.onPrimary : colors.text;
 }
 
 // Speaker chips for a group: each room is a member (filled), in another group
@@ -14,7 +14,7 @@ export function accentTextOf(accent: string): string {
 export function chipsFor(store: Store, g: Group): ChipModel[] {
   const { state, config, groupName, toggleRoomInGroup, groupingPending } = store;
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
   return store.rooms.map((r) => {
     const member = g.roomIds.includes(r.id);
     const otherGroup = !member ? state.groups.find((x) => x.id !== g.id && x.roomIds.includes(r.id)) : undefined;
@@ -26,8 +26,8 @@ export function chipsFor(store: Store, g: Group): ChipModel[] {
       other,
       tag: otherGroup ? 'in ' + groupName(otherGroup) : '',
       bg: member ? accent : 'transparent',
-      fg: member ? accentText : other ? colors.fgMuted : colors.fg,
-      border: member ? accent : 'rgba(26,24,20,0.18)',
+      fg: member ? onPrimary : other ? colors.textSecondary : colors.text,
+      border: member ? accent : ink(0.18),
       busy: groupingPending(r.id) !== null,
       onPress: () => toggleRoomInGroup(g.id, r.id),
     };

@@ -69,18 +69,18 @@ export function TopologyNotice({
         borderWidth: 1,
         borderColor: phase === 'error' ? colors.danger : ink(0.1),
         borderRadius: radii.lg,
-        backgroundColor: colors.bgPaper,
+        backgroundColor: colors.surface,
       }}
     >
       {phase === 'loading' ? (
-        <ActivityIndicator size="small" color={colors.fgMuted} />
+        <ActivityIndicator size="small" color={colors.textSecondary} />
       ) : (
-        <Speaker size={compact ? 22 : 28} color={phase === 'error' ? colors.danger : colors.fgSubtle} />
+        <Speaker size={compact ? 22 : 28} color={phase === 'error' ? colors.danger : colors.textTertiary} />
       )}
-      <Text style={{ fontFamily: font.bodySemiBold, fontSize: titleSize, color: phase === 'error' ? colors.danger : colors.fg, textAlign: 'center' }}>
+      <Text style={{ fontFamily: font.bodySemiBold, fontSize: titleSize, color: phase === 'error' ? colors.danger : colors.text, textAlign: 'center' }}>
         {title}
       </Text>
-      <Text style={{ fontFamily: font.body, fontSize: 12.5, lineHeight: 17, color: colors.fgMuted, textAlign: 'center' }}>
+      <Text style={{ fontFamily: font.body, fontSize: 12.5, lineHeight: 17, color: colors.textSecondary, textAlign: 'center' }}>
         {body}
       </Text>
       {/* The engine's own message, kept verbatim and never in place of the guidance. */}
@@ -90,7 +90,7 @@ export function TopologyNotice({
         </Text>
       )}
       {phase === 'error' && (
-        <Text style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, textAlign: 'center' }}>
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: colors.textTertiary, textAlign: 'center' }}>
           Retrying automatically…
         </Text>
       )}

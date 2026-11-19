@@ -7,7 +7,7 @@ import { colors, ink, radii } from '../theme/tokens';
 import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
-import { accentTextOf, sortedGroups } from '../state/selectors';
+import { onPrimaryOf, sortedGroups } from '../state/selectors';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
 import type { Group } from '../state/types';
 
@@ -23,7 +23,7 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
   const store = useStore();
   const { config, getTrack, groupName, roomName, groupControls } = store;
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
   const tr = getTrack(group.trackId);
   const idle = group.id === '' || tr.id === PLACEHOLDER_TRACK_ID;
   const ctrl = groupControls(group.id);
@@ -47,7 +47,7 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
         gap: 12,
         padding: 10,
         borderRadius: radii.lg,
-        backgroundColor: selected ? colors.bgPaper : pressed ? ink(0.04) : 'transparent',
+        backgroundColor: selected ? colors.surface : pressed ? ink(0.04) : 'transparent',
         borderWidth: 1,
         borderColor: selected ? ink(0.12) : 'transparent',
       })}
@@ -55,7 +55,7 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
       <CoverArt size={46} coverBg={tr.coverBg} coverShape={tr.coverShape} motif={config.coverMotif} radius={radii.md} artUrl={tr.artUrl} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={expanded ? undefined : 1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg, flex: 1 }}>
+          <Text numberOfLines={expanded ? undefined : 1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.text, flex: 1 }}>
             {label}
           </Text>
           {group.spotifyConnect && <SpotifyConnectBadge />}
@@ -66,14 +66,14 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
               hitSlop={6}
               style={({ pressed }) => ({ padding: 2, opacity: pressed ? 0.5 : 1, transform: [{ rotate: expanded ? '90deg' : '0deg' }] })}
             >
-              <ChevronRight size={14} color={colors.fgSubtle} />
+              <ChevronRight size={14} color={colors.textTertiary} />
             </Pressable>
           )}
         </View>
         {(() => {
           const line = lineFor(idle, tr.title, tr.artist);
           return line ? (
-            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>{line}</Text>
+            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{line}</Text>
           ) : null;
         })()}
       </View>
@@ -85,11 +85,11 @@ function GroupRow({ group, selected, onSelect }: { group: Group; selected: boole
           style={{ width: 34, height: 34, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}
         >
           {store.transportPending(group.id) !== null ? (
-            <ActivityIndicator size="small" color={accentText} />
+            <ActivityIndicator size="small" color={onPrimary} />
           ) : group.isPlaying ? (
-            <Pause size={15} fill={accentText} />
+            <Pause size={15} fill={onPrimary} />
           ) : (
-            <Play size={15} fill={accentText} />
+            <Play size={15} fill={onPrimary} />
           )}
         </Pressable>
       )}
@@ -110,7 +110,7 @@ export default function RoomList({ selectedId, onSelect }: { selectedId: string 
   const groups = sortedGroups(store);
 
   return (
-    <View style={{ width: 320, flex: 'none' as any, borderRightWidth: 1, borderRightColor: ink(0.07), backgroundColor: colors.bg }}>
+    <View style={{ width: 320, flex: 'none' as any, borderRightWidth: 1, borderRightColor: ink(0.07), backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 4 }} showsVerticalScrollIndicator={false}>
         <Text style={[type.eyebrow, { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 8 }]}>Groups</Text>
         {groups.map((g) => (
