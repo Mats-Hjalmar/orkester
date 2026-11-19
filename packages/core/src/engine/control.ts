@@ -342,9 +342,10 @@ export type RepeatMode = 'none' | 'all' | 'one';
 
 /**
  * Where an enqueue lands in the coordinator's queue: 'end' appends, 'next'
- * inserts directly after the track playing now.
+ * inserts directly after the track playing now, and a number is the 0-based
+ * queue index its first track lands at (the queue's length appends).
  */
-export type QueuePosition = 'end' | 'next';
+export type QueuePosition = 'end' | 'next' | number;
 
 /** Decoded transport play settings. */
 export interface PlaySettings {
@@ -719,30 +720,126 @@ export function clearQueueRequest(): ControlRequest {
 }
 
 /**
- * ReorderTracksInQueue — moves ONE track within the queue. Indices here are
- * 0-based; Sonos wants 1-based StartingIndex + InsertBefore, where InsertBefore
- * is in the queue's ORIGINAL numbering. Moving DOWN inserts before (to+2),
- * moving UP before (to+1) — derived 1-based as (toPos<fromPos?toPos:toPos+1).
+ * ReorderTracksInQueue — moves a contiguous run of `count` tracks within the
+ * queue. Indices here are 0-based and `toIndex` is the run's FINAL position;
+ * Sonos wants 1-based StartingIndex + InsertBefore, where InsertBefore is in the
+ * queue's ORIGINAL numbering (before the move). Moving UP inserts before
+ * (to+1); moving DOWN the run's own tracks still count in that numbering, so it
+ * inserts before (to+count+1).
  * UpdateID 0 lets the speaker use its current queue version.
  */
-export function reorderQueueRequest(fromIndex: number, toIndex: number): ControlRequest {
+export function reorderQueueRequest(fromIndex: number, toIndex: number, count = 1): ControlRequest {
   if (fromIndex < 0 || toIndex < 0) {
     throw new Error(`reorderQueue: indices must be non-negative (from=${fromIndex}, to=${toIndex})`);
   }
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error(`reorderQueue: track count must be a positive integer, got ${count}`);
+  }
   const startingIndex = fromIndex + 1;
-  const insertBefore = toIndex < fromIndex ? toIndex + 1 : toIndex + 2;
+  const insertBefore = toIndex < fromIndex ? toIndex + 1 : toIndex + count + 1;
   return {
     service: avTransport(),
     action: 'ReorderTracksInQueue',
     args: [
       instanceArg(),
       { name: 'StartingIndex', value: String(startingIndex) },
-      { name: 'NumberOfTracks', value: '1' },
+      { name: 'NumberOfTracks', value: String(count) },
       { name: 'InsertBefore', value: String(insertBefore) },
       { name: 'UpdateID', value: '0' },
     ],
     base: 'coordinator',
   };
+}
+
+/** A contiguous run of queue tracks: `count` tracks starting at 0-based `from`. */
+export interface QueueRun {
+  from: number;
+  count: number;
+}
+
+/** One ReorderTracksInQueue step: the run at `from` moves so it starts at final position `to`. */
+export interface QueueMove extends QueueRun {
+  to: number;
+}
+
+/** Sorted, validated copy of `indices` (THROWS on empty, out-of-range or duplicate). */
+function checkQueueIndices(op: string, indices: number[], queueLength: number): number[] {
+  if (indices.length === 0) {
+    throw new RangeError(`${op}: no queue indices given`);
+  }
+  for (const i of indices) {
+    if (!Number.isInteger(i) || i < 0 || i >= queueLength) {
+      throw new RangeError(`${op}: queue index ${i} is out of range for a ${queueLength}-track queue`);
+    }
+  }
+  const sorted = [...indices].sort((a, b) => a - b);
+  if (sorted.some((v, k) => k > 0 && v === sorted[k - 1])) {
+    throw new RangeError(`${op}: duplicate queue index in [${indices.join(', ')}]`);
+  }
+  return sorted;
+}
+
+/** Groups sorted indices into maximal contiguous runs, top of the queue first. */
+function contiguousRuns(sorted: number[]): number[][] {
+  const runs: number[][] = [];
+  for (const i of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && last[last.length - 1] === i - 1) last.push(i);
+    else runs.push([i]);
+  }
+  return runs;
+}
+
+/**
+ * The RemoveTrackRangeFromQueue calls that remove the tracks at `indices`, one
+ * per contiguous run, BOTTOM run first so each run's indices are still valid
+ * when its turn comes.
+ */
+export function planQueueRemoval(indices: number[], queueLength: number): QueueRun[] {
+  return contiguousRuns(checkQueueIndices('removeQueueItems', indices, queueLength))
+    .reverse()
+    .map((run) => ({ from: run[0], count: run.length }));
+}
+
+/**
+ * The ReorderTracksInQueue calls that gather the tracks at `indices` into one
+ * block, in their queue order, starting at final position `toIndex`. Sonos moves
+ * one contiguous run per call, so the block is assembled around a fixed anchor:
+ * the `toIndex`-th unselected track (or the end), which the block ends up
+ * directly before. Runs above it are stacked onto the block's top nearest-first,
+ * runs below it slot in directly before the anchor nearest-first. Each step's
+ * indices are read off a simulated queue so they match the speaker's queue as it
+ * is at that step; runs already in place are skipped.
+ */
+export function planQueueMove(indices: number[], toIndex: number, queueLength: number): QueueMove[] {
+  const sorted = checkQueueIndices('moveQueueItems', indices, queueLength);
+  if (!Number.isInteger(toIndex) || toIndex < 0 || toIndex > queueLength - sorted.length) {
+    throw new RangeError(
+      `moveQueueItems: target ${toIndex} is out of range for ${sorted.length} of ${queueLength} tracks`,
+    );
+  }
+  const selected = new Set(sorted);
+  const order = Array.from({ length: queueLength }, (_, i) => i);
+  const anchor: number | undefined = order.filter((i) => !selected.has(i))[toIndex];
+  const runs = contiguousRuns(sorted);
+  const moves: QueueMove[] = [];
+  const place = (run: number[], before: number | undefined) => {
+    const from = order.indexOf(run[0]);
+    order.splice(from, run.length);
+    const to = before === undefined ? order.length : order.indexOf(before);
+    order.splice(to, 0, ...run);
+    if (from !== to) moves.push({ from, count: run.length, to });
+  };
+  const gap = anchor ?? queueLength;
+  let top = anchor;
+  for (const run of runs.filter((r) => r[0] < gap).reverse()) {
+    place(run, top);
+    top = run[0];
+  }
+  for (const run of runs.filter((r) => r[0] > gap)) {
+    place(run, anchor);
+  }
+  return moves;
 }
 
 /** clearQueue removes every track from the coordinator's queue. */
@@ -751,15 +848,19 @@ export async function clearQueue(transport: HttpTransport, coordinatorBase: stri
   await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
 }
 
-/** reorderQueue moves the track at fromIndex to toIndex (0-based) in the queue. */
+/**
+ * reorderQueue moves the run of `count` tracks at fromIndex so it starts at
+ * toIndex (0-based) in the queue.
+ */
 export async function reorderQueue(
   transport: HttpTransport,
   coordinatorBase: string,
   fromIndex: number,
   toIndex: number,
+  count = 1,
 ): Promise<void> {
   if (fromIndex === toIndex) return;
-  const req = reorderQueueRequest(fromIndex, toIndex);
+  const req = reorderQueueRequest(fromIndex, toIndex, count);
   await SOAPCall(transport, coordinatorBase, req.service, req.action, req.args);
 }
 
@@ -994,10 +1095,19 @@ function isDirectStream(uri: string): boolean {
 }
 
 /**
- * playItem plays a favorite/playlist/track/stream on the group coordinator,
+ * nextQueueSlot is the 1-based queue slot directly after the track playing now;
+ * when the coordinator is not on its queue (a stream) that is the top, 1.
+ */
+export async function nextQueueSlot(transport: HttpTransport, coordinatorBase: string): Promise<number> {
+  return (await getQueueTrackNumber(transport, coordinatorBase)) + 1;
+}
+
+/**
+ * playItem plays a favorite/playlist/track/stream NOW on the group coordinator,
  * choosing the transport path by URI scheme: broadcast streams are set directly
  * as the transport URI; everything else (containers, cpcontainer favorites,
- * Spotify tracks) is enqueued then played from the queue (a cpcontainer fed to
+ * Spotify tracks) is inserted directly after the current track and played from
+ * the queue there, leaving the rest of the queue intact (a cpcontainer fed to
  * SetAVTransportURI returns UPnP fault 714). Ported from queue.go's PlayItem.
  */
 export async function playItem(
@@ -1014,6 +1124,7 @@ export async function playItem(
     await play(transport, coordinatorBase);
     return;
   }
-  const track = await addURIToQueue(transport, coordinatorBase, item.uri, item.metadata, false);
+  const slot = await nextQueueSlot(transport, coordinatorBase);
+  const track = await addURIToQueue(transport, coordinatorBase, item.uri, item.metadata, true, slot);
   await playFromQueue(transport, coordinatorBase, coordinatorUUID, track);
 }

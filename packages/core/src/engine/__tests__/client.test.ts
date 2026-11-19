@@ -320,6 +320,19 @@ describe('SonosClient.enqueue queue position', () => {
     );
   });
 
+  it('inserts at an explicit 0-based index as the 1-based desired track', async () => {
+    const body = await enqueueBody(3);
+    expect(body).toContain('<EnqueueAsNext>0</EnqueueAsNext>');
+    expect(body).toContain(
+      '<DesiredFirstTrackNumberEnqueued>4</DesiredFirstTrackNumberEnqueued>',
+    );
+  });
+
+  it('rejects a negative or fractional index instead of guessing a slot', async () => {
+    await expect(enqueueBody(-1)).rejects.toThrow(RangeError);
+    await expect(enqueueBody(1.5)).rejects.toThrow(RangeError);
+  });
+
   it("falls to the top for 'next' when the coordinator is not on its queue", async () => {
     const http = new KeyedTransport({
       ...table(),
@@ -337,5 +350,151 @@ describe('SonosClient.enqueue queue position', () => {
     expect(body).toContain(
       '<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>',
     );
+  });
+});
+
+describe('SonosClient.playNow', () => {
+  const run = async (overrides: Record<string, HttpResponse> = {}) => {
+    const http = new KeyedTransport({
+      ...fullResponseTable(),
+      [soapAction('AddURIToQueue')]: ok(
+        soapResponse('AddURIToQueue', '<FirstTrackNumberEnqueued>7</FirstTrackNumberEnqueued>'),
+      ),
+      [soapAction('SetAVTransportURI')]: ok(soapResponse('SetAVTransportURI', '')),
+      [soapAction('Seek')]: ok(soapResponse('Seek', '')),
+      ...overrides,
+    });
+    const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
+    const household = await client.loadHousehold(3000);
+    await client.playNow(client.resolveRoom(household, 'living'), {
+      uri: 'x-sonos-spotify:track',
+      metadata: '<DIDL/>',
+    });
+    const find = (action: string) =>
+      http.requests.find((r) => r.headers?.['SOAPACTION'] === soapAction(action));
+    return { http, find };
+  };
+
+  it('inserts after the current track and plays from the enqueued track, keeping the queue', async () => {
+    const { http, find } = await run();
+    expect(
+      http.requests.some((r) => r.headers?.['SOAPACTION'] === soapAction('RemoveAllTracksFromQueue')),
+    ).toBe(false);
+    // positionInfoResponse reports <Track>1</Track>, so the next slot is 2.
+    expect(find('AddURIToQueue')!.body).toContain(
+      '<DesiredFirstTrackNumberEnqueued>2</DesiredFirstTrackNumberEnqueued>',
+    );
+    expect(find('AddURIToQueue')!.body).toContain('<EnqueueAsNext>1</EnqueueAsNext>');
+    expect(find('SetAVTransportURI')!.body).toContain('x-rincon-queue:RINCON_AAAAAAAAAAAA01400#0');
+    expect(find('Seek')!.body).toContain('<Target>7</Target>');
+    expect(find('Play')).toBeDefined();
+  });
+
+  it('inserts at the top when the coordinator is not on its queue', async () => {
+    const { find } = await run({
+      [soapAction('GetPositionInfo')]: ok(
+        soapResponse('GetPositionInfo', '<Track>NOT_IMPLEMENTED</Track>'),
+      ),
+    });
+    expect(find('AddURIToQueue')!.body).toContain(
+      '<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>',
+    );
+  });
+});
+
+describe('SonosClient multi-track queue edits', () => {
+  const CD_TYPE = 'urn:schemas-upnp-org:service:ContentDirectory:1';
+  const run = async (edit: (client: SonosClient, room: ReturnType<SonosClient['resolveRoom']>) => Promise<void>) => {
+    const http = new KeyedTransport({
+      ...fullResponseTable(),
+      [`"${CD_TYPE}#Browse"`]: ok(
+        soapResponse('Browse', '<Result></Result><NumberReturned>1</NumberReturned><TotalMatches>10</TotalMatches><UpdateID>3</UpdateID>'),
+      ),
+      [soapAction('RemoveTrackRangeFromQueue')]: ok(
+        soapResponse('RemoveTrackRangeFromQueue', '<NewUpdateID>4</NewUpdateID>'),
+      ),
+      [soapAction('ReorderTracksInQueue')]: ok(soapResponse('ReorderTracksInQueue', '')),
+    });
+    const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
+    const household = await client.loadHousehold(3000);
+    await edit(client, client.resolveRoom(household, 'bedroom'));
+    return http.requests;
+  };
+  const bodies = (reqs: HttpRequest[], action: string) =>
+    reqs.filter((r) => r.headers?.['SOAPACTION'] === soapAction(action)).map((r) => r.body);
+
+  it('removes each contiguous run with one 1-based range call, bottom run first, on the coordinator', async () => {
+    const reqs = await run((c, room) => c.removeQueueTracks(room, [1, 2, 6]));
+    const removes = bodies(reqs, 'RemoveTrackRangeFromQueue');
+    expect(removes).toHaveLength(2);
+    expect(removes[0]).toContain('<StartingIndex>7</StartingIndex>');
+    expect(removes[0]).toContain('<NumberOfTracks>1</NumberOfTracks>');
+    expect(removes[1]).toContain('<StartingIndex>2</StartingIndex>');
+    expect(removes[1]).toContain('<NumberOfTracks>2</NumberOfTracks>');
+    for (const r of reqs.filter((r) => r.headers?.['SOAPACTION'] === soapAction('RemoveTrackRangeFromQueue'))) {
+      expect(r.url).toBe('http://192.168.1.10:1400/MediaRenderer/AVTransport/Control');
+    }
+  });
+
+  it('validates against the speaker-reported queue length', async () => {
+    await expect(run((c, room) => c.removeQueueTracks(room, [10]))).rejects.toThrow();
+    await expect(run((c, room) => c.moveQueueTracks(room, [8, 9], 9))).rejects.toThrow();
+  });
+
+  it('moves a contiguous run with one NumberOfTracks call', async () => {
+    const reqs = await run((c, room) => c.moveQueueTracks(room, [1, 2, 3], 5));
+    const moves = bodies(reqs, 'ReorderTracksInQueue');
+    expect(moves).toHaveLength(1);
+    expect(moves[0]).toContain('<StartingIndex>2</StartingIndex>');
+    expect(moves[0]).toContain('<NumberOfTracks>3</NumberOfTracks>');
+    expect(moves[0]).toContain('<InsertBefore>9</InsertBefore>');
+  });
+});
+
+describe('SonosClient.playBrowseItem', () => {
+  const browseItem = (uri: string, isContainer: boolean) => ({
+    id: 'FV:2/1', parentId: 'FV:2', title: 'Fav', artist: '', album: '', albumArtUrl: '',
+    upnpClass: '', isContainer, uri, metadata: '<DIDL/>',
+  });
+  const run = async (uri: string, isContainer: boolean, overrides: Record<string, HttpResponse> = {}) => {
+    const http = new KeyedTransport({
+      ...fullResponseTable(),
+      [soapAction('AddURIToQueue')]: ok(
+        soapResponse('AddURIToQueue', '<FirstTrackNumberEnqueued>5</FirstTrackNumberEnqueued>'),
+      ),
+      [soapAction('SetAVTransportURI')]: ok(soapResponse('SetAVTransportURI', '')),
+      [soapAction('Seek')]: ok(soapResponse('Seek', '')),
+      ...overrides,
+    });
+    const client = new SonosClient({ http, discovery: new ScriptedDiscovery([LIVING_ROOM_RESULT]) });
+    const household = await client.loadHousehold(3000);
+    await client.playBrowseItem(client.resolveRoom(household, 'living'), browseItem(uri, isContainer));
+    return (action: string) => http.requests.filter((r) => r.headers?.['SOAPACTION'] === soapAction(action));
+  };
+
+  it('inserts a queue-backed entry after the current track and plays from it', async () => {
+    const sent = await run('', true);
+    expect(sent('RemoveAllTracksFromQueue')).toHaveLength(0);
+    const add = sent('AddURIToQueue')[0].body;
+    expect(add).toContain('x-rincon-playlist:RINCON_AAAAAAAAAAAA01400#FV:2/1');
+    expect(add).toContain('<DesiredFirstTrackNumberEnqueued>2</DesiredFirstTrackNumberEnqueued>');
+    expect(sent('Seek')[0].body).toContain('<Target>5</Target>');
+    expect(sent('Play')).toHaveLength(1);
+  });
+
+  it('inserts at the top when the coordinator is not on its queue', async () => {
+    const sent = await run('x-sonos-spotify:track', false, {
+      [soapAction('GetPositionInfo')]: ok(soapResponse('GetPositionInfo', '<Track>NOT_IMPLEMENTED</Track>')),
+    });
+    expect(sent('AddURIToQueue')[0].body).toContain(
+      '<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>',
+    );
+  });
+
+  it('still plays a stream directly, without touching the queue', async () => {
+    const sent = await run('x-sonosapi-stream:s1234?sid=254', false);
+    expect(sent('AddURIToQueue')).toHaveLength(0);
+    expect(sent('SetAVTransportURI')[0].body).toContain('x-sonosapi-stream:s1234?sid=254');
+    expect(sent('Play')).toHaveLength(1);
   });
 });

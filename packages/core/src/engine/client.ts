@@ -53,10 +53,12 @@ import {
   joinGroup as controlJoinGroup,
   leaveGroup as controlLeaveGroup,
   addURIToQueue as controlAddURIToQueue,
-  getQueueTrackNumber as controlGetQueueTrackNumber,
+  nextQueueSlot as controlNextQueueSlot,
   playFromQueue as controlPlayFromQueue,
   type EnqueueItem,
   playItem as controlPlayItem,
+  planQueueMove,
+  planQueueRemoval,
   parseRelTime,
 } from './control';
 import {
@@ -392,28 +394,33 @@ export class SonosClient {
    */
   async enqueue(room: ResolvedRoom, item: EnqueueItem, where: QueuePosition = 'end'): Promise<void> {
     const base = this.coordinatorBase(room);
-    const desiredFirstTrack =
-      where === 'next' ? (await controlGetQueueTrackNumber(this.http, base)) + 1 : 0;
     await controlAddURIToQueue(
       this.http,
       base,
       item.uri,
       item.metadata,
       where === 'next',
-      desiredFirstTrack,
+      await this.desiredFirstTrack(base, where),
     );
   }
 
   /**
-   * Plays an item NOW by REPLACING the queue: clears the current queue, adds the
-   * item, and starts it from the top (the "play now" action). Destructive to the
-   * existing queue by design — use enqueue() to append without interrupting.
+   * Plays an item NOW without discarding the queue: inserts it in the 'next'
+   * slot (directly after the current track, or at the top when the coordinator
+   * is not on its queue) and starts playback from its first track.
    */
-  async playNow(room: ResolvedRoom, item: EnqueueItem): Promise<void> {
-    const base = this.coordinatorBase(room);
-    await controlClearQueue(this.http, base);
-    const track = await controlAddURIToQueue(this.http, base, item.uri, item.metadata, false);
-    await controlPlayFromQueue(this.http, base, room.group.coordinator, track);
+  playNow(room: ResolvedRoom, item: EnqueueItem): Promise<void> {
+    return controlPlayItem(this.http, this.coordinatorBase(room), room.group.coordinator, item);
+  }
+
+  /** AddURIToQueue's 1-based DesiredFirstTrackNumberEnqueued for `where`; 0 appends. */
+  private async desiredFirstTrack(base: string, where: QueuePosition): Promise<number> {
+    if (where === 'end') return 0;
+    if (where === 'next') return controlNextQueueSlot(this.http, base);
+    if (!Number.isInteger(where) || where < 0) {
+      throw new RangeError(`queue position must be a non-negative integer, got ${where}`);
+    }
+    return where + 1;
   }
 
   // --- full service access (@orkester/sonos-api) -------------------------
@@ -472,6 +479,45 @@ export class SonosClient {
       ObjectID: `Q:0/${index + 1}`,
       UpdateID: 0,
     });
+  }
+
+  /** Removes the queue entries at `indices` (0-based), one range call per contiguous run. */
+  async removeQueueTracks(room: ResolvedRoom, indices: number[]): Promise<void> {
+    const runs = planQueueRemoval(indices, await this.queueLength(room));
+    const av = this.coordinatorDevice(room).AVTransport;
+    for (const run of runs) {
+      await av.RemoveTrackRangeFromQueue({
+        InstanceID: 0,
+        UpdateID: 0,
+        StartingIndex: run.from + 1,
+        NumberOfTracks: run.count,
+      });
+    }
+  }
+
+  /**
+   * Moves the queue entries at `indices` (0-based) into one block, in queue
+   * order, starting at final position `toIndex`. See planQueueMove.
+   */
+  async moveQueueTracks(room: ResolvedRoom, indices: number[], toIndex: number): Promise<void> {
+    const moves = planQueueMove(indices, toIndex, await this.queueLength(room));
+    const base = this.coordinatorBase(room);
+    for (const m of moves) {
+      await controlReorderQueue(this.http, base, m.from, m.to, m.count);
+    }
+  }
+
+  /** The coordinator's queue length, read from a one-item Q:0 browse's TotalMatches. */
+  private async queueLength(room: ResolvedRoom): Promise<number> {
+    const out = await this.coordinatorDevice(room).ContentDirectory.Browse({
+      ObjectID: 'Q:0',
+      BrowseFlag: 'BrowseDirectChildren',
+      Filter: '',
+      StartingIndex: 0,
+      RequestedCount: 1,
+      SortCriteria: '',
+    });
+    return out.TotalMatches;
   }
 
   /** Saves the group's queue as a Sonos playlist; returns the playlist's object id. */
@@ -590,12 +636,9 @@ export class SonosClient {
     return { items: parseBrowseResult(out.Result, base), total: out.TotalMatches };
   }
 
-  /** Plays a browse entry now: streams directly, everything else via the queue. */
+  /** Plays a browse entry now: streams directly, everything else inserted after the current track. */
   playBrowseItem(room: ResolvedRoom, item: BrowseItem): Promise<void> {
-    return controlPlayItem(this.http, this.coordinatorBase(room), room.group.coordinator, {
-      uri: this.browseItemUri(room, item),
-      metadata: item.metadata,
-    });
+    return this.playNow(room, { uri: this.browseItemUri(room, item), metadata: item.metadata });
   }
 
   /** Adds a browse entry to the group's queue at `where`. */

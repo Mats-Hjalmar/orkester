@@ -9,6 +9,8 @@ import {
   resolveAlbumArt,
   clearQueueRequest,
   reorderQueueRequest,
+  planQueueMove,
+  planQueueRemoval,
   setVolumeRequest,
   AV_TRANSPORT_TYPE,
   RENDERING_CONTROL_TYPE,
@@ -226,6 +228,126 @@ describe('queue editing requests', () => {
 
   it('reorderQueueRequest rejects negative indices (no silent bad request)', () => {
     expect(() => reorderQueueRequest(-1, 0)).toThrow();
+  });
+
+  it('reorder of a 3-track run DOWN (1->4) → InsertBefore counts the run in original numbering', () => {
+    const m = argMap(reorderQueueRequest(1, 4, 3));
+    expect(m).toEqual({ InstanceID: '0', StartingIndex: '2', NumberOfTracks: '3', InsertBefore: '8', UpdateID: '0' });
+  });
+
+  it('reorder of a 2-track run UP (5->1) → StartingIndex 6, InsertBefore 2', () => {
+    const m = argMap(reorderQueueRequest(5, 1, 2));
+    expect(m).toMatchObject({ StartingIndex: '6', NumberOfTracks: '2', InsertBefore: '2' });
+  });
+
+  it('reorderQueueRequest rejects a non-positive track count', () => {
+    expect(() => reorderQueueRequest(0, 2, 0)).toThrow();
+  });
+});
+
+/**
+ * Applies a ReorderTracksInQueue request to a plain array the way Sonos does:
+ * take NumberOfTracks from 1-based StartingIndex and put them before the track
+ * that was at 1-based InsertBefore BEFORE the move (or at the end).
+ */
+function applySonosReorder<T>(queue: T[], args: Record<string, string>): T[] {
+  const start = Number(args.StartingIndex) - 1;
+  const count = Number(args.NumberOfTracks);
+  const before = Number(args.InsertBefore) - 1;
+  expect(start + count).toBeLessThanOrEqual(queue.length);
+  expect(before < start || before >= start + count).toBe(true);
+  const run = queue.slice(start, start + count);
+  const rest = [...queue.slice(0, start), ...queue.slice(start + count)];
+  const at = before === queue.length ? rest.length : rest.indexOf(queue[before]);
+  return [...rest.slice(0, at), ...run, ...rest.slice(at)];
+}
+
+/** Runs a planned move through the request builder against a 0..n-1 queue. */
+function simulateMove(indices: number[], toIndex: number, n: number): number[] {
+  let queue = Array.from({ length: n }, (_, i) => i);
+  for (const m of planQueueMove(indices, toIndex, n)) {
+    const req = reorderQueueRequest(m.from, m.to, m.count);
+    queue = applySonosReorder(queue, Object.fromEntries(req.args.map((a) => [a.name, a.value])));
+  }
+  return queue;
+}
+
+/** The order a move must produce: toIndex unselected tracks, the selection, the rest. */
+function expectedMove(indices: number[], toIndex: number, n: number): number[] {
+  const sel = [...indices].sort((a, b) => a - b);
+  const others = Array.from({ length: n }, (_, i) => i).filter((i) => !sel.includes(i));
+  return [...others.slice(0, toIndex), ...sel, ...others.slice(toIndex)];
+}
+
+describe('planQueueMove', () => {
+  const cases: Array<[string, number[], number]> = [
+    ['non-contiguous selection to the middle', [1, 4, 7], 3],
+    ['selection on both sides of the target', [0, 1, 5, 8, 9], 2],
+    ['runs above the target, unordered input', [6, 2, 3], 5],
+    ['move to the top', [3, 4, 8], 0],
+    ['move to the end', [0, 2, 5], 7],
+    ['single track down', [2], 6],
+    ['single track up', [7], 1],
+  ];
+  for (const [name, indices, to] of cases) {
+    it(name, () => {
+      expect(simulateMove(indices, to, 10)).toEqual(expectedMove(indices, to, 10));
+    });
+  }
+
+  it('a single track plans exactly the single-track reorder', () => {
+    expect(planQueueMove([2], 6, 10)).toEqual([{ from: 2, count: 1, to: 6 }]);
+    expect(planQueueMove([7], 1, 10)).toEqual([{ from: 7, count: 1, to: 1 }]);
+  });
+
+  it('plans nothing when the block is already in place', () => {
+    expect(planQueueMove([3, 4, 5], 3, 10)).toEqual([]);
+    expect(planQueueMove([4], 4, 10)).toEqual([]);
+  });
+
+  it('moves one contiguous run in one call', () => {
+    expect(planQueueMove([1, 2, 3], 5, 10)).toEqual([{ from: 1, count: 3, to: 5 }]);
+  });
+
+  it('is correct for every selection of a 6-track queue and every target', () => {
+    const n = 6;
+    for (let mask = 1; mask < 1 << n; mask++) {
+      const indices = Array.from({ length: n }, (_, i) => i).filter((i) => mask & (1 << i));
+      for (let to = 0; to <= n - indices.length; to++) {
+        expect(simulateMove(indices, to, n)).toEqual(expectedMove(indices, to, n));
+      }
+    }
+  });
+
+  it('rejects bad input instead of guessing', () => {
+    expect(() => planQueueMove([], 0, 5)).toThrow();
+    expect(() => planQueueMove([1, 1], 0, 5)).toThrow();
+    expect(() => planQueueMove([-1], 0, 5)).toThrow();
+    expect(() => planQueueMove([5], 0, 5)).toThrow();
+    expect(() => planQueueMove([1.5], 0, 5)).toThrow();
+    expect(() => planQueueMove([1, 2], 4, 5)).toThrow();
+    expect(() => planQueueMove([1], -1, 5)).toThrow();
+  });
+});
+
+describe('planQueueRemoval', () => {
+  it('removes contiguous runs bottom-up so earlier indices stay valid', () => {
+    expect(planQueueRemoval([1, 7, 2, 3, 9, 8], 10)).toEqual([
+      { from: 7, count: 3 },
+      { from: 1, count: 3 },
+    ]);
+  });
+
+  it('applied in order, removes exactly the selected tracks', () => {
+    let queue = Array.from({ length: 10 }, (_, i) => i);
+    for (const r of planQueueRemoval([0, 4, 5, 9], 10)) queue.splice(r.from, r.count);
+    expect(queue).toEqual([1, 2, 3, 6, 7, 8]);
+  });
+
+  it('rejects bad input instead of guessing', () => {
+    expect(() => planQueueRemoval([], 5)).toThrow();
+    expect(() => planQueueRemoval([2, 2], 5)).toThrow();
+    expect(() => planQueueRemoval([5], 5)).toThrow();
   });
 });
 

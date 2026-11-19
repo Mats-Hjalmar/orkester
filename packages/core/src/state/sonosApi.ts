@@ -411,6 +411,14 @@ export class SonosApi implements Api {
     return this.client.removeQueueTrack(this.groupFor(groupId), index);
   }
 
+  removeQueueItems(groupId: string, indices: number[]): Promise<void> {
+    return this.client.removeQueueTracks(this.groupFor(groupId), indices);
+  }
+
+  moveQueueItems(groupId: string, indices: number[], toIndex: number): Promise<void> {
+    return this.client.moveQueueTracks(this.groupFor(groupId), indices, toIndex);
+  }
+
   saveQueue(groupId: string, title: string): Promise<string> {
     return this.client.saveQueue(this.groupFor(groupId), title);
   }
