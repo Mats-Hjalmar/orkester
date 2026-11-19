@@ -5,18 +5,22 @@
 import React from 'react';
 import {
   COLOR_TOKENS,
+  CORE_COLOR_TOKENS,
   DEFAULT_SETTINGS,
   DEFAULT_THEME_NAMES,
   THEME_SETTING_KEYS,
   cssVarName,
   resolveAppearance,
+  resolveColors,
   selectedTheme,
+  themeColors,
   themeNameProblem,
   type AppearanceSetting,
   type ColorToken,
   type Settings,
   type StoredSettings,
   type ThemeAppearance,
+  type ThemeColorInput,
   type ThemeColors,
 } from '@orkester/core/theme';
 import { orkesterShell } from './shell';
@@ -51,7 +55,7 @@ async function readSettings(): Promise<LoadedSettings> {
 export async function loadSettings(): Promise<LoadedSettings> {
   const loaded = await readSettings();
   const appearance = resolveAppearance(loaded.settings.appearance, systemDarkQuery().matches);
-  applyColors(selectedTheme(loaded.settings, appearance).colors);
+  applyColors(themeColors(selectedTheme(loaded.settings, appearance)));
   return loaded;
 }
 
@@ -66,10 +70,20 @@ export function useSettings(initial: LoadedSettings) {
   // The appearance whose theme is being picked or edited. While set, its theme
   // is previewed even if the app currently resolves to the other appearance.
   const [editing, setEditing] = React.useState<ThemeAppearance | null>(null);
-  const [draft, setDraft] = React.useState<ThemeColors | null>(null);
+  // Unsaved edits to the edited theme's stored colours: core three plus overrides.
+  const [draft, setDraft] = React.useState<ThemeColorInput | null>(null);
+  // Derived colours fine-tuned in this edit. Only these survive a change to a core
+  // colour: overrides inherited from the theme being edited are derived again, so
+  // the fine-tune section follows the core colours.
+  const [fineTuned, setFineTuned] = React.useState<ColorToken[]>([]);
+  const clearDraft = () => {
+    setDraft(null);
+    setFineTuned([]);
+  };
   const [message, setMessage] = React.useState<string | null>(null);
   const shownAppearance = editing ?? resolveAppearance(settings.appearance, systemDark);
-  const shown = draft ?? selectedTheme(settings, shownAppearance).colors;
+  const input = draft ?? selectedTheme(settings, shownAppearance).colors;
+  const shown = React.useMemo(() => resolveColors(input, shownAppearance), [input, shownAppearance]);
 
   React.useEffect(() => {
     const query = systemDarkQuery();
@@ -89,7 +103,7 @@ export function useSettings(initial: LoadedSettings) {
       setMessage((err as Error).message);
       return;
     }
-    setDraft(null);
+    clearDraft();
     setMessage(null);
     const reloaded = await readSettings();
     setSettings(reloaded.loadError ? next : reloaded.settings);
@@ -100,7 +114,7 @@ export function useSettings(initial: LoadedSettings) {
     // Files that failed to load are only overwritten by an explicit save.
     if (loadError) {
       setSettings(next);
-      setDraft(null);
+      clearDraft();
       return;
     }
     void write(() => orkesterShell().saveSettings(stored(next)), next);
@@ -110,13 +124,13 @@ export function useSettings(initial: LoadedSettings) {
 
   const select = (appearance: ThemeAppearance, name: string) => choose({ ...settings, [THEME_SETTING_KEYS[appearance]]: name });
 
-  /** Saves the shown colours as a theme of the appearance being edited, and picks it for that appearance. */
+  /** Saves the edited colours (core three plus overrides) as a theme of the appearance being edited, and picks it for that appearance. */
   const saveAs = (rawName: string) => {
     if (!editing) return;
     const name = rawName.trim();
     const problem = themeNameProblem(name);
     if (problem) return setMessage(problem);
-    const theme = { appearance: editing, colors: shown };
+    const theme = { appearance: editing, colors: input };
     const next = { ...settings, [THEME_SETTING_KEYS[editing]]: name, themes: { ...settings.themes, [name]: theme } };
     void write(async () => {
       await orkesterShell().saveTheme(name, theme);
@@ -136,16 +150,36 @@ export function useSettings(initial: LoadedSettings) {
     }, next);
   };
 
-  const setColor = (token: ColorToken, value: string) => setDraft({ ...shown, [token]: value });
+  const setColor = (token: ColorToken, value: string) => {
+    if (!(CORE_COLOR_TOKENS as readonly ColorToken[]).includes(token)) {
+      setFineTuned((tokens) => [...new Set([...tokens, token])]);
+      return setDraft({ ...input, [token]: value });
+    }
+    const kept = Object.fromEntries(fineTuned.filter((t) => Object.hasOwn(input, t)).map((t) => [t, input[t]]));
+    setDraft({ background: input.background, text: input.text, primary: input.primary, ...kept, [token]: value });
+  };
+
+  /** Drops an override, so the token is derived again. */
+  const resetColor = (token: ColorToken) => {
+    const { [token]: _dropped, ...rest } = input;
+    setFineTuned((tokens) => tokens.filter((t) => t !== token));
+    setDraft(rest as ThemeColorInput);
+  };
+
+  /** Drops every override, so all derived tokens follow the core colours again. */
+  const resetAllColors = () => {
+    setFineTuned([]);
+    setDraft({ background: input.background, text: input.text, primary: input.primary });
+  };
 
   /** Starts (or, with null, ends) picking and editing the theme for one appearance; unsaved edits are dropped. */
   const edit = (appearance: ThemeAppearance | null) => {
     setEditing(appearance);
-    setDraft(null);
+    clearDraft();
     setMessage(null);
   };
 
-  return { settings, loadError, editing, draft, shown, message, setAppearance, select, saveAs, remove, setColor, edit };
+  return { settings, loadError, editing, draft, input, shown, message, setAppearance, select, saveAs, remove, setColor, resetColor, resetAllColors, edit };
 }
 
 export type SettingsState = ReturnType<typeof useSettings>;

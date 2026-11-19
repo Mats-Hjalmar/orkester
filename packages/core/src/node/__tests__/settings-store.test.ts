@@ -13,7 +13,7 @@ import {
   themesDir,
 } from '../settingsStore';
 
-const mine: Theme = { appearance: 'dark', colors: { ...colors, bg: '#000000' } };
+const mine: Theme = { appearance: 'dark', colors: { ...colors, background: '#000000' } };
 const stored: StoredSettings = { appearance: 'system', lightTheme: 'Noira', darkTheme: 'Noira Night' };
 
 describe('settings store', () => {
@@ -54,6 +54,13 @@ describe('settings store', () => {
     saveSettings({ ...stored, appearance: 'dark', darkTheme: 'Mine' });
     expect(readFileSync(settingsPath(), 'utf8')).toBe(JSON.stringify({ ...stored, appearance: 'dark', darkTheme: 'Mine' }, null, 2));
     expect(loadSettings()).toEqual({ ...stored, appearance: 'dark', darkTheme: 'Mine', themes: { Mine: mine } });
+  });
+
+  it('round-trips a minimal three-colour theme file without adding derived colours', () => {
+    const minimal: Theme = { appearance: 'light', colors: { background: '#FFFFFF', text: '#111111', primary: '#3366FF' } };
+    saveTheme('Minimal', minimal);
+    expect(JSON.parse(readFileSync(themePath('Minimal'), 'utf8'))).toEqual(minimal);
+    expect(loadSettings().themes).toEqual({ Minimal: minimal });
   });
 
   it('loads a theme file dropped into themes/ and ignores non-.json entries', () => {
@@ -103,13 +110,13 @@ describe('settings store', () => {
   });
 
   it('throws naming the theme file and the problem on a broken theme', () => {
-    writeTheme('Bad.json', JSON.stringify({ ...mine, colors: { ...mine.colors, bg: 'red' } }));
-    expect(() => loadSettings()).toThrow(`${themePath('Bad')}: bg must be a #RRGGBB colour`);
+    writeTheme('Bad.json', JSON.stringify({ ...mine, colors: { ...mine.colors, background: 'red' } }));
+    expect(() => loadSettings()).toThrow(`${themePath('Bad')}: background must be a #RRGGBB colour`);
   });
 
   it('throws naming the theme file on the old flat shape', () => {
     writeTheme('Flat.json', JSON.stringify(mine.colors));
-    expect(() => loadSettings()).toThrow(`${themePath('Flat')}: unknown theme key "bg"`);
+    expect(() => loadSettings()).toThrow(`${themePath('Flat')}: unknown theme key "background"`);
   });
 
   it('throws naming the theme file when it is named like a built-in', () => {
@@ -123,7 +130,7 @@ describe('settings store', () => {
   });
 
   it('refuses to save an invalid theme', () => {
-    expect(() => saveTheme('Mine', { ...mine, colors: { ...mine.colors, fg: 'red' } })).toThrow(/#RRGGBB/);
+    expect(() => saveTheme('Mine', { ...mine, colors: { ...mine.colors, text: 'red' } })).toThrow(/#RRGGBB/);
     expect(existsSync(themePath('Mine'))).toBe(false);
   });
 });

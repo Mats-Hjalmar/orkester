@@ -117,7 +117,7 @@ function applySavedAppearance(): string {
     settings = DEFAULT_SETTINGS;
   }
   nativeTheme.themeSource = settings.appearance;
-  return resolveTheme(settings, nativeTheme.shouldUseDarkColors).colors.bg;
+  return resolveTheme(settings, nativeTheme.shouldUseDarkColors).colors.background;
 }
 
 // On macOS the app's own top bar is the title bar, so the theme paints it. The

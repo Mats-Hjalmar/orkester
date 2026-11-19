@@ -6,17 +6,17 @@ import { font } from './fonts';
 // flattened to fixed sizes tuned for the 390px frame.
 export const type: Record<string, TextStyle> = {
   // Instrument Serif display
-  displayXL: { fontFamily: font.display, fontSize: 34, lineHeight: 36, letterSpacing: -0.7, color: colors.fg },
-  displayLg: { fontFamily: font.display, fontSize: 32, lineHeight: 34, letterSpacing: -0.6, color: colors.fg },
-  displayMd: { fontFamily: font.display, fontSize: 26, lineHeight: 28, letterSpacing: -0.5, color: colors.fg },
-  displaySm: { fontFamily: font.display, fontSize: 21, lineHeight: 24, letterSpacing: -0.3, color: colors.fg },
-  wordmark: { fontFamily: font.display, fontSize: 22, lineHeight: 22, color: colors.fg },
+  displayXL: { fontFamily: font.display, fontSize: 34, lineHeight: 36, letterSpacing: -0.7, color: colors.text },
+  displayLg: { fontFamily: font.display, fontSize: 32, lineHeight: 34, letterSpacing: -0.6, color: colors.text },
+  displayMd: { fontFamily: font.display, fontSize: 26, lineHeight: 28, letterSpacing: -0.5, color: colors.text },
+  displaySm: { fontFamily: font.display, fontSize: 21, lineHeight: 24, letterSpacing: -0.3, color: colors.text },
+  wordmark: { fontFamily: font.display, fontSize: 22, lineHeight: 22, color: colors.text },
 
   // Manrope body
-  title: { fontFamily: font.bodySemiBold, fontSize: 15, lineHeight: 18, color: colors.fg },
-  body: { fontFamily: font.body, fontSize: 14, lineHeight: 19, color: colors.fg },
-  bodyMuted: { fontFamily: font.body, fontSize: 13, lineHeight: 18, color: colors.fgMuted },
-  small: { fontFamily: font.body, fontSize: 12, lineHeight: 16, color: colors.fgMuted },
+  title: { fontFamily: font.bodySemiBold, fontSize: 15, lineHeight: 18, color: colors.text },
+  body: { fontFamily: font.body, fontSize: 14, lineHeight: 19, color: colors.text },
+  bodyMuted: { fontFamily: font.body, fontSize: 13, lineHeight: 18, color: colors.textSecondary },
+  small: { fontFamily: font.body, fontSize: 12, lineHeight: 16, color: colors.textSecondary },
 
   // All-caps eyebrow label
   eyebrow: {
@@ -24,9 +24,9 @@ export const type: Record<string, TextStyle> = {
     fontSize: 11,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: colors.fgSubtle,
+    color: colors.textTertiary,
   },
 
   // Fragment Mono
-  mono: { fontFamily: font.mono, fontSize: 11, color: colors.fgMuted },
+  mono: { fontFamily: font.mono, fontSize: 11, color: colors.textSecondary },
 };

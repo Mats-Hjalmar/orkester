@@ -54,7 +54,7 @@ export default function ErrorToast() {
             boxShadow: shadow.md,
           } as any}
         >
-          <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, lineHeight: 18, color: colors.bgPaper }}>{message}</Text>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, lineHeight: 18, color: colors.surface }}>{message}</Text>
         </Pressable>
       </Animated.View>
     </View>

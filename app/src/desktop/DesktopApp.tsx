@@ -64,7 +64,7 @@ export default function DesktopApp({ settings: loadedSettings }: { settings: Loa
   }, [roomKey]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <TopBar onOpenSettings={() => setSettingsOpen(true)} />
       <View style={{ flex: 1, minHeight: 0, flexDirection: 'row' }}>
         <RoomList selectedId={effectiveId} onSelect={onSelect} />

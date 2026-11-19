@@ -13,7 +13,7 @@ import { colors, ink, radii, shadow } from '../theme/tokens';
 import { font } from '../theme/fonts';
 import { fmt, useStore } from '../state/store';
 import { useGroupRoute, useNav } from '../navigation';
-import { accentTextOf, groupCount } from '../state/selectors';
+import { onPrimaryOf, groupCount } from '../state/selectors';
 import { progressOf } from '../components/trackProgress';
 import { writeLastRoom } from '../state/lastRoom';
 import { PLACEHOLDER_TRACK_ID } from '@orkester/core/state';
@@ -44,7 +44,7 @@ function ActionPill({ icon, label, onPress }: { icon: React.ReactNode; label: st
       })}
     >
       {icon}
-      <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: colors.fg }}>{label}</Text>
+      <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: colors.text }}>{label}</Text>
     </Pressable>
   );
 }
@@ -60,9 +60,9 @@ function BackRow({ label }: { label: string }) {
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.6 : 1 })}
     >
       <View style={{ transform: [{ rotate: '90deg' }] }}>
-        <ChevronDown size={24} color={colors.fg} />
+        <ChevronDown size={24} color={colors.text} />
       </View>
-      <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
+      <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: font.bodySemiBold, fontSize: 14, color: colors.text }}>
         {label}
       </Text>
     </Pressable>
@@ -120,12 +120,12 @@ export default function NowPlaying() {
         <BackRow label="Rooms" />
         <View style={{ marginTop: 24 }}>
           {phase === 'ready' ? (
-            <View style={{ alignItems: 'center', gap: 10, paddingVertical: 28, paddingHorizontal: 16, borderWidth: 1, borderColor: ink(0.1), borderRadius: radii.lg, backgroundColor: colors.bgPaper }}>
-              <Speaker size={28} color={colors.fgSubtle} />
-              <Text style={{ fontFamily: font.bodySemiBold, fontSize: 15, color: colors.fg, textAlign: 'center' }}>
+            <View style={{ alignItems: 'center', gap: 10, paddingVertical: 28, paddingHorizontal: 16, borderWidth: 1, borderColor: ink(0.1), borderRadius: radii.lg, backgroundColor: colors.surface }}>
+              <Speaker size={28} color={colors.textTertiary} />
+              <Text style={{ fontFamily: font.bodySemiBold, fontSize: 15, color: colors.text, textAlign: 'center' }}>
                 This group is gone
               </Text>
-              <Text style={{ fontFamily: font.body, fontSize: 12.5, lineHeight: 17, color: colors.fgMuted, textAlign: 'center' }}>
+              <Text style={{ fontFamily: font.body, fontSize: 12.5, lineHeight: 17, color: colors.textSecondary, textAlign: 'center' }}>
                 Its speakers were regrouped. Go back to pick a group.
               </Text>
             </View>
@@ -141,7 +141,7 @@ export default function NowPlaying() {
   const idle = tr.id === PLACEHOLDER_TRACK_ID;
   const cover = Math.min(width - 48, 420);
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
   const ctrl = groupControls(g.id);
   const pending = transportPending(g.id);
   const prog = progressOf(g, tr);
@@ -191,16 +191,16 @@ export default function NowPlaying() {
         {!!tr.title && (
           <Text
             maxFontSizeMultiplier={DISPLAY_SCALE_CAP}
-            style={{ fontFamily: font.display, fontSize: 32, lineHeight: 34, letterSpacing: -0.6, color: colors.fg }}
+            style={{ fontFamily: font.display, fontSize: 32, lineHeight: 34, letterSpacing: -0.6, color: colors.text }}
           >
             {tr.title}
           </Text>
         )}
         {!!tr.artist && (
-          <Text style={{ fontFamily: font.body, fontSize: 15, color: colors.fgMuted, marginTop: 6 }}>{tr.artist}</Text>
+          <Text style={{ fontFamily: font.body, fontSize: 15, color: colors.textSecondary, marginTop: 6 }}>{tr.artist}</Text>
         )}
         {!!tr.album && (
-          <Text style={{ fontFamily: font.body, fontSize: 12.5, color: colors.fgSubtle, marginTop: 4 }}>{tr.album}</Text>
+          <Text style={{ fontFamily: font.body, fontSize: 12.5, color: colors.textTertiary, marginTop: 4 }}>{tr.album}</Text>
         )}
       </View>
 
@@ -211,8 +211,8 @@ export default function NowPlaying() {
           accessibilityLabel="Play something here"
           style={({ pressed }) => ({ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingHorizontal: 20, marginTop: 22, borderRadius: radii.pill, backgroundColor: accent, opacity: pressed ? 0.8 : 1 })}
         >
-          <Play size={15} fill={accentText} />
-          <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: accentText }}>Play something here</Text>
+          <Play size={15} fill={onPrimary} />
+          <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: onPrimary }}>Play something here</Text>
         </Pressable>
       )}
 
@@ -228,27 +228,27 @@ export default function NowPlaying() {
                 onScrub={ctrl.seek}
                 label="Seek"
                 trackColor={ink(0.12)}
-                fillColor={colors.fg}
+                fillColor={colors.text}
                 height={4}
                 thumb
               />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 7 }}>
-                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted }}>{fmt(prog.elapsed)}</Text>
-                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgMuted }}>
+                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.textSecondary }}>{fmt(prog.elapsed)}</Text>
+                <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.textSecondary }}>
                   {prog.remaining === null ? '' : `-${fmt(prog.remaining)}`}
                 </Text>
               </View>
             </View>
           ) : (
             prog.isLive && (
-              <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fg, letterSpacing: 1.2, marginTop: 20 }}>
+              <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.text, letterSpacing: 1.2, marginTop: 20 }}>
                 ● LIVE
               </Text>
             )
           )}
 
           <View style={{ marginTop: 22 }}>
-            <TransportRow group={g} fg={colors.fg} muted={colors.fgSubtle} onAct={tapCommit} />
+            <TransportRow group={g} fg={colors.text} muted={colors.textTertiary} onAct={tapCommit} />
           </View>
 
           {/* Volume — only when backed by a real reading from every member. The left
@@ -267,11 +267,11 @@ export default function NowPlaying() {
                 style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
               >
                 {pending === 'mute' ? (
-                  <ActivityIndicator size="small" color={colors.fg} />
+                  <ActivityIndicator size="small" color={colors.text} />
                 ) : muted ? (
-                  <VolumeLow size={20} color={colors.fg} />
+                  <VolumeLow size={20} color={colors.text} />
                 ) : (
-                  <VolumeHigh size={20} color={colors.fg} />
+                  <VolumeHigh size={20} color={colors.text} />
                 )}
               </Pressable>
               <TrackBar
@@ -280,7 +280,7 @@ export default function NowPlaying() {
                 onCommit={tapSelection}
                 label="Group volume"
                 trackColor={ink(0.12)}
-                fillColor={colors.fg}
+                fillColor={colors.text}
                 height={4}
                 thumb
                 grabThumbOnly
@@ -296,12 +296,12 @@ export default function NowPlaying() {
           speakers are grouped with it. Both open over this screen. */}
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
         <ActionPill
-          icon={<Search size={18} color={colors.fg} />}
+          icon={<Search size={18} color={colors.text} />}
           label="Search"
           onPress={() => nav.navigate('Search', { groupId: g.id })}
         />
         <ActionPill
-          icon={<Speaker size={18} color={colors.fg} />}
+          icon={<Speaker size={18} color={colors.text} />}
           label="Speakers"
           onPress={() => nav.navigate('Speakers', { groupId: g.id })}
         />
@@ -313,8 +313,8 @@ export default function NowPlaying() {
       {upNext.length > 0 && (
         <View style={{ marginTop: 30 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Queue size={16} color={colors.fgMuted} />
-            <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.fgMuted }}>
+            <Queue size={16} color={colors.textSecondary} />
+            <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.textSecondary }}>
               Up next · {upNext.length}
             </Text>
             <Pressable
@@ -328,17 +328,17 @@ export default function NowPlaying() {
               style={({ pressed }) => ({ minHeight: 32, justifyContent: 'center', opacity: pressed ? 0.5 : 1 })}
             >
               {queuePending(g.id) ? (
-                <ActivityIndicator size="small" color={colors.fgMuted} />
+                <ActivityIndicator size="small" color={colors.textSecondary} />
               ) : (
-                <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.fgMuted }}>Clear</Text>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.textSecondary }}>Clear</Text>
               )}
             </Pressable>
           </View>
           <QueueList
             items={upNext}
             motif={config.coverMotif}
-            fg={colors.fg}
-            muted={colors.fgMuted}
+            fg={colors.text}
+            muted={colors.textSecondary}
             onReorder={(from, to) => reorderQueue(g.id, qStart + from, qStart + to)}
             onPlay={(index) => {
               playQueueIndex(g.id, qStart + index);

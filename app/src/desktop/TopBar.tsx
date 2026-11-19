@@ -10,7 +10,7 @@ import { NO_DRAG, orkesterShell } from './shell';
 // Clears the traffic lights that desktop/src/main/index.ts places at x=20.
 const MAC_TRAFFIC_LIGHT_INSET = 88;
 
-const pill = { ...NO_DRAG, height: 38, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.12), backgroundColor: colors.bgPaper } as const;
+const pill = { ...NO_DRAG, height: 38, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.12), backgroundColor: colors.surface } as const;
 
 // Wordmark + a manual refresh (the Sonos connection drifts) + settings.
 export default function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
@@ -26,7 +26,7 @@ export default function TopBar({ onOpenSettings }: { onOpenSettings: () => void 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <OrkesterMark size={26} />
         <Text style={[type.wordmark, { fontSize: 24 }]}>orkester</Text>
-        <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.fgSubtle, paddingBottom: 1 }}>multi-room sound</Text>
+        <Text style={{ fontFamily: font.mono, fontSize: 11, color: colors.textTertiary, paddingBottom: 1 }}>multi-room sound</Text>
       </View>
       <View style={{ flex: 1 }} />
       {/* Manual reconnect + reload. Disabled (with a spinner) while in flight. */}
@@ -40,8 +40,8 @@ export default function TopBar({ onOpenSettings }: { onOpenSettings: () => void 
           opacity: refreshing ? 0.6 : pressed ? 0.7 : 1,
         })}
       >
-        {refreshing ? <ActivityIndicator size="small" color={colors.fgMuted} /> : <Refresh size={17} color={colors.fg} />}
-        <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>
+        {refreshing ? <ActivityIndicator size="small" color={colors.textSecondary} /> : <Refresh size={17} color={colors.text} />}
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.text }}>
           {refreshing ? 'Refreshing…' : 'Refresh'}
         </Text>
       </Pressable>
@@ -52,7 +52,7 @@ export default function TopBar({ onOpenSettings }: { onOpenSettings: () => void 
         accessibilityLabel="Settings"
         style={({ pressed }) => ({ ...pill, width: 38, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}
       >
-        <Cog size={17} color={colors.fg} />
+        <Cog size={17} color={colors.text} />
       </Pressable>
     </View>
   );

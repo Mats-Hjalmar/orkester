@@ -1,29 +1,30 @@
 // Noira — the warm, editorial palette behind orkester's UI.
-// Off-white surfaces, warm near-black ink, dusty pastels, one wakeful accent.
+// Off-white surfaces, warm near-black ink, dusty pastels, one wakeful primary colour.
 
 export const colors = {
-  bg: '#F2EFE8', // primary off-white surface
-  bgCream: '#ECE7DC', // subtle warm tint
-  bgPaper: '#F7F4ED', // lifted surface
-  bgDeep: '#1A1814', // warm near-black, for hero/photo treatments
+  background: '#F2EFE8', // the window behind everything
+  surface: '#F7F4ED', // cards, popovers and inputs lifted off the background
 
-  fg: '#1A1814', // primary text, near-black warm
-  fgStrong: '#0E0D0A',
-  fgMuted: '#6B6558', // secondary, metadata
-  fgSubtle: '#98927F', // tertiary, captions
-  fgFaint: '#C8C2B0', // hairlines
-  fgOnPhoto: '#F7F4ED', // text over warm photography
+  text: '#1A1814', // primary text and icons
+  textSecondary: '#6B6558', // metadata, secondary labels
+  textTertiary: '#98927F', // captions, placeholders, quiet icons
+  textHint: '#C8C2B0', // the faintest marks: idle dots, disabled hints
 
-  accent: '#E4F289', // lime / chartreuse — used sparingly
-  accentDeep: '#C9D96B',
-  accentText: '#2A3308', // text on accent
+  primary: '#E4F289', // the one wakeful colour: play buttons, the playing row, selection
+  onPrimary: '#2A3308', // text and icons drawn on primary
 
-  danger: '#B86A6A',
+  danger: '#B86A6A', // errors
+
+  logoBackground: '#1A1814', // the orkester logo's tile
+  logoForeground: '#F7F4ED', // the orkester logo's mark
 } as const;
 
-// Hairline / overlay rgba helpers (ink at low opacity over warm surfaces).
+// Hairline / overlay rgba helper (text colour at low opacity over warm surfaces).
 export const ink = (a: number) => `rgba(26,24,20,${a})`;
-export const paper = (a: number) => `rgba(247,244,237,${a})`;
+
+// A dark that is the same in every theme: for a backdrop dimming the whole app,
+// or a glyph drawn on fixed light art.
+export const FIXED_DARK = '#1A1814';
 
 export const radii = {
   sm: 9,

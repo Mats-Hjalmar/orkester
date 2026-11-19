@@ -24,7 +24,7 @@ function useScreenPadding(): { paddingTop: number; paddingBottom: number } {
  */
 export function ScreenScroll({
   children,
-  bg = colors.bg,
+  bg = colors.background,
   horizontal = 22,
   refreshing,
   onRefresh,
@@ -49,9 +49,9 @@ export function ScreenScroll({
           <RefreshControl
             refreshing={!!refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.fgMuted}
-            colors={[colors.fgMuted]}
-            progressBackgroundColor={colors.bgPaper}
+            tintColor={colors.textSecondary}
+            colors={[colors.textSecondary]}
+            progressBackgroundColor={colors.surface}
           />
         ) : undefined
       }

@@ -24,7 +24,7 @@ export default function Popover({ testID, onClose, centerRight, children }: { te
         testID={testID}
         style={{
           position: 'absolute', right: centerRight === undefined ? EDGE : Math.max(EDGE, centerRight - WIDTH / 2), bottom: MINI_PLAYER_H + 8, width: WIDTH, maxHeight: 420,
-          borderRadius: radii.lg, borderWidth: 1, borderColor: ink(0.1), backgroundColor: colors.bgPaper,
+          borderRadius: radii.lg, borderWidth: 1, borderColor: ink(0.1), backgroundColor: colors.surface,
           boxShadow: shadow.md,
         } as any}
       >

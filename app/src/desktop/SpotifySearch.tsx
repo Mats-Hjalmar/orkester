@@ -6,7 +6,7 @@ import { type } from '../theme/type';
 import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type OpenedContainer, type PendingSearchOp } from '@orkester/core/state';
-import { accentTextOf } from '../state/selectors';
+import { onPrimaryOf } from '../state/selectors';
 import type { Group } from '../state/types';
 import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 
@@ -34,7 +34,7 @@ const LINK_HEADER_H = PAD + TITLE_ROW_H;
 export default function SpotifySearch({ group }: { group?: Group }) {
   const { roomName, config, reportError } = useStore();
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
 
   const groupLabel = group ? group.roomIds.map(roomName).join(' · ') || 'this group' : 'this group';
 
@@ -107,7 +107,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
   }, []);
 
   return (
-    <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, minHeight: 0, backgroundColor: colors.background }}>
       <Animated.ScrollView
         ref={scrollRef}
         contentContainerStyle={{
@@ -122,7 +122,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
       >
         {link.status === 'checking' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <ActivityIndicator size="small" color={colors.fgMuted} />
+            <ActivityIndicator size="small" color={colors.textSecondary} />
             <Text style={type.bodyMuted}>Checking Spotify link…</Text>
           </View>
         )}
@@ -147,7 +147,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
                 opacity: pressed ? 0.8 : 1,
               })}
             >
-              <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: accentText }}>Link Spotify</Text>
+              <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: onPrimary }}>Link Spotify</Text>
             </Pressable>
           </View>
         )}
@@ -155,11 +155,11 @@ export default function SpotifySearch({ group }: { group?: Group }) {
         {link.status === 'linking' && (
           <View style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <ActivityIndicator size="small" color={colors.fgMuted} />
+              <ActivityIndicator size="small" color={colors.textSecondary} />
               <Text style={type.bodyMuted}>Waiting for you to approve access in the browser…</Text>
             </View>
             <Pressable onPress={() => void Linking.openURL(link.regUrl).catch(() => {})}>
-              <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.fgMuted }} selectable>
+              <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.textSecondary }} selectable>
                 {link.regUrl}
               </Text>
             </Pressable>
@@ -175,7 +175,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
           <View style={{ gap: 16 }}>
             {/* Where playback lands. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Speaker size={15} color={colors.fgSubtle} />
+              <Speaker size={15} color={colors.textTertiary} />
               <Text style={type.small}>Plays on {groupLabel}</Text>
             </View>
 
@@ -183,7 +183,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
               <PlaylistView
                 opened={opened}
                 accent={accent}
-                accentText={accentText}
+                onPrimary={onPrimary}
                 pending={pending}
                 onBack={closeContainer}
                 onRetry={() => void openContainer(opened.item)}
@@ -198,7 +198,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
                     key={r.id}
                     item={r}
                     accent={accent}
-                    accentText={accentText}
+                    onPrimary={onPrimary}
                     pendingOp={pending && pending.id === r.id ? pending.op : null}
                     anyPending={pending !== null}
                     onEnqueue={(where) => void addToQueue(r, where)}
@@ -211,12 +211,12 @@ export default function SpotifySearch({ group }: { group?: Group }) {
           </View>
         )}
 
-        {notice !== '' && <Text style={[type.small, { color: colors.fgMuted }]}>{notice}</Text>}
+        {notice !== '' && <Text style={[type.small, { color: colors.textSecondary }]}>{notice}</Text>}
       </Animated.ScrollView>
 
       <Animated.View
         ref={headerRef}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH, overflow: 'hidden', backgroundColor: colors.bg }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH, overflow: 'hidden', backgroundColor: colors.background }}
       >
         <Animated.View
           style={{
@@ -232,7 +232,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
             transformOrigin: 'left center',
           } as object}
         >
-          <Search size={22} color={colors.fg} />
+          <Search size={22} color={colors.text} />
           <Text style={[type.displaySm]}>Search Spotify</Text>
         </Animated.View>
 
@@ -249,19 +249,19 @@ export default function SpotifySearch({ group }: { group?: Group }) {
                   borderRadius: radii.lg,
                   borderWidth: 1,
                   borderColor: ink(0.12),
-                  backgroundColor: colors.bgPaper,
+                  backgroundColor: colors.surface,
                 }}
               >
-                <Search size={18} color={colors.fgSubtle} />
+                <Search size={18} color={colors.textTertiary} />
                 <TextInput
                   ref={inputRef}
                   value={query}
                   onChangeText={setQuery}
                   onSubmitEditing={() => void runSearch()}
                   placeholder="Artists, tracks, albums, playlists…"
-                  placeholderTextColor={colors.fgSubtle}
+                  placeholderTextColor={colors.textTertiary}
                   returnKeyType="search"
-                  style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg, outlineStyle: 'none' } as object}
+                  style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.text, outlineStyle: 'none' } as object}
                 />
                 <Animated.View
                   pointerEvents={hasQuery ? 'auto' : 'none'}
@@ -283,7 +283,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
                       backgroundColor: pressed ? ink(0.1) : hovered ? ink(0.06) : 'transparent',
                     })}
                   >
-                    <Close size={14} color={colors.fgSubtle} />
+                    <Close size={14} color={colors.textTertiary} />
                   </Pressable>
                 </Animated.View>
                 <Pressable
@@ -300,9 +300,9 @@ export default function SpotifySearch({ group }: { group?: Group }) {
                   })}
                 >
                   {busy ? (
-                    <ActivityIndicator size="small" color={accentText} />
+                    <ActivityIndicator size="small" color={onPrimary} />
                   ) : (
-                    <Text style={{ fontFamily: font.bodySemiBold, fontSize: 13, color: accentText }}>Search</Text>
+                    <Text style={{ fontFamily: font.bodySemiBold, fontSize: 13, color: onPrimary }}>Search</Text>
                   )}
                 </Pressable>
               </View>
@@ -327,7 +327,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
                         borderRadius: radii.pill,
                         borderWidth: 1,
                         borderColor: on ? 'transparent' : ink(0.12),
-                        backgroundColor: on ? colors.fg : pressed ? ink(0.04) : 'transparent',
+                        backgroundColor: on ? colors.text : pressed ? ink(0.04) : 'transparent',
                       })}
                     >
                       <Text
@@ -335,7 +335,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
                           fontFamily: font.bodyMedium,
                           fontSize: 12,
                           textTransform: 'capitalize',
-                          color: on ? colors.bgPaper : colors.fgMuted,
+                          color: on ? colors.surface : colors.textSecondary,
                         }}
                       >
                         {k}
@@ -363,7 +363,7 @@ export default function SpotifySearch({ group }: { group?: Group }) {
 function PlaylistView({
   opened,
   accent,
-  accentText,
+  onPrimary,
   pending,
   onBack,
   onRetry,
@@ -372,7 +372,7 @@ function PlaylistView({
 }: {
   opened: OpenedContainer;
   accent: string;
-  accentText: string;
+  onPrimary: string;
   pending: { id: string; op: PendingSearchOp } | null;
   onBack: () => void;
   onRetry: () => void;
@@ -395,7 +395,7 @@ function PlaylistView({
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', opacity: pressed ? 0.6 : 1 })}
       >
         <View style={{ transform: [{ rotate: '180deg' }] }}>
-          <ChevronRight size={14} color={colors.fgMuted} />
+          <ChevronRight size={14} color={colors.textSecondary} />
         </View>
         <Text style={type.bodyMuted}>Results</Text>
       </Pressable>
@@ -405,7 +405,7 @@ function PlaylistView({
         subtitle={[item.artist, count].filter(Boolean).join(' · ')}
         artSize={72}
         accent={accent}
-        accentText={accentText}
+        onPrimary={onPrimary}
         pendingOp={pendingFor(item.id)}
         anyPending={pending !== null}
         onEnqueue={(where) => onEnqueue(item, where)}
@@ -416,7 +416,7 @@ function PlaylistView({
 
       {opened.status === 'loading' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10 }}>
-          <ActivityIndicator size="small" color={colors.fgMuted} />
+          <ActivityIndicator size="small" color={colors.textSecondary} />
           <Text style={type.bodyMuted}>Loading tracks…</Text>
         </View>
       )}
@@ -438,7 +438,7 @@ function PlaylistView({
               key={`${t.id}#${i}`}
               item={t}
               accent={accent}
-              accentText={accentText}
+              onPrimary={onPrimary}
               pendingOp={pendingFor(t.id)}
               anyPending={pending !== null}
               onEnqueue={(where) => onEnqueue(t, where)}
@@ -446,7 +446,7 @@ function PlaylistView({
             />
           ))}
           {opened.total > opened.tracks.length && (
-            <Text style={[type.small, { color: colors.fgMuted, paddingHorizontal: 10, paddingTop: 6 }]}>
+            <Text style={[type.small, { color: colors.textSecondary, paddingHorizontal: 10, paddingTop: 6 }]}>
               Showing the first {opened.tracks.length} of {opened.total} tracks. Adding the playlist adds all of them.
             </Text>
           )}
@@ -461,7 +461,7 @@ function ResultRow({
   subtitle,
   artSize = 44,
   accent,
-  accentText,
+  onPrimary,
   pendingOp,
   anyPending,
   onEnqueue,
@@ -473,7 +473,7 @@ function ResultRow({
   subtitle?: string;
   artSize?: number;
   accent: string;
-  accentText: string;
+  onPrimary: string;
   pendingOp: PendingSearchOp | null;
   anyPending: boolean;
   onEnqueue: (where: QueuePosition) => void;
@@ -522,20 +522,20 @@ function ResultRow({
               justifyContent: 'center',
             }}
           >
-            <Search size={16} color={colors.fgFaint} />
+            <Search size={16} color={colors.textHint} />
           </View>
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
+          <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.text }}>
             {item.title}
           </Text>
-          <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
+          <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
             {line}
           </Text>
         </View>
         {onOpen && (
           <View style={{ opacity: hovered ? 1 : 0.5 }}>
-            <ChevronRight size={16} color={colors.fgMuted} />
+            <ChevronRight size={16} color={colors.textSecondary} />
           </View>
         )}
       </Pressable>
@@ -546,21 +546,21 @@ function ResultRow({
         <ActionButton
           label="Add to queue"
           onPress={() => onEnqueue('end')}
-          icon={pendingOp === 'end' ? <ActivityIndicator size="small" color={colors.fg} /> : <Plus size={14} color={colors.fg} />}
-          bg={colors.bgPaper}
+          icon={pendingOp === 'end' ? <ActivityIndicator size="small" color={colors.text} /> : <Plus size={14} color={colors.text} />}
+          bg={colors.surface}
           border
         />
         <ActionButton
           label="Play next"
           onPress={() => onEnqueue('next')}
-          icon={pendingOp === 'next' ? <ActivityIndicator size="small" color={colors.fg} /> : <Queue size={15} color={colors.fg} />}
-          bg={colors.bgPaper}
+          icon={pendingOp === 'next' ? <ActivityIndicator size="small" color={colors.text} /> : <Queue size={15} color={colors.text} />}
+          bg={colors.surface}
           border
         />
         <ActionButton
           label="Play now"
           onPress={onPlay}
-          icon={pendingOp === 'play' ? <ActivityIndicator size="small" color={accentText} /> : <Play size={13} fill={accentText} />}
+          icon={pendingOp === 'play' ? <ActivityIndicator size="small" color={onPrimary} /> : <Play size={13} fill={onPrimary} />}
           bg={accent}
         />
       </View>
@@ -591,14 +591,14 @@ function ActionButton({
             position: 'absolute',
             bottom: 38,
             right: 0,
-            backgroundColor: colors.fg,
+            backgroundColor: colors.text,
             paddingVertical: 4,
             paddingHorizontal: 8,
             borderRadius: radii.sm,
             zIndex: 10,
           }}
         >
-          <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 11, color: colors.bgPaper }}>
+          <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 11, color: colors.surface }}>
             {label}
           </Text>
         </View>

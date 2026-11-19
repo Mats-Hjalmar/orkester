@@ -21,7 +21,7 @@ import { font } from '../theme/fonts';
 import { useStore } from '../state/store';
 import { useGroupRoute, useNav } from '../navigation';
 import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type OpenedContainer, type PendingSearchOp } from '@orkester/core/state';
-import { accentTextOf } from '../state/selectors';
+import { onPrimaryOf } from '../state/selectors';
 import type { ApiSearchItem, QueuePosition } from '@orkester/core';
 
 // Mobile Spotify catalog search — the touch counterpart of the desktop
@@ -40,7 +40,7 @@ export default function Search() {
   const { state, config, groupById, roomName, groupControls, transportPending, getTrack } = store;
   const insets = useSafeAreaInsets();
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
 
   const g = groupById(groupId);
   const hasTarget = !!g;
@@ -108,13 +108,13 @@ export default function Search() {
           accessibilityLabel="Close search"
           style={({ pressed }) => ({ height: 40, paddingHorizontal: 16, borderRadius: radii.pill, borderWidth: 1, borderColor: ink(0.12), alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}
         >
-          <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>Done</Text>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.text }}>Done</Text>
         </Pressable>
       </View>
 
       {link.status === 'checking' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <ActivityIndicator size="small" color={colors.fgMuted} />
+          <ActivityIndicator size="small" color={colors.textSecondary} />
           <Text style={type.bodyMuted}>Checking Spotify link…</Text>
         </View>
       )}
@@ -130,7 +130,7 @@ export default function Search() {
             accessibilityRole="button"
             style={({ pressed }) => ({ alignSelf: 'flex-start', height: 48, paddingHorizontal: 20, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}
           >
-            <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: accentText }}>Link Spotify</Text>
+            <Text style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: onPrimary }}>Link Spotify</Text>
           </Pressable>
         </View>
       )}
@@ -138,11 +138,11 @@ export default function Search() {
       {link.status === 'linking' && (
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <ActivityIndicator size="small" color={colors.fgMuted} />
+            <ActivityIndicator size="small" color={colors.textSecondary} />
             <Text style={type.bodyMuted}>Waiting for you to approve access in the browser…</Text>
           </View>
           <Pressable onPress={() => openLink(link.regUrl)} hitSlop={8} accessibilityRole="link">
-            <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.fgMuted }} selectable>
+            <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.textSecondary }} selectable>
               {link.regUrl}
             </Text>
           </Pressable>
@@ -164,7 +164,7 @@ export default function Search() {
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', minHeight: 36, opacity: pressed ? 0.6 : 1 })}
           >
             <View style={{ transform: [{ rotate: '180deg' }] }}>
-              <ChevronRight size={15} color={colors.fgMuted} />
+              <ChevronRight size={15} color={colors.textSecondary} />
             </View>
             <Text style={type.bodyMuted}>Results for “{query.trim()}”</Text>
           </Pressable>
@@ -174,7 +174,7 @@ export default function Search() {
             subtitle={[opened.item.artist, trackCount(opened)].filter(Boolean).join(' · ')}
             artSize={72}
             accent={accent}
-            accentText={accentText}
+            onPrimary={onPrimary}
             enabled={hasTarget}
             pending={pending && pending.id === opened.item.id ? pending.op : null}
             anyPending={pending !== null}
@@ -199,23 +199,23 @@ export default function Search() {
               borderRadius: radii.lg,
               borderWidth: 1,
               borderColor: ink(0.12),
-              backgroundColor: colors.bgPaper,
+              backgroundColor: colors.surface,
             }}
           >
-            <SearchIcon size={18} color={colors.fgSubtle} />
+            <SearchIcon size={18} color={colors.textTertiary} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={() => search()}
               placeholder="Artists, tracks, albums, playlists…"
-              placeholderTextColor={colors.fgSubtle}
+              placeholderTextColor={colors.textTertiary}
               returnKeyType="search"
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus
-              style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.fg }}
+              style={{ flex: 1, fontFamily: font.body, fontSize: 15, color: colors.text }}
             />
-            {busy && <ActivityIndicator size="small" color={colors.fgMuted} />}
+            {busy && <ActivityIndicator size="small" color={colors.textSecondary} />}
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -238,7 +238,7 @@ export default function Search() {
                     borderRadius: radii.pill,
                     borderWidth: 1,
                     borderColor: on ? 'transparent' : ink(0.12),
-                    backgroundColor: on ? colors.fg : pressed ? ink(0.04) : 'transparent',
+                    backgroundColor: on ? colors.text : pressed ? ink(0.04) : 'transparent',
                   })}
                 >
                   <Text
@@ -246,7 +246,7 @@ export default function Search() {
                       fontFamily: font.bodyMedium,
                       fontSize: 12,
                       textTransform: 'capitalize',
-                      color: on ? colors.bgPaper : colors.fgMuted,
+                      color: on ? colors.surface : colors.textSecondary,
                     }}
                   >
                     {k}
@@ -257,7 +257,7 @@ export default function Search() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Speaker size={15} color={colors.fgSubtle} />
+            <Speaker size={15} color={colors.textTertiary} />
             <Text numberOfLines={1} style={[type.small, { flexShrink: 1 }]}>
               {hasTarget ? `Plays on ${groupLabel}` : 'That group is gone — close and pick another'}
             </Text>
@@ -271,7 +271,7 @@ export default function Search() {
     <View style={{ gap: 6, paddingTop: 14 }}>
       {opened?.status === 'loading' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18 }}>
-          <ActivityIndicator size="small" color={colors.fgMuted} />
+          <ActivityIndicator size="small" color={colors.textSecondary} />
           <Text style={type.bodyMuted}>Loading tracks…</Text>
         </View>
       )}
@@ -284,7 +284,7 @@ export default function Search() {
         <Text style={[type.bodyMuted, { textAlign: 'center', paddingVertical: 18 }]}>This playlist has no playable tracks.</Text>
       )}
       {opened?.status === 'ready' && opened.total > opened.tracks.length && (
-        <Text style={[type.small, { color: colors.fgMuted }]}>
+        <Text style={[type.small, { color: colors.textSecondary }]}>
           Showing the first {opened.tracks.length} of {opened.total} tracks. Adding the playlist adds all of them.
         </Text>
       )}
@@ -293,7 +293,7 @@ export default function Search() {
           No {kind} matching “{query.trim()}”.
         </Text>
       )}
-      {notice !== '' && <Text style={[type.small, { color: colors.fgMuted }]}>{notice}</Text>}
+      {notice !== '' && <Text style={[type.small, { color: colors.textSecondary }]}>{notice}</Text>}
       {openError !== '' && <Text style={[type.small, { color: colors.danger }]}>{openError}</Text>}
       {error !== '' && <Text style={[type.small, { color: colors.danger }]}>{error}</Text>}
     </View>
@@ -301,7 +301,7 @@ export default function Search() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <FlatList
@@ -321,7 +321,7 @@ export default function Search() {
             <ResultRow
               item={item}
               accent={accent}
-              accentText={accentText}
+              onPrimary={onPrimary}
               enabled={hasTarget}
               pending={pending && pending.id === item.id ? pending.op : null}
               anyPending={pending !== null}
@@ -344,7 +344,7 @@ export default function Search() {
           isPlaying={g.isPlaying}
           pending={transportPending(g.id)}
           accent={accent}
-          accentText={accentText}
+          onPrimary={onPrimary}
           bottom={insets.bottom}
           onToggle={() => {
             groupControls(g.id).togglePlay();
@@ -362,7 +362,7 @@ function ContextBar({
   isPlaying,
   pending,
   accent,
-  accentText,
+  onPrimary,
   bottom,
   onToggle,
 }: {
@@ -371,7 +371,7 @@ function ContextBar({
   isPlaying: boolean;
   pending: string | null;
   accent: string;
-  accentText: string;
+  onPrimary: string;
   bottom: number;
   onToggle: () => void;
 }) {
@@ -386,15 +386,15 @@ function ContextBar({
         paddingBottom: bottom + 12,
         borderTopWidth: 1,
         borderTopColor: ink(0.08),
-        backgroundColor: colors.bgPaper,
+        backgroundColor: colors.surface,
       }}
     >
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>
+        <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.text }}>
           {label}
         </Text>
         {!!title && (
-          <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.fgSubtle }]}>
+          <Text numberOfLines={1} style={[type.small, { marginTop: 1, color: colors.textTertiary }]}>
             {title}
           </Text>
         )}
@@ -406,11 +406,11 @@ function ContextBar({
         style={{ width: 44, height: 44, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}
       >
         {pending === 'play' || pending === 'pause' ? (
-          <ActivityIndicator size="small" color={accentText} />
+          <ActivityIndicator size="small" color={onPrimary} />
         ) : isPlaying ? (
-          <Pause size={16} fill={accentText} />
+          <Pause size={16} fill={onPrimary} />
         ) : (
-          <Play size={16} fill={accentText} />
+          <Play size={16} fill={onPrimary} />
         )}
       </Pressable>
     </View>
@@ -422,7 +422,7 @@ function ResultRow({
   subtitle,
   artSize = 48,
   accent,
-  accentText,
+  onPrimary,
   enabled,
   pending,
   anyPending,
@@ -437,7 +437,7 @@ function ResultRow({
   subtitle?: string;
   artSize?: number;
   accent: string;
-  accentText: string;
+  onPrimary: string;
   enabled: boolean;
   pending: PendingSearchOp | null;
   anyPending: boolean;
@@ -476,18 +476,18 @@ function ResultRow({
             />
           ) : (
             <View style={{ width: artSize, height: artSize, borderRadius: radius, backgroundColor: ink(0.06), alignItems: 'center', justifyContent: 'center' }}>
-              <SearchIcon size={16} color={colors.fgFaint} />
+              <SearchIcon size={16} color={colors.textHint} />
             </View>
           )}
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.fg }}>
+            <Text numberOfLines={1} style={{ fontFamily: font.bodySemiBold, fontSize: 14, color: colors.text }}>
               {item.title}
             </Text>
-            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.fgSubtle, marginTop: 2 }}>
+            <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
               {line}
             </Text>
           </View>
-          {onOpen && <ChevronRight size={16} color={colors.fgSubtle} />}
+          {onOpen && <ChevronRight size={16} color={colors.textTertiary} />}
         </Pressable>
         {/* Play now is the primary action; the rest live behind "more" so the row
             stays readable at phone width and those actions can carry real labels
@@ -497,18 +497,18 @@ function ResultRow({
           enabled={enabled && !anyPending}
           spinning={pending === 'play'}
           bg={accent}
-          icon={<Play size={14} fill={accentText} />}
-          spinnerColor={accentText}
+          icon={<Play size={14} fill={onPrimary} />}
+          spinnerColor={onPrimary}
           onPress={onPlay}
         />
         <RoundButton
           label={expanded ? 'Hide more actions' : 'More actions'}
           enabled={enabled}
           spinning={pending !== null && pending !== 'play'}
-          bg={colors.bgPaper}
+          bg={colors.surface}
           border
-          icon={<Dots size={16} color={colors.fg} />}
-          spinnerColor={colors.fg}
+          icon={<Dots size={16} color={colors.text} />}
+          spinnerColor={colors.text}
           onPress={onToggleExpand}
         />
       </View>
@@ -584,12 +584,12 @@ function TextAction({ label, enabled, icon, onPress }: { label: string; enabled:
         borderRadius: radii.pill,
         borderWidth: 1,
         borderColor: ink(0.12),
-        backgroundColor: colors.bgPaper,
+        backgroundColor: colors.surface,
         opacity: !enabled ? 0.35 : pressed ? 0.7 : 1,
       })}
     >
-      {icon && <Plus size={14} color={colors.fg} />}
-      <Text style={{ fontFamily: font.bodyMedium, fontSize: 12.5, color: colors.fg }}>{label}</Text>
+      {icon && <Plus size={14} color={colors.text} />}
+      <Text style={{ fontFamily: font.bodyMedium, fontSize: 12.5, color: colors.text }}>{label}</Text>
     </Pressable>
   );
 }

@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Next, Pause, Play, Prev, Repeat, Shuffle } from '../icons';
 import { radii } from '../theme/tokens';
 import { useStore } from '../state/store';
-import { accentTextOf } from '../state/selectors';
+import { onPrimaryOf } from '../state/selectors';
 import type { Group } from '../state/types';
 
 // shuffle · prev · play/pause · next · repeat for ONE group, themed for light or
@@ -28,7 +28,7 @@ export default function TransportRow({
   const { groupControls, transportPending, config } = useStore();
   const ctrl = groupControls(group.id);
   const accent = config.accentColor;
-  const accentText = accentTextOf(accent);
+  const onPrimary = onPrimaryOf(accent);
   const pending = transportPending(group.id);
   const busy = pending !== null;
 
@@ -73,11 +73,11 @@ export default function TransportRow({
         style={{ width: 68, height: 68, borderRadius: radii.pill, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', boxShadow: '0px 8px 24px rgba(26,24,20,0.06)' } as any}
       >
         {pending === 'play' || pending === 'pause' ? (
-          <ActivityIndicator size="small" color={accentText} />
+          <ActivityIndicator size="small" color={onPrimary} />
         ) : group.isPlaying ? (
-          <Pause size={28} fill={accentText} />
+          <Pause size={28} fill={onPrimary} />
         ) : (
-          <Play size={28} fill={accentText} />
+          <Play size={28} fill={onPrimary} />
         )}
       </Pressable>
       <Pressable onPress={act(ctrl.next)} hitSlop={14} accessibilityRole="button" accessibilityLabel="Next track">

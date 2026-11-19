@@ -25,7 +25,7 @@ if (!container) throw new Error('renderer root element missing');
 createRoot(container).render(
   <React.StrictMode>
     {/* The store's default accent is a literal; the CSS-variable one follows the theme. */}
-    <StoreProvider api={api} config={{ accentColor: colors.accent }}>
+    <StoreProvider api={api} config={{ accentColor: colors.primary }}>
       <DesktopApp settings={settings} />
     </StoreProvider>
   </React.StrictMode>,

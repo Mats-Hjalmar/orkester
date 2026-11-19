@@ -21,10 +21,10 @@ export default function SpeakerVolumes({ group, centerRight, onClose }: { group:
           const volume = store.roomVolume(roomId);
           return (
             <View key={roomId} style={{ gap: 6, opacity: store.groupingPending(roomId) !== null ? 0.6 : 1 }}>
-              <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.fg }}>{name}</Text>
+              <Text numberOfLines={1} style={{ fontFamily: font.bodyMedium, fontSize: 13, color: colors.text }}>{name}</Text>
               {volume === null ? (
                 // No real reading for this speaker yet — no slider to guess at.
-                <Text style={[type.small, { color: colors.fgFaint }]}>Reading level…</Text>
+                <Text style={[type.small, { color: colors.textHint }]}>Reading level…</Text>
               ) : (
                 <LevelRow
                   label={name}

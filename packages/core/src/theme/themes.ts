@@ -2,12 +2,22 @@
 // the user settings that pick one theme per appearance and hold hand-made themes.
 // Pure and RN-safe; the file I/O lives in src/node/settingsStore.ts.
 
+import { contrast, luminance, mix } from './color';
 import { colors } from './tokens';
 
 export type ColorToken = keyof typeof colors;
+/** A full palette: every token, as applied to the UI. */
 export type ThemeColors = Record<ColorToken, string>;
 
 export const COLOR_TOKENS = Object.keys(colors) as ColorToken[];
+
+/** The colours a theme must set; every other token is derived from them unless the theme overrides it. */
+export const CORE_COLOR_TOKENS = ['background', 'text', 'primary'] as const satisfies readonly ColorToken[];
+export type CoreColorToken = (typeof CORE_COLOR_TOKENS)[number];
+export const DERIVED_COLOR_TOKENS = COLOR_TOKENS.filter((t) => !(CORE_COLOR_TOKENS as readonly ColorToken[]).includes(t));
+
+/** A theme's stored colours: the core three plus overrides of any derived ones. */
+export type ThemeColorInput = Pick<ThemeColors, CoreColorToken> & Partial<ThemeColors>;
 
 export const THEME_APPEARANCES = ['light', 'dark'] as const;
 export type ThemeAppearance = (typeof THEME_APPEARANCES)[number];
@@ -18,7 +28,7 @@ export type AppearanceSetting = (typeof APPEARANCE_SETTINGS)[number];
 
 export interface Theme {
   appearance: ThemeAppearance;
-  colors: ThemeColors;
+  colors: ThemeColorInput;
 }
 
 export const DEFAULT_THEME_NAMES: Readonly<Record<ThemeAppearance, string>> = { light: 'Noira', dark: 'Noira Night' };
@@ -26,128 +36,162 @@ export const DEFAULT_THEME_NAMES: Readonly<Record<ThemeAppearance, string>> = { 
 /** The settings key holding the theme chosen for each appearance. */
 export const THEME_SETTING_KEYS = { light: 'lightTheme', dark: 'darkTheme' } as const satisfies Record<ThemeAppearance, string>;
 
-// Secondary content on an accent fill (icons, meta) is accentText at this opacity,
-// never a grey fg* token: those are tuned for the surfaces and can vanish on an accent.
-export const ON_ACCENT_SECONDARY_OPACITY = 0.85;
+// Secondary content on a primary fill (icons, meta) is onPrimary at this opacity,
+// never a grey text* token: those are tuned for the surfaces and can vanish on primary.
+export const ON_PRIMARY_SECONDARY_OPACITY = 0.85;
 
-const light = (colors: ThemeColors): Theme => ({ appearance: 'light', colors });
-const dark = (colors: ThemeColors): Theme => ({ appearance: 'dark', colors });
+// How far `surface` is lifted from the background: toward white in a light theme,
+// toward the text in a dark one. Where that can't separate it (a near-white
+// background has no room left), it is deepened instead: toward the text in a
+// light theme, toward black in a dark one.
+const SURFACE_LIFT: Readonly<Record<ThemeAppearance, number>> = { light: 0.4, dark: 0.07 };
+const SURFACE_DEEPEN = 0.03;
+export const MIN_SURFACE_CONTRAST = 1.04;
 
-// fgOnPhoto stays light and bgDeep dark in every theme: both sit over photos
-// and hero tiles whatever the surfaces around them are.
+// A dark theme's logo tile is the background deepened toward black; on a
+// near-black background that can't separate it, so it is lifted toward the text.
+const LOGO_DEEPEN = 0.5;
+const LOGO_LIFT = 0.12;
+export const MIN_LOGO_TILE_CONTRAST = 1.2;
+
+const WHITE = '#FFFFFF';
+const BLACK = '#000000';
+
+/** `preferred` if it stands at least `min` apart from `base`, otherwise `fallback`. */
+function separated(base: string, preferred: string, fallback: string, min: number): string {
+  return contrast(base, preferred) >= min ? preferred : fallback;
+}
+
+// How far each quieter text level is mixed from the text toward the background.
+const TEXT_FADE = { textSecondary: 0.35, textTertiary: 0.55, textHint: 0.8 } as const;
+
+export const DEFAULT_DANGER: Readonly<Record<ThemeAppearance, string>> = { light: colors.danger, dark: '#E08F84' };
+
+/** The full palette for a theme's stored colours: derived tokens fill in what it doesn't override. */
+export function resolveColors(input: ThemeColorInput, appearance: ThemeAppearance): ThemeColors {
+  const { background, text, primary } = input;
+  const [darker, lighter] = luminance(background) < luminance(text) ? [background, text] : [text, background];
+  const derived: ThemeColors = {
+    background,
+    text,
+    primary,
+    surface:
+      appearance === 'light'
+        ? separated(background, mix(background, WHITE, SURFACE_LIFT.light), mix(background, text, SURFACE_DEEPEN), MIN_SURFACE_CONTRAST)
+        : separated(background, mix(background, text, SURFACE_LIFT.dark), mix(background, BLACK, SURFACE_DEEPEN), MIN_SURFACE_CONTRAST),
+    textSecondary: mix(text, background, TEXT_FADE.textSecondary),
+    textTertiary: mix(text, background, TEXT_FADE.textTertiary),
+    textHint: mix(text, background, TEXT_FADE.textHint),
+    onPrimary: contrast(darker, primary) >= contrast(lighter, primary) ? darker : lighter,
+    danger: DEFAULT_DANGER[appearance],
+    logoBackground:
+      appearance === 'light' ? darker : separated(background, mix(background, BLACK, LOGO_DEEPEN), mix(background, text, LOGO_LIFT), MIN_LOGO_TILE_CONTRAST),
+    logoForeground: lighter,
+  };
+  return { ...derived, ...input };
+}
+
+export function themeColors(theme: Theme): ThemeColors {
+  return resolveColors(theme.colors, theme.appearance);
+}
+
+const light = (colors: ThemeColorInput): Theme => ({ appearance: 'light', colors });
+const dark = (colors: ThemeColorInput): Theme => ({ appearance: 'dark', colors });
+
+// Noira is `colors` itself; its danger and logo tile are exactly what would be derived.
+const { danger: _danger, logoBackground: _logoBackground, ...noira } = colors;
+
+// Each built-in stores the core three plus only the colours it sets differently from the derived ones.
 export const BUILTIN_THEMES: Readonly<Record<string, Theme>> = {
-  [DEFAULT_THEME_NAMES.light]: light(colors),
+  [DEFAULT_THEME_NAMES.light]: light(noira),
   [DEFAULT_THEME_NAMES.dark]: dark({
-    bg: '#1C1915',
-    bgCream: '#24201B',
-    bgPaper: '#2A2620',
-    bgDeep: '#100E0B',
-    fg: '#EEE8DC',
-    fgStrong: '#FAF6EE',
-    fgMuted: '#A89F8E',
-    fgSubtle: '#7F7767',
-    fgFaint: '#4A443A',
-    fgOnPhoto: '#F7F4ED',
-    accent: '#E4F289',
-    accentDeep: '#C9D96B',
-    accentText: '#2A3308',
-    danger: '#E08F84',
+    background: '#1C1915',
+    surface: '#2A2620',
+    text: '#EEE8DC',
+    textSecondary: '#A89F8E',
+    textTertiary: '#7F7767',
+    textHint: '#4A443A',
+    primary: '#E4F289',
+    onPrimary: '#2A3308',
+    logoBackground: '#100E0B',
+    logoForeground: '#F7F4ED',
   }),
   Fjord: light({
-    bg: '#EEF2F4',
-    bgCream: '#E3E9ED',
-    bgPaper: '#F8FAFB',
-    bgDeep: '#14202B',
-    fg: '#16222D',
-    fgStrong: '#0A131B',
-    fgMuted: '#56677A',
-    fgSubtle: '#8796A5',
-    fgFaint: '#C3CDD6',
-    fgOnPhoto: '#F4F7F9',
-    accent: '#7FD1C7',
-    accentDeep: '#5DB8AD',
-    accentText: '#0B3631',
+    background: '#EEF2F4',
+    surface: '#F8FAFB',
+    text: '#16222D',
+    textSecondary: '#56677A',
+    textTertiary: '#8796A5',
+    textHint: '#C3CDD6',
+    primary: '#7FD1C7',
+    onPrimary: '#0B3631',
     danger: '#B4545A',
+    logoBackground: '#14202B',
+    logoForeground: '#F4F7F9',
   }),
   Velvet: dark({
-    bg: '#1E1824',
-    bgCream: '#261F2D',
-    bgPaper: '#2C2434',
-    bgDeep: '#120E16',
-    fg: '#ECE4F0',
-    fgStrong: '#FAF5FC',
-    fgMuted: '#A797B0',
-    fgSubtle: '#7C6E86',
-    fgFaint: '#463C4E',
-    fgOnPhoto: '#F7F2F9',
-    accent: '#F5C451',
-    accentDeep: '#DDA935',
-    accentText: '#3A2A00',
+    background: '#1E1824',
+    surface: '#2C2434',
+    text: '#ECE4F0',
+    textSecondary: '#A797B0',
+    textTertiary: '#7C6E86',
+    textHint: '#463C4E',
+    primary: '#F5C451',
+    onPrimary: '#3A2A00',
     danger: '#EF8A8A',
+    logoBackground: '#120E16',
+    logoForeground: '#F7F2F9',
   }),
   'Monokai Dark Vibrant': dark({
-    bg: '#1E1F1C',
-    bgCream: '#272822',
-    bgPaper: '#2F3029',
-    bgDeep: '#141411',
-    fg: '#F8F8F2',
-    fgStrong: '#FFFFFF',
-    fgMuted: '#A6A28C',
-    fgSubtle: '#75715E',
-    fgFaint: '#49483E',
-    fgOnPhoto: '#F8F8F2',
-    accent: '#F92672',
-    accentDeep: '#D61A5E',
-    accentText: '#FFFFFF',
+    background: '#1E1F1C',
+    surface: '#2F3029',
+    text: '#F8F8F2',
+    textSecondary: '#A6A28C',
+    textTertiary: '#75715E',
+    textHint: '#49483E',
+    primary: '#F92672',
+    onPrimary: '#FFFFFF',
     danger: '#FD971F',
+    logoBackground: '#141411',
   }),
   'Catppuccin Frappé': dark({
-    bg: '#303446',
-    bgCream: '#393D50',
-    bgPaper: '#414559',
-    bgDeep: '#232634',
-    fg: '#C6D0F5',
-    fgStrong: '#DCE3FA',
-    fgMuted: '#A5ADCE',
-    fgSubtle: '#838BA7',
-    fgFaint: '#51576D',
-    fgOnPhoto: '#DCE3FA',
-    accent: '#CA9EE6',
-    accentDeep: '#B584D6',
-    accentText: '#232634',
+    background: '#303446',
+    surface: '#414559',
+    text: '#C6D0F5',
+    textSecondary: '#A5ADCE',
+    textTertiary: '#838BA7',
+    textHint: '#51576D',
+    primary: '#CA9EE6',
+    onPrimary: '#232634',
     danger: '#E78284',
+    logoBackground: '#232634',
+    logoForeground: '#DCE3FA',
   }),
   'Tokyo Night': dark({
-    bg: '#1A1B26',
-    bgCream: '#1E202E',
-    bgPaper: '#202330',
-    bgDeep: '#16161E',
-    fg: '#C0CAF5',
-    fgStrong: '#DDE2FA',
-    fgMuted: '#FF9E64',
-    fgSubtle: '#73DACA',
-    fgFaint: '#363B54',
-    fgOnPhoto: '#DDE2FA',
-    accent: '#BB9AF7',
-    accentDeep: '#9D7CD8',
-    accentText: '#16161E',
+    background: '#1A1B26',
+    surface: '#202330',
+    text: '#C0CAF5',
+    textSecondary: '#FF9E64',
+    textTertiary: '#73DACA',
+    textHint: '#363B54',
+    primary: '#BB9AF7',
+    onPrimary: '#16161E',
     danger: '#F7768E',
+    logoBackground: '#16161E',
+    logoForeground: '#DDE2FA',
   }),
   'One Dark Vivid': dark({
-    bg: '#282C34',
-    bgCream: '#2C313A',
-    bgPaper: '#323844',
-    bgDeep: '#202329',
-    fg: '#BBBBBB',
-    fgStrong: '#D7DAE0',
-    fgMuted: '#E5C07B',
-    fgSubtle: '#9DA5B4',
-    fgFaint: '#333841',
-    fgOnPhoto: '#E6E9EF',
-    accent: '#D55FDE',
-    accentDeep: '#B84BC1',
-    accentText: '#202329',
+    background: '#282C34',
+    surface: '#323844',
+    text: '#BBBBBB',
+    textSecondary: '#E5C07B',
+    textTertiary: '#9DA5B4',
+    textHint: '#333841',
+    primary: '#D55FDE',
+    onPrimary: '#202329',
     danger: '#EF596F',
+    logoBackground: '#202329',
+    logoForeground: '#E6E9EF',
   }),
 };
 
@@ -176,7 +220,7 @@ export function isHexColor(value: string): boolean {
   return HEX_COLOR.test(value);
 }
 
-/** The CSS custom property a token is exposed as, e.g. `bgPaper` -> `--ork-bgPaper`. */
+/** The CSS custom property a token is exposed as, e.g. `surface` -> `--ork-surface`. */
 export function cssVarName(token: ColorToken): string {
   return `--ork-${token}`;
 }
@@ -216,26 +260,25 @@ export function themeNameProblem(name: string): string | null {
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Throws unless `raw` has exactly `keys` (all present, nothing else). */
-function requireKeys(raw: Record<string, unknown>, keys: readonly string[], what: string): void {
+/** Throws unless `raw` has every `required` key and nothing outside `allowed`. */
+function requireKeys(raw: Record<string, unknown>, allowed: readonly string[], what: string, required = allowed): void {
   for (const key of Object.keys(raw)) {
-    if (!keys.includes(key)) throw new Error(`unknown ${what} "${key}"`);
+    if (!allowed.includes(key)) throw new Error(`unknown ${what} "${key}"`);
   }
-  for (const key of keys) {
+  for (const key of required) {
     if (raw[key] === undefined) throw new Error(`missing ${what} "${key}"`);
   }
 }
 
-function parseColors(raw: unknown): ThemeColors {
+function parseColors(raw: unknown): ThemeColorInput {
   if (!isObject(raw)) throw new Error('"colors" must be an object of colours');
-  requireKeys(raw, COLOR_TOKENS, 'colour');
-  for (const token of COLOR_TOKENS) {
-    const value = raw[token];
+  requireKeys(raw, COLOR_TOKENS, 'colour', CORE_COLOR_TOKENS);
+  for (const [token, value] of Object.entries(raw)) {
     if (typeof value !== 'string' || !isHexColor(value)) {
       throw new Error(`${token} must be a #RRGGBB colour, got ${JSON.stringify(value)}`);
     }
   }
-  return raw as ThemeColors;
+  return raw as ThemeColorInput;
 }
 
 function isOneOf<T extends string>(values: readonly T[], v: unknown): v is T {
