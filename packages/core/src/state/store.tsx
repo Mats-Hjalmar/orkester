@@ -125,6 +125,13 @@ export interface Store {
   reorderQueue: (gid: string, fromIndex: number, toIndex: number) => void;
   /** Removes the queue track at `index` (0-based) on the speaker, then re-reads it. */
   removeQueueItem: (gid: string, index: number) => void;
+  /**
+   * Moves the queue tracks at `indices` (0-based) into one block, in queue
+   * order, whose first track lands at final position `toIndex`; then re-reads it.
+   */
+  moveQueueItems: (gid: string, indices: number[], toIndex: number) => void;
+  /** Removes the queue tracks at `indices` (0-based) on the speaker, then re-reads it. */
+  removeQueueItems: (gid: string, indices: number[]) => void;
   /** Plays the group's queue entry at `index` (0-based), then re-reads state. */
   playQueueIndex: (gid: string, index: number) => void;
   /** Sized URLs for a track's `artUrl` (THROWS when a Spotify cover can't be looked up). */
@@ -143,7 +150,7 @@ export interface Store {
   /** Queues a hit without changing playback, at `where` (default the end), then
    * re-reads the queue. */
   enqueueSearchItem: (gid: string, item: ApiSearchItem, where?: QueuePosition) => Promise<void>;
-  /** Plays a hit now, REPLACING the queue, then refreshes now-playing + queue. */
+  /** Plays a hit now (inserted after the current track), then refreshes now-playing + queue. */
   playSearchItem: (gid: string, item: ApiSearchItem) => Promise<void>;
   // GROUP-TARGETED controls (rooms-first desktop) — control any group in place.
   groupControls: (gid: string) => GroupControls;
@@ -714,6 +721,19 @@ export function StoreProvider({
     const groupControls = (gid: string): GroupControls =>
       controlsFor(state.groups.find((g) => g.id === gid) ?? placeholderGroup());
 
+    // Queue edits go to the SPEAKER and we re-read from it — the Sonos queue is
+    // the source of truth, never an optimistic local splice. The re-fetch runs
+    // in `finally` so a failure still resyncs the UI to the speaker's real state.
+    const editQueue = (gid: string, edit: () => Promise<void>) => {
+      inFlight.current.run(queueSlot(gid), 'queue', async () => {
+        try {
+          await edit();
+        } finally {
+          await fetchQueue.current(gid);
+        }
+      });
+    };
+
     return {
       state,
       config: cfg,
@@ -745,38 +765,25 @@ export function StoreProvider({
 
       queueFor: (gid: string) => state.queues[gid] ?? [],
 
-      // Queue edits go to the SPEAKER and we re-read from it — the Sonos queue is
-      // the source of truth, never an optimistic local splice. The re-fetch runs
-      // in `finally` so a failure still resyncs the UI to the speaker's real state.
       clearQueue: (gid: string) => {
         if (gid === '') return;
-        inFlight.current.run(queueSlot(gid), 'queue', async () => {
-          try {
-            await api.clearQueue(gid);
-          } finally {
-            await fetchQueue.current(gid);
-          }
-        });
+        editQueue(gid, () => api.clearQueue(gid));
       },
       reorderQueue: (gid: string, fromIndex: number, toIndex: number) => {
         if (gid === '' || fromIndex === toIndex) return;
-        inFlight.current.run(queueSlot(gid), 'queue', async () => {
-          try {
-            await api.reorderQueue(gid, fromIndex, toIndex);
-          } finally {
-            await fetchQueue.current(gid);
-          }
-        });
+        editQueue(gid, () => api.reorderQueue(gid, fromIndex, toIndex));
       },
       removeQueueItem: (gid: string, index: number) => {
         if (gid === '' || index < 0) return;
-        inFlight.current.run(queueSlot(gid), 'queue', async () => {
-          try {
-            await api.removeQueueItem(gid, index);
-          } finally {
-            await fetchQueue.current(gid);
-          }
-        });
+        editQueue(gid, () => api.removeQueueItem(gid, index));
+      },
+      moveQueueItems: (gid: string, indices: number[], toIndex: number) => {
+        if (gid === '') return;
+        editQueue(gid, () => api.moveQueueItems(gid, indices, toIndex));
+      },
+      removeQueueItems: (gid: string, indices: number[]) => {
+        if (gid === '') return;
+        editQueue(gid, () => api.removeQueueItems(gid, indices));
       },
 
       // Jumping the queue changes the current track, so reconcile now-playing as

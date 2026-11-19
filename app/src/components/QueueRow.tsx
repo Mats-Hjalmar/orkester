@@ -12,8 +12,9 @@ import type { Motif, QueueItem } from '../state/types';
 // and shows an accent dot — desktop's current-track marker; the phone leaves it off.
 //
 // `onPress` makes the row itself play that queue entry — the only reasonable way
-// to reach a track on touch, where the desktop had a drag handle and the phone had
-// only reorder chevrons. The trailing slot stays outside the pressable so its own
+// to reach a track on touch, where the phone has only reorder chevrons. The
+// desktop passes `onPressArt` instead: there a click on the row selects it, so
+// only the cover plays. The trailing slot stays outside the pressable so its own
 // buttons still work.
 //
 // The row owns NO fixed height: the desktop drag math applies translateY to a
@@ -28,6 +29,7 @@ export default function QueueRow({
   accent,
   trailing,
   onPress,
+  onPressArt,
 }: {
   item: QueueItem;
   motif: Motif;
@@ -37,13 +39,27 @@ export default function QueueRow({
   accent?: string;
   trailing?: React.ReactNode;
   onPress?: () => void;
+  onPressArt?: () => void;
 }) {
   const art = synthesizeArt(item.title || item.album, item.artist);
   const title = item.title || item.album || '';
+  const playLabel = item.artist ? `Play ${title} by ${item.artist}` : `Play ${title}`;
 
+  const cover = <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} large={current} />;
   const body = (
     <>
-      <CoverArt size={40} coverBg={art.coverBg} coverShape={art.coverShape} motif={motif} radius={8} artUrl={item.artUrl} large={current} />
+      {onPressArt ? (
+        <Pressable
+          onPress={onPressArt}
+          accessibilityRole="button"
+          accessibilityLabel={playLabel}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, cursor: 'pointer' } as any)}
+        >
+          {cover}
+        </Pressable>
+      ) : (
+        cover
+      )}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ fontFamily: current ? font.bodySemiBold : font.bodyMedium, fontSize: 14, color: fg }}>{title}</Text>
         {!!item.artist && <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: muted, marginTop: 1 }}>{item.artist}</Text>}
@@ -58,7 +74,7 @@ export default function QueueRow({
         <Pressable
           onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel={item.artist ? `Play ${title} by ${item.artist}` : `Play ${title}`}
+          accessibilityLabel={playLabel}
           style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.6 : 1 })}
         >
           {body}

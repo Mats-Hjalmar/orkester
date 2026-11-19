@@ -9,6 +9,7 @@ import { useSpotifySearch, SPOTIFY_SEARCH_KINDS, type OpenedContainer, type Pend
 import { onPrimaryOf } from '../state/selectors';
 import type { Group } from '../state/types';
 import type { ApiSearchItem, QueuePosition } from '@orkester/core';
+import { useSearchItemDrag } from './drag';
 
 // Spotify catalog search, desktop pane. All domain logic lives in the shared
 // useSpotifySearch hook (@orkester/core/state) — the same one the mobile Search
@@ -485,11 +486,16 @@ function ResultRow({
   // no artist at all (so we never show the redundant "Playlist · …").
   const line = subtitle ?? (item.artist || capitalizeKind(item));
   const [hovered, setHovered] = React.useState(false);
+  // Any hit can be dragged onto the queue, which inserts it where it is dropped.
+  const dragHandlers = useSearchItemDrag(item, onEnqueue);
   return (
     <View
+      {...dragHandlers}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
+      // userSelect:none so dragging a hit doesn't start a text selection.
       style={{
+        userSelect: 'none',
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
@@ -497,7 +503,7 @@ function ResultRow({
         paddingHorizontal: 10,
         borderRadius: radii.md,
         backgroundColor: hovered ? ink(0.04) : 'transparent',
-      }}
+      } as object}
     >
       <Pressable
         onPress={onOpen}
@@ -540,9 +546,9 @@ function ResultRow({
         )}
       </Pressable>
       {/* Three explicit actions: append to the queue, insert after the current
-          track, or play now (which REPLACES the queue). One
+          track, or play now (inserted after the current track). One
           catalog request runs at a time; the rest dim while it does. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: anyPending && !pendingOp ? 0.45 : 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: anyPending && pendingOp === null ? 0.45 : 1 }}>
         <ActionButton
           label="Add to queue"
           onPress={() => onEnqueue('end')}

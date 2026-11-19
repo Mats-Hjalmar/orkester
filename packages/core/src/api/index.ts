@@ -310,8 +310,8 @@ export interface Api {
    */
   enqueueSearchItem(groupId: string, item: ApiSearchItem, where?: QueuePosition): Promise<void>;
   /**
-   * Plays a search hit NOW, REPLACING the group's queue ("play now"). Destructive
-   * to the existing queue by design; use enqueueSearchItem to append instead.
+   * Plays a search hit NOW ("play now"): inserts it directly after the current
+   * track and starts it, leaving the rest of the queue intact.
    */
   playSearchItem(groupId: string, item: ApiSearchItem): Promise<void>;
 
@@ -325,6 +325,13 @@ export interface Api {
   setSleepTimer(groupId: string, seconds: number): Promise<void>;
   /** Removes the queue entry at `index` (0-based). */
   removeQueueItem(groupId: string, index: number): Promise<void>;
+  /** Removes the queue entries at `indices` (0-based). */
+  removeQueueItems(groupId: string, indices: number[]): Promise<void>;
+  /**
+   * Moves the queue entries at `indices` (0-based) into one block, in queue
+   * order, whose first track lands at final position `toIndex`.
+   */
+  moveQueueItems(groupId: string, indices: number[], toIndex: number): Promise<void>;
   /** Saves the queue as a Sonos playlist; resolves with its browse id. */
   saveQueue(groupId: string, title: string): Promise<string>;
   /** Plays `sourceRoomId`'s line-in on the group. */
@@ -356,7 +363,10 @@ export interface Api {
   browse(objectId: string, start?: number, count?: number): Promise<ApiBrowseResult>;
   getFavorites(): Promise<ApiBrowseItem[]>;
   getPlaylists(): Promise<ApiBrowseItem[]>;
-  /** Plays a library entry now: a stream becomes the source, anything else is added to the queue and played from there. */
+  /**
+   * Plays a library entry now: a stream becomes the source, anything else is
+   * inserted directly after the current track and played from there.
+   */
   playBrowseItem(groupId: string, item: ApiBrowseItem): Promise<void>;
   /** Queues a library entry without changing what is playing. */
   enqueueBrowseItem(groupId: string, item: ApiBrowseItem, where?: QueuePosition): Promise<void>;

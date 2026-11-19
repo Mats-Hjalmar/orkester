@@ -8,6 +8,7 @@ import MiniPlayer, { type MiniPanel } from './MiniPlayer';
 import GroupPanel from './GroupPanel';
 import SpeakerVolumes from './SpeakerVolumes';
 import ErrorToast from './ErrorToast';
+import { SearchDragGhost } from './drag';
 import ArtOverlay from './ArtOverlay';
 import SettingsModal from './SettingsModal';
 import { useSettings, type LoadedSettings } from './settings';
@@ -93,6 +94,7 @@ export default function DesktopApp({ settings: loadedSettings }: { settings: Loa
       {selectedGroup && panel === 'volumes' && selectedGroup.roomIds.length > 1 && <SpeakerVolumes group={selectedGroup} centerRight={volumesCenter} onClose={closePanel} />}
       {settingsOpen && <SettingsModal state={settings} onClose={closeSettings} />}
       <ErrorToast />
+      <SearchDragGhost />
     </View>
   );
 }

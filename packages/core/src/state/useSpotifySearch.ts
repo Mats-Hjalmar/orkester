@@ -25,7 +25,7 @@ interface SearchSnapshot {
 }
 let lastSearch: SearchSnapshot | null = null;
 
-const ENQUEUE_NOTICE: Record<QueuePosition, (title: string, group: string) => string> = {
+const ENQUEUE_NOTICE: Record<'end' | 'next', (title: string, group: string) => string> = {
   end: (title, group) => `Added "${title}" to the queue on ${group}.`,
   next: (title, group) => `"${title}" plays next on ${group}.`,
 };
@@ -78,7 +78,7 @@ export interface SpotifySearch {
   runSearch: (searchKind?: SpotifySearchKind) => Promise<void>;
   /** Queues a hit on the target group at `where` (default the end). */
   addToQueue: (item: ApiSearchItem, where?: QueuePosition) => Promise<void>;
-  /** Plays a hit now (replaces the queue) on the target group. */
+  /** Plays a hit now (inserted after the current track) on the target group. */
   playNow: (item: ApiSearchItem) => Promise<void>;
   /**
    * The hit whose add/play is in flight, or null. One catalog request at a time:
@@ -316,7 +316,7 @@ export function useSpotifySearch({ groupId, roomIdForLink, groupLabel }: Spotify
     startPending(item.id, where);
     try {
       await apiRef.current.enqueueSearchItem(groupId, item, where);
-      setNotice(ENQUEUE_NOTICE[where](item.title, groupLabel));
+      setNotice(ENQUEUE_NOTICE[where === 'next' ? 'next' : 'end'](item.title, groupLabel));
     } catch (e) {
       setError(messageOf(e));
     } finally {

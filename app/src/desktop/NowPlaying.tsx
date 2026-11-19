@@ -4,6 +4,7 @@ import CoverArt from '../components/CoverArt';
 import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
+import { useQueueDropTarget, usePressDrag, useSearchDrag, type DragPoint } from './drag';
 import ScrollIndicator from './ScrollIndicator';
 import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
 import { colors, FIXED_DARK, ink, radii, shadow } from '../theme/tokens';
@@ -41,101 +42,140 @@ function BackButton({ onPress }: { onPress: () => void }) {
 
 // Fixed row height so the drag math (dy / ROW_H) maps cleanly to row offsets.
 const QUEUE_ROW_H = 52;
+const DRAG_SETTLE_MS = 150;
+// A multi-row drag shows as a stack: this many cards peek out below the grabbed
+// row, each one lower and narrower than the one above it.
+const STACK_CARDS = 2;
+const STACK_PEEK = 5;
+const STACK_INSET = 0.04;
 
-// A drag-to-reorder queue. Each row's grip uses W3C pointer events with pointer
-// CAPTURE — PanResponder is unreliable under react-native-web, but pointer capture
-// (rock-solid in Chromium/Electron) keeps move+up firing on the handle for the
-// whole drag even when the cursor leaves the tiny grip. Dragging shifts the
-// neighbouring rows to preview the drop; on release we ask the SPEAKER to reorder
-// (the store re-reads from Sonos — no optimistic local splice). The fixed row
-// height makes dy → row-offset exact.
+// A selectable, drag-to-reorder queue. Rows select like a desktop file list
+// (click, Cmd/Ctrl-click to toggle, Shift-click for a range) so several tracks
+// can be moved or removed at once; a plain click therefore only selects, and a
+// track plays from its cover or a double-click instead. The selection is indices,
+// so it is dropped whenever the queue array changes and they'd name other tracks.
 //
-// Each row also has a menu (dots button or right-click) for the moves that are
-// tedious by drag: play now, play next, move to end, remove.
+// A whole row drags once the pointer passes DRAG_THRESHOLD (below it the press is
+// a click), with W3C pointer events and pointer CAPTURE — PanResponder is
+// unreliable under react-native-web. Dragging a selected row drags the whole
+// selection as one block, and the other rows shift to preview the drop; on
+// release we ask the SPEAKER to move them (the store re-reads from Sonos — no
+// optimistic local splice). The fixed row height makes dy → row-offset exact.
+// A search hit dragged over the list shows an insertion line at `insertAt`.
+//
+// Each row also has a menu (dots button or right-click), acting on the selection
+// when the row is in it, for the moves that are tedious by drag: play now, play
+// next, move to end, remove.
 //
 // The list is the WHOLE queue: rows before `currentIndex` have already played and
 // are faded; the current row is filled with the accent.
-function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRemove }: {
+function QueueList({ items, motif, accent, currentIndex, insertAt, listRef, onMove, onPlay, onRemove }: {
   items: QueueItem[];
   motif: Motif;
   accent: string;
   currentIndex: number;
-  onReorder: (from: number, to: number) => void;
+  insertAt: number | null;
+  listRef: React.Ref<View>;
+  onMove: (indices: number[], toIndex: number) => void;
   onPlay: (index: number) => void;
-  onRemove: (index: number) => void;
+  onRemove: (indices: number[]) => void;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
-  const [menuIndex, setMenuIndex] = useState<number | null>(null);
-  const openMenu = (index: number) => {
-    setMenuIndex(index);
-    void showContextMenu([
-      { label: 'Play now', icon: <Play size={16} />, onPress: () => onPlay(index) },
-      { label: 'Play next', icon: <QueueTop size={16} />, onPress: () => onReorder(index, nextSlot(index)), enabled: index !== currentIndex && nextSlot(index) !== index },
-      { label: 'Move to end of queue', icon: <QueueBottom size={16} />, onPress: () => onReorder(index, items.length - 1), enabled: index < items.length - 1 },
-      { label: 'Remove from queue', icon: <Trash size={16} />, onPress: () => onRemove(index) },
-    ]).finally(() => setMenuIndex(null));
+  const [selection, setSelection] = useState<{ of: QueueItem[]; indices: number[]; anchor: number }>({ of: items, indices: [], anchor: 0 });
+  const live = selection.of === items;
+  const selected = live ? selection.indices : [];
+  const isSelected = new Set(selected);
+  const select = (indices: number[], anchor: number) =>
+    setSelection({ of: items, indices: [...indices].sort((a, b) => a - b), anchor });
+  // The rows an action on `index` applies to: the selection when it holds the row, else the row alone.
+  const targetsOf = (index: number) => {
+    if (isSelected.has(index)) return selected;
+    select([index], index);
+    return [index];
   };
-  // reorderQueue's `to` is the FINAL position, so a track moved down from above
-  // the current one lands on the current slot (the current track shifts up).
+
+  const onRowClick = (index: number, e: MouseEvent) => {
+    if (e.detail === 2) {
+      onPlay(index);
+    } else if (e.shiftKey) {
+      const anchor = live ? selection.anchor : index;
+      const lo = Math.min(anchor, index);
+      select(Array.from({ length: Math.abs(index - anchor) + 1 }, (_, k) => lo + k), anchor);
+    } else if (e.metaKey || e.ctrlKey) {
+      select(isSelected.has(index) ? selected.filter((i) => i !== index) : [...selected, index], index);
+    } else {
+      select([index], index);
+    }
+  };
+
+  // Move targets are a FINAL block position, so "already there" means the
+  // targets are contiguous and start at `to`.
+  const inPlace = (targets: number[], to: number) => targets.every((t, k) => t === to + k);
+  const openMenu = (index: number) => {
+    const targets = targetsOf(index);
+    const count = targets.length;
+    // Directly after the current track: past every unselected track up to and including it.
+    const nextSlot = currentIndex + 1 - targets.filter((t) => t <= currentIndex).length;
+    const end = items.length - count;
+    void showContextMenu([
+      ...(count === 1 ? [{ label: 'Play now', icon: <Play size={16} />, onPress: () => onPlay(index) }] : []),
+      { label: 'Play next', icon: <QueueTop size={16} />, onPress: () => onMove(targets, nextSlot), enabled: !targets.includes(currentIndex) && !inPlace(targets, nextSlot) },
+      { label: 'Move to end of queue', icon: <QueueBottom size={16} />, onPress: () => onMove(targets, end), enabled: !inPlace(targets, end) },
+      { label: count === 1 ? 'Remove from queue' : `Remove ${count} tracks from queue`, icon: <Trash size={16} />, onPress: () => onRemove(targets) },
+    ]);
+  };
+
   const onPrimary = onPrimaryOf(accent);
-  const nextSlot = (index: number) => (index < currentIndex ? currentIndex : currentIndex + 1);
-  const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
+  const [drag, setDrag] = useState<{ grabbed: number; indices: number[]; dy: number; settled: boolean } | null>(null);
   const dragRef = useRef(drag);
   dragRef.current = drag;
-  const startY = useRef(0);
-  const targetOf = (from: number, dy: number) =>
-    Math.max(0, Math.min(items.length - 1, from + Math.round(dy / QUEUE_ROW_H)));
+  const press = usePressDrag();
+  // Where the dragged block would start if dropped now.
+  const dropIndex = (d: { grabbed: number; indices: number[]; dy: number }) =>
+    Math.max(0, Math.min(items.length - d.indices.length, Math.round(d.grabbed - d.indices.indexOf(d.grabbed) + d.dy / QUEUE_ROW_H)));
+
+  // While dragging, the dragged rows collapse onto the grabbed one — a single
+  // row under the cursor, so a big selection doesn't hide the list — and the
+  // other rows close up around it, leaving a one-row gap at the drop slot. The
+  // rows above shift down by `rank` so the gap starts out exactly under the cursor.
+  let offsets: number[] | null = null;
+  if (drag) {
+    const to = dropIndex(drag);
+    const rank = drag.indices.indexOf(drag.grabbed);
+    let unselected = 0;
+    offsets = items.map((_, i) => {
+      if (drag.indices.includes(i)) return drag.dy + (drag.grabbed - i) * QUEUE_ROW_H;
+      const slot = rank + unselected + (unselected < to ? 0 : 1);
+      unselected += 1;
+      return (slot - i) * QUEUE_ROW_H;
+    });
+  }
 
   return (
-    // userSelect:none so dragging a handle doesn't start a text selection.
-    <View style={{ userSelect: 'none' } as any}>
+    // userSelect:none so dragging a row doesn't start a text selection.
+    <View ref={listRef} style={{ userSelect: 'none' } as any}>
       {items.map((item, index) => {
-        const isDragged = drag?.from === index;
+        const isDragged = !!drag?.indices.includes(index);
+        const isGrabbed = drag?.grabbed === index;
+        // 0 for the grabbed row, 1.. for the rows stacked beneath it, -1 when not dragged.
+        const stackDepth = !drag || !isDragged ? -1 : isGrabbed ? 0 : drag.indices.filter((i) => i !== drag.grabbed).indexOf(index) + 1;
+        const card = Math.min(stackDepth, STACK_CARDS);
         const isCurrent = index === currentIndex;
-        let translateY = 0;
-        if (drag) {
-          const to = targetOf(drag.from, drag.dy);
-          if (isDragged) translateY = drag.dy;
-          else if (drag.from < to && index > drag.from && index <= to) translateY = -QUEUE_ROW_H;
-          else if (drag.from > to && index < drag.from && index >= to) translateY = QUEUE_ROW_H;
-        }
+        const translateY = offsets?.[index] ?? 0;
 
         const trailingIcon = isCurrent ? { color: onPrimary, opacity: ON_PRIMARY_SECONDARY_OPACITY } : { color: colors.textTertiary, opacity: 1 };
 
-        const handle = (
-          <View
-            // RN ViewProps types currentTarget as a host ref; under react-native-web
-            // it's the DOM node, so setPointerCapture is available (cast below).
-            onPointerDown={(e) => {
-              const t = e.currentTarget as unknown as { setPointerCapture?: (id: number) => void };
-              try { t.setPointerCapture?.(e.nativeEvent.pointerId); } catch { /* capture optional */ }
-              startY.current = e.nativeEvent.pageY;
-              setDrag({ from: index, dy: 0 });
-            }}
-            onPointerMove={(e) => {
-              if (dragRef.current?.from !== index) return;
-              setDrag({ from: index, dy: e.nativeEvent.pageY - startY.current });
-            }}
-            onPointerUp={(e) => {
-              const t = e.currentTarget as unknown as { releasePointerCapture?: (id: number) => void };
-              try { t.releasePointerCapture?.(e.nativeEvent.pointerId); } catch { /* noop */ }
-              const d = dragRef.current;
-              setDrag(null);
-              if (d && d.from === index) {
-                const to = targetOf(d.from, d.dy);
-                if (to !== d.from) onReorder(d.from, to);
-              }
-            }}
-            onPointerCancel={() => setDrag(null)}
-            // grab cursor + no text-select/scroll-gesture stealing the drag.
-            style={{ padding: 6, opacity: trailingIcon.opacity, cursor: isDragged ? 'grabbing' : 'grab', userSelect: 'none', touchAction: 'none' } as any}
-          >
+        // Only a visual affordance: the whole row is the drag handle.
+        const grip = (
+          <View style={{ padding: 6, opacity: trailingIcon.opacity }}>
             <Grip size={16} color={trailingIcon.color} />
           </View>
         );
 
         const dots = (
+          // Pressing the menu button must not arm a row drag.
           <Pressable
+            onPointerDown={(e) => e.stopPropagation()}
             accessibilityLabel={`More options for ${item.title || item.album}`}
             onPress={() => openMenu(index)}
             hitSlop={4}
@@ -150,24 +190,65 @@ function QueueList({ items, motif, accent, currentIndex, onReorder, onPlay, onRe
         return (
           <View
             key={`${index}:${item.title}:${item.artist}`}
-            // RN's ViewProps lacks onContextMenu; react-native-web forwards it to the DOM.
-            {...{ onContextMenu: (e: MouseEvent) => {
-              e.preventDefault();
-              openMenu(index);
-            } }}
+            // RN's ViewProps lacks the mouse events; react-native-web forwards them to the DOM.
+            {...{
+              onContextMenu: (e: MouseEvent) => {
+                e.preventDefault();
+                openMenu(index);
+              },
+              onClick: (e: MouseEvent) => {
+                if (!press.consumeDragClick()) onRowClick(index, e);
+              },
+            }}
+            {...press.bind({
+              onStart: () => {
+                setDrag({ grabbed: index, indices: targetsOf(index), dy: 0, settled: false });
+                setTimeout(() => setDrag((d) => d && { ...d, settled: true }), DRAG_SETTLE_MS);
+              },
+              onMove: (_, delta) => setDrag((d) => d && { ...d, dy: delta.y }),
+              onEnd: (_, delta) => {
+                const d = dragRef.current;
+                setDrag(null);
+                if (!d) return;
+                const to = dropIndex({ ...d, dy: delta.y });
+                if (!inPlace(d.indices, to)) onMove(d.indices, to);
+              },
+              onCancel: () => setDrag(null),
+            })}
             onPointerEnter={() => setHovered(index)}
             onPointerLeave={() => setHovered((h) => (h === index ? null : h))}
             // The negative margin lets the tint extend past the content without shifting it.
+            // The current row keeps its accent fill, so its selection shows as an inset ring.
             style={{
-              height: QUEUE_ROW_H, justifyContent: 'center', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: radii.md,
-              backgroundColor: isCurrent ? accent : isDragged || menuIndex === index ? ink(0.06) : hovered === index ? ink(0.03) : 'transparent',
-              transform: [{ translateY }], zIndex: isDragged ? 5 : 1, opacity: isDragged ? 0.92 : index < currentIndex ? 0.5 : 1,
-            }}
+              height: QUEUE_ROW_H, justifyContent: 'center', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: radii.md, cursor: isDragged ? 'grabbing' : 'grab',
+              // Dragged rows are opaque cards, so the stack hides the rows sliding beneath it.
+              backgroundColor: isCurrent && stackDepth <= 0 ? accent : isDragged ? colors.surface : isSelected.has(index) ? ink(0.08) : hovered === index ? ink(0.03) : 'transparent',
+              boxShadow: isDragged ? `${shadow.md}, 0px 0px 0px 1px ${ink(0.12)}` : isCurrent && isSelected.has(index) ? `inset 0px 0px 0px 2px ${onPrimary}` : undefined,
+              transform: isDragged ? [{ translateY: translateY + card * STACK_PEEK }, { scaleX: 1 - card * STACK_INSET }] : [{ translateY }],
+              zIndex: isDragged ? 1 + STACK_CARDS + 1 - card : 1, opacity: stackDepth > STACK_CARDS ? 0 : isDragged ? 1 : index < currentIndex ? 0.5 : 1,
+              // Only mid-drag, so a drop snaps instead of easing back to the old order
+              // before the re-read; never on the grabbed row, which must track the cursor,
+              // and on the cards beneath it only while they gather, so they don't trail it.
+              ...(drag && !isGrabbed && !(isDragged && drag.settled) && { transitionProperty: 'transform, opacity', transitionDuration: `${DRAG_SETTLE_MS}ms` }),
+            } as any}
           >
-            <QueueRow item={item} motif={motif} fg={isCurrent ? onPrimary : colors.text} muted={isCurrent ? onPrimary : colors.textSecondary} current={isCurrent} onPress={() => onPlay(index)} trailing={<>{dots}{handle}</>} />
+            {stackDepth <= 0 && <QueueRow
+              item={item}
+              motif={motif}
+              fg={isCurrent ? onPrimary : colors.text}
+              muted={isCurrent ? onPrimary : colors.textSecondary}
+              current={isCurrent}
+              onPressArt={() => onPlay(index)}
+              trailing={isGrabbed && drag.indices.length > 1
+                ? <Text style={{ fontFamily: font.bodySemiBold, fontSize: 12, color: trailingIcon.color, opacity: trailingIcon.opacity, paddingHorizontal: 6 }}>{drag.indices.length} tracks</Text>
+                : <>{dots}{grip}</>}
+            />}
           </View>
         );
       })}
+      {insertAt !== null && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: insertAt * QUEUE_ROW_H - 1, height: 2, borderRadius: radii.pill, backgroundColor: colors.text, zIndex: 10 }} />
+      )}
     </View>
   );
 }
@@ -188,10 +269,35 @@ const SCROLLBAR_RIGHT = 10;
 // app to open the full-size cover, which it draws above every column.
 export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?: Group; onBack?: () => void; onShowArt?: () => void }) {
   const store = useStore();
-  const { state, getTrack, roomName, config, queueFor, clearQueue, reorderQueue, removeQueueItem, playQueueIndex } = store;
+  const { state, getTrack, roomName, config, queueFor, clearQueue, moveQueueItems, removeQueueItems, playQueueIndex } = store;
   const accent = config.accentColor;
   const status = state.topologyStatus;
   const connected = status === 'ready' && state.groups.length > 0;
+
+  // A search hit dragged here is inserted where it is dropped. Under Spotify
+  // Connect the queue is hidden, so nothing is offered; an empty queue isn't
+  // rendered, so then the whole column takes the drop and appends.
+  const canDrop = connected && !!group && !group.spotifyConnect;
+  const dropQueue = canDrop ? queueFor(group.id) : [];
+  const columnRef = useRef<View>(null);
+  const queueViewRef = useRef<View>(null);
+  const listRef = useRef<View>(null);
+  const rectOf = (ref: React.RefObject<View | null>) => (ref.current as unknown as HTMLElement | null)?.getBoundingClientRect();
+  const inside = (rect: DOMRect | undefined, at: DragPoint) =>
+    !!rect && at.x >= rect.left && at.x <= rect.right && at.y >= rect.top && at.y <= rect.bottom;
+  // The queue slot (0..length) a hit dropped at `at` would take, or null when it isn't over the queue.
+  const dropSlot = (at: DragPoint): number | null => {
+    if (dropQueue.length === 0) return inside(rectOf(columnRef), at) ? 0 : null;
+    const list = rectOf(listRef);
+    if (!list || !inside(rectOf(queueViewRef), at)) return null;
+    return Math.max(0, Math.min(dropQueue.length, Math.round((at.y - list.top) / QUEUE_ROW_H)));
+  };
+  useQueueDropTarget(canDrop ? (at) => {
+    const slot = dropSlot(at);
+    return slot === null ? null : slot === dropQueue.length ? 'end' : slot;
+  } : null);
+  const searchDrag = useSearchDrag();
+  const dropAt = canDrop && searchDrag ? dropSlot(searchDrag.at) : null;
 
   // --- Not connected: discovering / connect instructions ------------------
   if (!connected || !group) {
@@ -239,7 +345,7 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
   // Transport, volume and grouping live in the MiniPlayer; this column is the
   // track and its queue. Fixed width so the search column beside it gets the rest.
   return (
-    <View style={{ width: COLUMN_W, flex: 'none' as any }}>
+    <View ref={columnRef} style={{ width: COLUMN_W, flex: 'none' as any, backgroundColor: dropAt !== null && queue.length === 0 ? ink(0.04) : 'transparent' }}>
       {onBack && <BackButton onPress={onBack} />}
       <View style={{ paddingTop: PAD, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
@@ -294,15 +400,17 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
       {/* The coordinator's queue. Hidden when empty (some streaming sources
           play without a queue) — no placeholder. */}
       {queue.length > 0 && (
-        <QueueScroll groupId={g.id} currentIndex={g.queueIndex} count={queue.length} accent={accent}>
+        <QueueScroll viewRef={queueViewRef} groupId={g.id} currentIndex={g.queueIndex} count={queue.length} accent={accent}>
           <QueueList
             items={queue}
             motif={config.coverMotif}
             accent={accent}
             currentIndex={g.queueIndex}
-            onReorder={(from, to) => reorderQueue(g.id, from, to)}
+            insertAt={dropAt}
+            listRef={listRef}
+            onMove={(indices, toIndex) => moveQueueItems(g.id, indices, toIndex)}
             onPlay={(index) => playQueueIndex(g.id, index)}
-            onRemove={(index) => removeQueueItem(g.id, index)}
+            onRemove={(indices) => removeQueueItems(g.id, indices)}
           />
         </QueueScroll>
       )}
@@ -314,7 +422,7 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
 // just above it — reachable by scrolling back. Re-aligns when the track or group
 // changes; the jump is instant for a new group and animated for a track change.
 // The scroll indicator sits in the right-hand padding and marks the current row.
-function QueueScroll({ groupId, currentIndex, count, accent, children }: { groupId: string; currentIndex: number; count: number; accent: string; children: React.ReactNode }) {
+function QueueScroll({ viewRef, groupId, currentIndex, count, accent, children }: { viewRef: React.Ref<View>; groupId: string; currentIndex: number; count: number; accent: string; children: React.ReactNode }) {
   const ref = useRef<ScrollView>(null);
   const lastGroup = useRef(groupId);
   const hasQueue = count > 0;
@@ -329,7 +437,7 @@ function QueueScroll({ groupId, currentIndex, count, accent, children }: { group
   }, [groupId, currentIndex, hasQueue]);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View ref={viewRef} style={{ flex: 1 }}>
       <ScrollView
         ref={ref}
         style={{ flex: 1 }}

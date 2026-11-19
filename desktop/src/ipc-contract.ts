@@ -42,6 +42,8 @@ export const API_METHODS = [
   'getSleepTimer',
   'setSleepTimer',
   'removeQueueItem',
+  'removeQueueItems',
+  'moveQueueItems',
   'saveQueue',
   'playLineIn',
   'playTv',

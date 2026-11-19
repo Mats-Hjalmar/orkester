@@ -128,6 +128,7 @@ export {
   addURIToQueue,
   getQueueTrackNumber,
   playFromQueue,
+  nextQueueSlot,
   playItem,
   DIRECT_STREAM_SCHEMES,
   type ControlService,
