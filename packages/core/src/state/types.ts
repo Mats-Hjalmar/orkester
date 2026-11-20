@@ -2,6 +2,8 @@
 // the UI's useStore() surface does not churn when the implementation is swapped
 // from mock to engine-backed. TYPES ONLY — zero runtime values.
 
+import type { UpNext } from '../engine';
+
 export type Motif = 'sun' | 'arc';
 
 /**
@@ -53,6 +55,8 @@ export interface Group {
   queueIndex: number;
   /** True when the group is being cast to from the Spotify app (Spotify Connect). */
   spotifyConnect: boolean;
+  /** The next track under Spotify Connect, or null when none is reported. */
+  upNext: UpNext | null;
 }
 
 export interface Config {

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
+import SpotifyUpNext from '../components/SpotifyUpNext';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
 import { useQueueDropTarget, usePressDrag, useSearchDrag, type DragPoint } from './drag';
@@ -393,6 +394,11 @@ export default function DesktopNowPlaying({ group, onBack, onShowArt }: { group?
                 <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: colors.textSecondary }}>Clear</Text>
               )}
             </Pressable>
+          </View>
+        )}
+        {g.spotifyConnect && (
+          <View style={{ marginTop: 28 }}>
+            <SpotifyUpNext upNext={g.upNext} />
           </View>
         )}
       </View>

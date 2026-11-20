@@ -222,6 +222,7 @@ function placeholderGroup(): Group {
     repeat: false,
     queueIndex: -1,
     spotifyConnect: false,
+    upNext: null,
   };
 }
 

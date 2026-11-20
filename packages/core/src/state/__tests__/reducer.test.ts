@@ -22,6 +22,7 @@ const NP: ApiNowPlaying = {
   artUrl: '',
   queueIndex: 0,
   spotifyConnect: false,
+  upNext: null,
 };
 
 describe('reducer topology lifecycle', () => {
@@ -134,6 +135,17 @@ describe('reducer Spotify Connect', () => {
     expect(s.groups[0].spotifyConnect).toBe(true);
     s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: NP });
     expect(s.groups[0].spotifyConnect).toBe(false);
+  });
+
+  it('nowPlaying sets upNext and a topology refresh keeps it', () => {
+    const upNext = { title: 'All Love Can Be', artist: 'James Horner', album: 'A Beautiful Mind' };
+    let s = reducer(initialState(), { type: 'topologyReady', topology: TOPO });
+    s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: { ...NP, spotifyConnect: true, upNext } });
+    expect(s.groups[0].upNext).toEqual(upNext);
+    s = reducer(s, { type: 'topologyReady', topology: TOPO });
+    expect(s.groups[0].upNext).toEqual(upNext);
+    s = reducer(s, { type: 'nowPlaying', groupId: 'g1', np: NP });
+    expect(s.groups[0].upNext).toBeNull();
   });
 });
 

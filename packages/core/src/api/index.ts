@@ -8,7 +8,8 @@
 // The Api is the ONLY per-runtime difference: the StoreProvider drives the same
 // reducer regardless of which Api it was handed.
 
-import type { AlarmPlayMode, AlarmRecurrence, ArtUrls, EQType, QueuePosition, RepeatMode } from '../engine';
+import type { SonosDevice } from '@orkester/sonos-api';
+import type { AlarmPlayMode, AlarmRecurrence, ArtUrls, EQType, QueuePosition, RepeatMode, UpNext } from '../engine';
 
 /** A cover in the sizes the UI picks between. */
 export type ApiArt = ArtUrls;
@@ -63,6 +64,8 @@ export interface ApiNowPlaying {
   queueIndex: number;
   /** True when the group is being cast to from the Spotify app (Spotify Connect). */
   spotifyConnect: boolean;
+  /** The next track under Spotify Connect, or null when none is reported or no source is wired. */
+  upNext: UpNext | null;
 }
 
 /** One track in a group's play queue. */
@@ -223,6 +226,18 @@ export interface ApiAlarm {
 export interface CredentialStore {
   load(): Promise<SpotifyAuth | null>;
   save(auth: SpotifyAuth): Promise<void>;
+}
+
+/**
+ * Supplies the next track of a Spotify Connect session. Only speaker events carry
+ * it, which needs an HTTP listener, so the host injects this (see
+ * ../node/nextTrackSource); hosts that cannot receive events pass none.
+ */
+export interface NextTrackSource {
+  /** The latest next track the group coordinator reported, or null. Never throws. */
+  nextTrack(coordinator: SonosDevice): Promise<UpNext | null>;
+  /** Stops tracking a coordinator whose group no longer needs a next track. */
+  release(coordinator: SonosDevice): void;
 }
 
 /**
