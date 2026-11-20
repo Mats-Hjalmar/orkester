@@ -171,6 +171,7 @@ export function reducer(s: State, a: Action): State {
           repeat: prior?.repeat ?? false,
           queueIndex: prior?.queueIndex ?? -1,
           spotifyConnect: prior?.spotifyConnect ?? false,
+          upNext: prior?.upNext ?? null,
         };
       });
       return {
@@ -194,6 +195,7 @@ export function reducer(s: State, a: Action): State {
         repeat: a.np.repeat !== 'none',
         queueIndex: a.np.queueIndex,
         spotifyConnect: a.np.spotifyConnect,
+        upNext: a.np.upNext,
       });
       return { ...s, groups, tracks: { ...s.tracks, [id]: track } };
     }
@@ -211,6 +213,7 @@ export function reducer(s: State, a: Action): State {
         repeat: a.np.repeat !== 'none',
         queueIndex: a.np.queueIndex,
         spotifyConnect: a.np.spotifyConnect,
+        upNext: a.np.upNext,
       });
       const roomVol = { ...s.roomVol };
       const roomMute = { ...s.roomMute };

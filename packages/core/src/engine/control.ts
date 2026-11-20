@@ -16,6 +16,7 @@
 
 import { makeParser, instanceArg, SOAPCall, extractResponseArg, type Arg } from './soap';
 import { textOf, asArray } from './xml';
+import { parseLastChange } from '@orkester/sonos-api';
 import type { HttpTransport } from '../sonos';
 
 export { instanceArg };
@@ -460,6 +461,9 @@ export interface TrackMetadata {
   albumArt: string;
 }
 
+/** The single next track a Spotify Connect session reports; it carries no art. */
+export type UpNext = Pick<TrackMetadata, 'title' | 'artist' | 'album'>;
+
 // --- DIDL-Lite metadata parsing ---
 
 /**
@@ -511,6 +515,18 @@ export function parseTrackMetadata(meta: string): TrackMetadata {
   }
 
   return { title, artist, album: base.album, albumArt: base.albumArt };
+}
+
+/**
+ * Reads the next track out of an AVTransport `LastChange` event document. Only
+ * the event carries it (`r:NextTrackMetaData`); GetMediaInfo's NextURIMetaData is
+ * empty under Spotify Connect. Null when the metadata is absent or has no title.
+ * THROWS on a malformed LastChange document.
+ */
+export function upNextFromLastChange(lastChange: string): UpNext | null {
+  const meta = parseLastChange(lastChange)['0']?.NextTrackMetaData ?? '';
+  const { title, artist, album } = parseTrackMetadata(meta);
+  return title === '' ? null : { title, artist, album };
 }
 
 /**

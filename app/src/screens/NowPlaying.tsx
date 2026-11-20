@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import CoverArt from '../components/CoverArt';
 import SpotifyConnectBadge from '../components/SpotifyConnectBadge';
+import SpotifyUpNext from '../components/SpotifyUpNext';
 import TrackBar from '../components/TrackBar';
 import TransportRow from '../components/TransportRow';
 import QueueList from '../components/phone/QueueList';
@@ -306,6 +307,12 @@ export default function NowPlaying() {
           onPress={() => nav.navigate('Speakers', { groupId: g.id })}
         />
       </View>
+
+      {g.spotifyConnect && (
+        <View style={{ marginTop: 30 }}>
+          <SpotifyUpNext upNext={g.upNext} />
+        </View>
+      )}
 
       {/* Up next — the coordinator's queue after the current track. Hidden when
           empty (some streaming sources play without a queue). Tap a row to jump to

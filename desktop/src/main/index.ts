@@ -19,6 +19,7 @@ import {
   NodeHttpTransport,
   NodeDiscoveryTransport,
   NodeCredentialStore,
+  NodeNextTrackSource,
   deleteTheme,
   loadSettings,
   saveSettings,
@@ -45,7 +46,8 @@ const client = new SonosClient({
   http: new NodeHttpTransport(),
   discovery: new NodeDiscoveryTransport(),
 });
-const api: Api = new SonosApi(client, new NodeCredentialStore());
+const nextTracks = new NodeNextTrackSource((err) => console.error('[up-next]', err));
+const api: Api = new SonosApi(client, new NodeCredentialStore(), nextTracks);
 
 /**
  * Registers every Api method as an ipcMain.handle channel. Each handler forwards
@@ -183,6 +185,20 @@ void app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// Hold the quit until the speakers are told to stop sending events.
+let nextTracksClosed = false;
+app.on('will-quit', (event) => {
+  if (nextTracksClosed) return;
+  event.preventDefault();
+  void nextTracks
+    .close()
+    .catch((err) => console.error('[up-next]', err))
+    .finally(() => {
+      nextTracksClosed = true;
+      app.quit();
+    });
 });
 
 app.on('window-all-closed', () => {

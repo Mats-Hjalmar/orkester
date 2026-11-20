@@ -13,3 +13,4 @@ export {
   multicastInterfaceAddresses,
 } from './discoveryTransport';
 export { loadSettings, saveSettings, saveTheme, deleteTheme, settingsPath, themesDir, themePath } from './settingsStore';
+export { NodeNextTrackSource } from './nextTrackSource';

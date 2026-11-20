@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DiscoverOptions, HttpRequest, HttpResponse, HttpTransport, SSDPResult } from '../../sonos';
-import type { CredentialStore, SpotifyAuth } from '../../api';
+import type { SonosDevice } from '@orkester/sonos-api';
+import type { CredentialStore, NextTrackSource, SpotifyAuth } from '../../api';
 import { SonosClient } from '../../engine';
 import { SonosApi } from '../sonosApi';
 
@@ -91,9 +92,24 @@ class MockDiscovery {
   }
 }
 
-function makeApi(transport: ScriptedTransport): SonosApi {
+function makeApi(transport: ScriptedTransport, nextTracks?: NextTrackSource): SonosApi {
   const client = new SonosClient({ http: transport, discovery: new MockDiscovery() });
-  return new SonosApi(client);
+  return new SonosApi(client, undefined, nextTracks);
+}
+
+const UP_NEXT = { title: 'All Love Can Be', artist: 'James Horner', album: 'A Beautiful Mind' };
+
+/** Records which coordinators were asked for / released. */
+class FakeNextTracks implements NextTrackSource {
+  readonly asked: string[] = [];
+  readonly released: string[] = [];
+  nextTrack(coordinator: SonosDevice) {
+    this.asked.push(coordinator.baseURL);
+    return Promise.resolve(UP_NEXT);
+  }
+  release(coordinator: SonosDevice) {
+    this.released.push(coordinator.baseURL);
+  }
 }
 
 describe('SonosApi.loadTopology', () => {
@@ -124,6 +140,7 @@ describe('SonosApi.getNowPlaying', () => {
       artUrl: '', // the scripted DIDL carries no albumArtURI
       queueIndex: 0, // <Track>1</Track> -> 0-based 0
       spotifyConnect: false,
+      upNext: null,
     });
   });
 
@@ -133,6 +150,26 @@ describe('SonosApi.getNowPlaying', () => {
     const api = makeApi(t);
     await api.loadTopology();
     expect((await api.getNowPlaying('g1')).spotifyConnect).toBe(true);
+  });
+
+  it('takes upNext from the source under Spotify Connect', async () => {
+    const t = new ScriptedTransport();
+    t.currentUri = 'x-sonos-vli:RINCON_AAAA01400:2,spotify:e934941535d7b182815bf99a1fd9c6be';
+    const source = new FakeNextTracks();
+    const api = makeApi(t, source);
+    await api.loadTopology();
+    expect((await api.getNowPlaying('g1')).upNext).toEqual(UP_NEXT);
+    expect(source.asked).toEqual(['http://192.168.1.10:1400']);
+    expect(source.released).toEqual([]);
+  });
+
+  it('releases the coordinator and reports no upNext off Spotify Connect', async () => {
+    const source = new FakeNextTracks();
+    const api = makeApi(new ScriptedTransport(), source);
+    await api.loadTopology();
+    expect((await api.getNowPlaying('g1')).upNext).toBeNull();
+    expect(source.asked).toEqual([]);
+    expect(source.released).toEqual(['http://192.168.1.10:1400']);
   });
 
   it('routes the now-playing call to the COORDINATOR base (.10), not a member', async () => {

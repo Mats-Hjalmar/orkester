@@ -25,6 +25,7 @@ import type {
   ApiSpotifyLink,
   ApiTopology,
   CredentialStore,
+  NextTrackSource,
   SpotifySearchKind,
 } from '../api';
 import type { Alarm, BrowseItem, EQType, QueuePosition, RepeatMode } from '../engine';
@@ -90,9 +91,13 @@ export class SonosApi implements Api {
     | { service: MusicServiceInfo; householdId: string; link: AppLink }
     | undefined;
 
-  constructor(client: SonosClient, credentials?: CredentialStore) {
+  /** Supplies the Spotify Connect next track; undefined leaves `upNext` null. */
+  private readonly nextTracks: NextTrackSource | undefined;
+
+  constructor(client: SonosClient, credentials?: CredentialStore, nextTracks?: NextTrackSource) {
     this.client = client;
     this.credentials = credentials;
+    this.nextTracks = nextTracks;
   }
 
   // --- topology ---
@@ -125,6 +130,7 @@ export class SonosApi implements Api {
       this.client.getNowPlaying(room),
       this.client.getPlaySettings(room),
     ]);
+    const upNext = await this.upNext(room, np.spotifyConnect);
     return {
       isPlaying: np.state === 'PLAYING' || np.state === 'TRANSITIONING',
       title: np.title,
@@ -137,7 +143,16 @@ export class SonosApi implements Api {
       artUrl: np.albumArtUrl,
       queueIndex: np.queueIndex,
       spotifyConnect: np.spotifyConnect,
+      upNext,
     };
+  }
+
+  private async upNext(room: ResolvedRoom, spotifyConnect: boolean): Promise<ApiNowPlaying['upNext']> {
+    if (!this.nextTracks) return null;
+    const coordinator = this.client.coordinatorDevice(room);
+    if (spotifyConnect) return this.nextTracks.nextTrack(coordinator);
+    this.nextTracks.release(coordinator);
+    return null;
   }
 
   resolveArt(artUrl: string): Promise<ApiArt> {
