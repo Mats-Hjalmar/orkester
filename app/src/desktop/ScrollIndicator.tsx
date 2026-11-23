@@ -72,7 +72,7 @@ export default function ScrollIndicator({ viewport, content, offset, onScrollTo,
       }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      style={{ position: 'absolute', top: 0, bottom: 0, right: right - (HIT_W - BAR_W) / 2, width: HIT_W, alignItems: 'center', userSelect: 'none', touchAction: 'none' } as any}
+      style={{ position: 'absolute', top: 0, bottom: 0, right: right - (HIT_W - BAR_W) / 2, width: HIT_W, alignItems: 'center', touchAction: 'none' } as any}
     >
       <View style={{ position: 'absolute', top: 0, bottom: 0, width: BAR_W, borderRadius: radii.pill, backgroundColor: ink(0.05) }} />
       <View
