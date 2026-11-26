@@ -493,9 +493,7 @@ function ResultRow({
       {...dragHandlers}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      // userSelect:none so dragging a hit doesn't start a text selection.
       style={{
-        userSelect: 'none',
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
