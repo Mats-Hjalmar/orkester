@@ -153,8 +153,7 @@ function QueueList({ items, motif, accent, currentIndex, insertAt, listRef, onMo
   }
 
   return (
-    // userSelect:none so dragging a row doesn't start a text selection.
-    <View ref={listRef} style={{ userSelect: 'none' } as any}>
+    <View ref={listRef}>
       {items.map((item, index) => {
         const isDragged = !!drag?.indices.includes(index);
         const isGrabbed = drag?.grabbed === index;
