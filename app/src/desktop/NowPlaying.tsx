@@ -6,7 +6,7 @@ import SpotifyUpNext from '../components/SpotifyUpNext';
 import QueueRow from '../components/QueueRow';
 import { showContextMenu } from './contextMenu';
 import { useQueueDropTarget, usePressDrag, useSearchDrag, type DragPoint } from './drag';
-import ScrollIndicator from './ScrollIndicator';
+import { BAR_W, HIT_W, QUEUE_SCROLL_ID, ScrollMarker } from './QueueScrollbar';
 import { ChevronRight, Dots, Grip, Play, Queue, QueueBottom, QueueTop, Speaker, Trash } from '../icons';
 import { colors, FIXED_DARK, ink, radii, shadow } from '../theme/tokens';
 import { type } from '../theme/type';
@@ -260,6 +260,10 @@ const PAD_LEFT = 24;
 // Narrower than PAD: just enough to hold the queue's scroll bar beside the rows.
 const PAD_RIGHT = 28;
 const SCROLLBAR_RIGHT = 10;
+// The native scrollbar takes HIT_W inside the scroller: shift the scroller so the
+// visible bar keeps its gap, and pad the rows by what is left so they keep their width.
+const SCROLLER_MARGIN_RIGHT = SCROLLBAR_RIGHT - (HIT_W - BAR_W) / 2;
+const QUEUE_PAD_RIGHT = PAD_RIGHT - SCROLLER_MARGIN_RIGHT - HIT_W;
 
 // The FOCUSED Now Playing for ONE group. It takes the group (and, on narrow
 // layouts, an optional onBack) rather than reading any global active-group
@@ -433,7 +437,6 @@ function QueueScroll({ viewRef, groupId, currentIndex, count, accent, children }
   const hasQueue = count > 0;
   const [viewport, setViewport] = useState(0);
   const [content, setContent] = useState(0);
-  const [offset, setOffset] = useState(0);
   useEffect(() => {
     if (!hasQueue) return;
     const animated = lastGroup.current === groupId;
@@ -445,24 +448,17 @@ function QueueScroll({ viewRef, groupId, currentIndex, count, accent, children }
     <View ref={viewRef} style={{ flex: 1 }}>
       <ScrollView
         ref={ref}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT, paddingBottom: PAD }}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={(e) => setOffset(e.nativeEvent.contentOffset.y)}
+        id={QUEUE_SCROLL_ID}
+        style={{ flex: 1, marginRight: SCROLLER_MARGIN_RIGHT }}
+        contentContainerStyle={{ paddingLeft: PAD_LEFT, paddingRight: QUEUE_PAD_RIGHT, paddingBottom: PAD }}
         onLayout={(e) => setViewport(e.nativeEvent.layout.height)}
         onContentSizeChange={(_, h) => setContent(h)}
       >
         {children}
       </ScrollView>
-      <ScrollIndicator
-        viewport={viewport}
-        content={content}
-        offset={offset}
-        right={SCROLLBAR_RIGHT}
-        marker={currentIndex >= 0 ? { y: (currentIndex + 0.5) * QUEUE_ROW_H, color: accent } : undefined}
-        onScrollTo={(y) => ref.current?.scrollTo({ y, animated: false })}
-      />
+      {currentIndex >= 0 && (
+        <ScrollMarker viewport={viewport} content={content} right={SCROLLBAR_RIGHT} y={(currentIndex + 0.5) * QUEUE_ROW_H} color={accent} />
+      )}
     </View>
   );
 }
